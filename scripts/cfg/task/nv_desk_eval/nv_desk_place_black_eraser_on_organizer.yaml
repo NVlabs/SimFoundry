@@ -1,0 +1,88 @@
+task_name: nv_desk_place_black_eraser_on_organizer
+language_instruction: "Pick up the eraser, then put it on the organizer"
+og_task_config:
+  type: PickPlaceTask
+  activity_name: nv_desk_place_black_eraser_on_organizer
+  semantic_group_mapping:
+    eraser:
+    - black_eraser_nxvbgd_8
+    organizer:
+    - wooden_organizer_with_drawer_vmufpr_13
+    tape_dispenser:
+    - tape_dispenser_with_tape_admixx_7
+    teal_plate:
+    - teal_plate_qdudop_16
+    yellow_bowl:
+    - yellow_bowl_hmtriz_18
+    white_bottle:
+    - white_bottle_wzdaet_14
+    white_spray_bottle:
+    - white_spray_bottle_clfkib_6
+    blue_cup:
+    - blue_cup_syvtml_19
+    orange_marker:
+    - orange_marker_exeoom_4
+    yellow_tennis_ball:
+    - yellow_tennis_ball_awiuca_0
+    blue_marker:
+    - blue_marker_ouwlrh_3
+    green_pear:
+    - green_pear_qovthm_17
+    black_marker:
+    - black_marker_uzfkdu_12
+    blue_scissors:
+    - blue_scissors_rxikjq_9
+    black_pen:
+    - black_pen_selodu_11
+    red_bottle:
+    - red_bottle_xycgwr_15
+    orange_cup:
+    - orange_cup_iljebh_20
+    red_marker:
+    - red_marker_qzbrph_5
+    toy_burger:
+    - toy_burger_sdzcvw_10
+    colorful_stand:
+    - colorful_stand_xmhhxj_2
+    baseball:
+    - baseball_xamsjn_1
+    robot:
+    - agent
+  init_predicates_all: null
+  init_predicates_any: null
+  init_predicates_specific: null
+  goal_predicates_all:
+  - state: OnTop
+    state_kwargs: null
+    value: true
+    group: eraser
+    other_group: organizer
+  goal_predicates_any: null
+  goal_predicates_specific: null
+  milestone_predicates:
+    - name: picked_eraser
+      state: IsGrasping
+      state_kwargs: null
+      value: true
+      group: robot
+      other_group: eraser
+      requires: []
+    - name: eraser_on_organizer
+      state: OnTop
+      state_kwargs: null
+      value: true
+      group: eraser
+      other_group: organizer
+      requires: []
+  robot_pose: null
+  robot_xyz_randomization: null
+  robot_z_rot_randomization: null
+  robot_joint_randomization: null
+  ground_plane_z_randomization: null
+  group_xyz_randomization: null
+  group_z_rot_randomization: null
+  termination_config:
+    max_steps: 500
+  reward_config:
+    r_potential: 1.0
+  include_obs: false

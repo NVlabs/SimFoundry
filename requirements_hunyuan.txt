@@ -1,0 +1,22 @@
+# xformers
+shapely
+open3d
+Pillow
+scikit-image
+supervision
+pybullet
+setuptools<80.0.0
+google-cloud-aiplatform
+# google-genai
+# openai
+hydra-core
+probreg
+pyglet<2
+# sentence-transformers
+embreex
+sentencepiece
+accelerate
+einops
+# torch_cluster
+tqdm
+

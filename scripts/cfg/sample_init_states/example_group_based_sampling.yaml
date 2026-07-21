@@ -1,0 +1,28 @@
+defaults:
+  - _self_
+
+# ===== Scene configuration =====
+scene_state_path: assets/scenes/nv_desk/nv_desk_scene_state_latest.json
+output_path: Data/init_states/nv_desk/init_states.json
+
+# ===== Sampling configuration =====
+# These match the training-time resample_scene parameters used in
+# launch_batch_sampled_mimicgen.sh so eval randomization is consistent
+# with the distribution seen during data generation.
+n_target: 25                       # Number of validated init states to produce
+max_attempts_per_state: 40         # Max progressive-placement attempts per state
+xy_range: 0.025                     # Per-group XY translation range (meters), half of training
+z_rotation_deg: 20                 # Per-group Z rotation range ±degrees, half of training
+settle_steps: 10                   # Physics settle steps after placing objects, same as training
+seed: 42                           # RNG seed for reproducibility
+include_fixed_base_groups: true    # Perturb fixed-base groups (matches real2sim_cfg.yaml default)
+per_group_attempts: 10             # Max attempts per group in progressive placement
+max_rejection_samples: 50          # Max AABB rejection samples per group pose
+min_group_distance: 0.0            # Minimum clearance between group AABBs (0 = rely on physics)
+
+hydra:
+  job:
+    chdir: true
+  run:
+    dir: "."
+  output_subdir: null

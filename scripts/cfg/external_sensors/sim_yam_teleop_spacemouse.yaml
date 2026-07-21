@@ -1,0 +1,11 @@
+external_sensors:
+  - sensor_type: VisionSensor
+    name: external_cam0_teleop
+    relative_prim_path: /controllable__yam__robot0/arm/external_cam0_teleop
+    modalities: [ rgb ]
+    sensor_kwargs:
+      image_height: 720
+      image_width: 1280
+    position: [1.334, -0.305, 0.929]
+    orientation: [0.306, 0.306, 0.637, 0.637]
+    pose_frame: parent

@@ -1,0 +1,24 @@
+# External sensor configuration for OpenPI evaluation with Franka Panda
+# Includes base camera for third-person view (OpenPI uses base + wrist cameras)
+external_sensors:
+  - sensor_type: VisionSensor
+    name: external_cam0_left
+    relative_prim_path: /controllable__frankapanda__robot0/panda_link0/external_cam0_left
+    modalities: [ rgb ]
+    sensor_kwargs:
+      image_height: 480
+      image_width: 640
+    position: [-0.0767,  0.7119,  0.4202]
+    orientation: [-0.3010,  0.5097,  0.6943, -0.4094]
+    pose_frame: parent
+  - sensor_type: VisionSensor
+    name: external_cam_top_down
+    relative_prim_path: /controllable__frankapanda__robot0/panda_link0/external_cam_top_down
+    modalities: [ rgb ]
+    sensor_kwargs:
+      image_height: 480
+      image_width: 640
+    position: [0.0956, 0.2811, 1.7268]
+    orientation: [-0.0252, 0.0377, 0.8301, -0.5557]
+    pose_frame: parent
+

@@ -1,0 +1,89 @@
+task_name: droid_desk_put_away_trash
+og_task_config:
+  type: PickPlaceTask
+  activity_name: ${task_name}
+  semantic_group_mapping:
+    robot: [agent]
+    cup: [blue_cup]
+    trash_can: [black_trash_can]
+  init_predicates_all: null
+  init_predicates_any: null
+  init_predicates_specific: null
+  goal_predicates_all:
+    - state: InsideAABB    # Uses AABB-based check (no container meta links required)
+      state_kwargs: null
+      value: true
+      group: cup
+      other_group: trash_can
+    - state: Open
+      state_kwargs: null
+      value: false         # Trash can must be closed (Open=false means not open)
+      group: trash_can
+      other_group: null
+  goal_predicates_any:
+    - state: Touching
+      state_kwargs: null
+      value: false
+      group: robot
+      other_group: cup
+  goal_predicates_specific: null
+  # Milestone predicates - tracked during episode (once achieved, remembered)
+  # Sequential: each milestone can only be checked if its prerequisites are satisfied
+  milestone_predicates:
+    - name: trash_can_opened
+      state: Open
+      state_kwargs: null
+      value: true          # Trash can lid is open
+      group: trash_can
+      other_group: null
+      requires: []         # No prerequisites - can be achieved first
+    - name: picked_cup
+      state: IsGrasping
+      state_kwargs: null
+      value: true
+      group: robot          # Check if robot is grasping
+      other_group: cup     # the cup
+      requires: []  # Must open trash can before picking cup
+    - name: cup_in_trash_can
+      state: InsideAABB    # Uses AABB-based check (no container meta links required)
+      state_kwargs: null
+      value: true
+      group: cup
+      other_group: trash_can
+      requires: [picked_cup]  # Must pick cup before putting it in trash can
+    - name: trash_can_closed
+      state: Open
+      state_kwargs: null
+      value: false         # Trash can lid is closed (Open=false means not open)
+      group: trash_can
+      other_group: null
+      requires: [cup_in_trash_can, trash_can_opened]  # Must put cup in trash can before closing
+  robot_pose: null
+  robot_xyz_randomization: null
+  robot_z_rot_randomization: null
+  robot_joint_randomization: 0.174    # pi / 18
+  ground_plane_z_offset: 0.02
+  ground_plane_z_randomization: 0.04 # +- 0.10m
+  camera_look_at_point: null  # auto-inferred from camera ray-ground plane intersection
+  camera_randomization: null
+  group_init_relative_poses:
+    # trash_can: [[ 0.5344, -0.23,  0.230], [0, 0, 0.9396926, 0.3420201]]  # Upright orientation
+    # fruit: null [[0.65, 0.3023, 0.03], null]
+    # plate: null [[0.7, -0.15, 0.04], null] #[[0.0, 0.0, 0.0], null]
+  group_xyz_randomization:
+    cup: [0.11, 0.11, 0]
+    trash_can: [0.085, 0.055, 0] #[0.05, 0.05, 0]
+  group_z_rot_randomization:
+    cup: 0
+    trash_can: 0.3
+  group_init_joint_positions:
+    trash_can: 
+      black_lidded_bin_base_link_to_lid_link: 0.0
+  additional_objects: null
+  termination_config:
+    max_steps: 1000
+  reward_config:
+    r_potential: 1.0
+  include_obs: false
+  hdr_background_name: null
+  hdr_background_z_rotation: -1.878

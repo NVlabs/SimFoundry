@@ -1,0 +1,22 @@
+external_sensors:
+  - sensor_type: VisionSensor
+    name: external_cam0_opposite
+    relative_prim_path: /controllable__frankapanda__robot0/panda_link0/external_cam0_opposite     # Represents left frame of stereo camera
+    modalities: [ rgb ]
+    sensor_kwargs:
+      image_height: 720
+      image_width: 1280
+      clipping_range: [0.6, 10000000.0]
+    position: [1.5348, 0.0, 0.7306]
+    orientation: [0.3799, 0.3756, 0.5943, 0.6011]
+    pose_frame: parent
+  - sensor_type: VisionSensor
+    name: external_cam2_opposite
+    relative_prim_path: /controllable__frankapanda__robot0/panda_link0/external_cam2_opposite     # Same as cam0 but at different position
+    modalities: [ rgb ]
+    sensor_kwargs:
+      image_height: 720
+      image_width: 1280
+    position: [-0.58, -0.37, 0.66046]
+    orientation: [-0.36555, 0.38907, 0.64547, -0.54624]
+    pose_frame: parent

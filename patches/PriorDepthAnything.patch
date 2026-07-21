@@ -1,0 +1,114 @@
+diff --git a/prior_depth_anything/__init__.py b/prior_depth_anything/__init__.py
+index 5a5547b..d9cafbb 100644
+--- a/prior_depth_anything/__init__.py
++++ b/prior_depth_anything/__init__.py
+@@ -33,10 +33,11 @@ class PriorDepthAnything(nn.Module):
+         ckpt_dir: Optional[str] = None,
+         frozen_model_size: Optional[str] = None, 
+         conditioned_model_size: Optional[str] = None,
+-        coarse_only: bool = False
++        coarse_only: bool = False,
++        args=None,
+     ):
+         super(PriorDepthAnything, self).__init__()
+-        self.args = Arguments()
++        self.args = Arguments() if args is None else args
+         postfix, extra_condition = self.VERSIONS[version]
+         self.args.extra_condition = extra_condition
+         
+@@ -150,8 +151,8 @@ class PriorDepthAnything(nn.Module):
+             raise NotImplementedError(
+                 "The extra condition can only be `error_map` or `sparse_map`.")
+             
+-        # heit = sparse_depths.shape[-2] // 14 * 14
+-        heit = 518
++        heit = sparse_depths.shape[-2] // 14 * 14
++        # heit = 518
+         if hasattr(self, "timer"):
+             torch.cuda.synchronize()
+             t0 = time.time()
+diff --git a/prior_depth_anything/depth_completion.py b/prior_depth_anything/depth_completion.py
+index 0c5b240..f072860 100644
+--- a/prior_depth_anything/depth_completion.py
++++ b/prior_depth_anything/depth_completion.py
+@@ -85,8 +85,8 @@ class DepthCompletion(torch.nn.Module):
+             warnings.warn("The geometric depth is provided by the user. ")
+             pred_disparities = depth2disparity(geometric_depths)
+         else:
+-            # heit = sparse_depths.shape[-2] // 14 * 14
+-            heit = 518
++            heit = sparse_depths.shape[-2] // 14 * 14
++            # heit = 518
+             if hasattr(self, "timer"):
+                 torch.cuda.synchronize()
+                 t0 = time.time()
+diff --git a/prior_depth_anything/plugin.py b/prior_depth_anything/plugin.py
+index 58603f7..a83e6b8 100644
+--- a/prior_depth_anything/plugin.py
++++ b/prior_depth_anything/plugin.py
+@@ -132,7 +132,7 @@ class PriorDARefiner(PriorDepthAnything):
+         )
+         extra_sampled_mask = extra_sampled_mask.to(device)
+         
+-        sampled = depth_map * ((confidence > thres) | extra_sampled_mask)
++        sampled = depth_map * ((confidence >= thres) | extra_sampled_mask)
+         return sampled
+     
+     def norm_sample(self, image, depth_map, confidence, thres):
+diff --git a/requirements.txt b/requirements.txt
+index 90bbe35..e571acd 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -1,10 +1,10 @@
+-torch==2.2.2
+-numpy==1.25.2
+-huggingface_hub==0.26.5
+-einops==0.8.1
+-Pillow==11.0.0
+-torchvision==0.17.2
+-opencv-python==4.10.0.84
+-torch_cluster==1.6.3
+-safetensors==0.4.5
+-matplotlib==3.9.3
+\ No newline at end of file
++torch #==2.2.2
++numpy #==1.25.2
++huggingface_hub #==0.26.5
++einops #==0.8.1
++Pillow #==11.0.0
++torchvision #==0.17.2
++opencv-python #==4.10.0.84
++torch_cluster #==1.6.3
++safetensors #==0.4.5
++matplotlib #==3.9.3
+diff --git a/setup.py b/setup.py
+index eee9c21..055cdbb 100644
+--- a/setup.py
++++ b/setup.py
+@@ -5,16 +5,16 @@ setup(
+     version="1.0",
+     packages=find_packages(),
+     install_requires=[
+-        'torch==2.2.2',
+-        'numpy==1.25.2',
+-        'huggingface_hub==0.26.5',
+-        'einops==0.8.1',
+-        'Pillow==11.0.0',
+-        'torchvision==0.17.2',
+-        'opencv-python==4.10.0.84',
+-        'torch_cluster==1.6.3',
+-        'safetensors==0.4.5',
+-        'matplotlib==3.9.3'
++        'torch', #==2.2.2',
++        'numpy', #==1.25.2',
++        'huggingface_hub', #==0.26.5',
++        'einops', #==0.8.1',
++        'Pillow', #==11.0.0',
++        'torchvision', #==0.17.2',
++        'opencv-python', #==4.10.0.84',
++        'torch_cluster', #==1.6.3',
++        'safetensors', #==0.4.5',
++        'matplotlib', #==3.9.3'
+     ],
+     entry_points={
+         "console_scripts": [

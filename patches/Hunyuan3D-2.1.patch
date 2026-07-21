@@ -1,0 +1,52 @@
+diff --git a/hy3dpaint/textureGenPipeline.py b/hy3dpaint/textureGenPipeline.py
+index a582892..a602493 100644
+--- a/hy3dpaint/textureGenPipeline.py
++++ b/hy3dpaint/textureGenPipeline.py
+@@ -39,7 +39,7 @@ class Hunyuan3DPaintConfig:
+         self.device = "cuda"
+ 
+         self.multiview_cfg_path = "hy3dpaint/cfgs/hunyuan-paint-pbr.yaml"
+-        self.custom_pipeline = "hunyuanpaintpbr"
++        self.custom_pipeline = "./hy3dpaint/hunyuanpaintpbr"
+         self.multiview_pretrained_path = "tencent/Hunyuan3D-2.1"
+         self.dino_ckpt_path = "facebook/dinov2-giant"
+         self.realesrgan_ckpt_path = "ckpt/RealESRGAN_x4plus.pth"
+diff --git a/hy3dpaint/utils/simplify_mesh_utils.py b/hy3dpaint/utils/simplify_mesh_utils.py
+index 7d3f10a..ca1f659 100644
+--- a/hy3dpaint/utils/simplify_mesh_utils.py
++++ b/hy3dpaint/utils/simplify_mesh_utils.py
+@@ -33,5 +33,5 @@ def mesh_simplify_trimesh(inputpath, outputpath, target_count=40000):
+     face_num = courent.faces.shape[0]
+ 
+     if face_num > target_count:
+-        courent = courent.simplify_quadric_decimation(target_count)
++        courent = courent.simplify_quadric_decimation(face_count=target_count)
+     courent.export(outputpath)
+diff --git a/hy3dshape/hy3dshape/pipelines.py b/hy3dshape/hy3dshape/pipelines.py
+index 71de472..e9a4f98 100644
+--- a/hy3dshape/hy3dshape/pipelines.py
++++ b/hy3dshape/hy3dshape/pipelines.py
+@@ -250,6 +250,14 @@ class Hunyuan3DDiTPipeline:
+         self.model = torch.compile(self.model)
+         self.conditioner = torch.compile(self.conditioner)
+ 
++    @property
++    def components(self):
++        return {
++            'vae': self.vae,
++            'model': self.model,
++            'conditioner': self.conditioner,
++        }
++
+     def enable_flashvdm(
+         self,
+         enabled: bool = True,
+@@ -761,7 +769,7 @@ class Hunyuan3DDiTFlowMatchingPipeline(Hunyuan3DDiTPipeline):
+                 # NOTE: we assume model get timesteps ranged from 0 to 1
+                 timestep = t.expand(latent_model_input.shape[0]).to(latents.dtype)
+                 timestep = timestep / self.scheduler.config.num_train_timesteps
+-                noise_pred = self.model(latent_model_input, timestep, cond, guidance=guidance)
++                noise_pred = self.model(latent_model_input, timestep, cond, guidance=guidance).to(device)
+ 
+                 if do_classifier_free_guidance:
+                     noise_pred_cond, noise_pred_uncond = noise_pred.chunk(2)

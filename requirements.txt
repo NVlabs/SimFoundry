@@ -1,0 +1,33 @@
+torch
+torchvision
+xformers
+shapely
+open3d
+Pillow
+scikit-image
+supervision
+pybullet
+setuptools<80.0.0
+google-cloud-aiplatform
+google-genai
+openai
+hydra-core
+probreg
+pyglet<2
+transformers>4.55.0
+packaging>24.2
+sentence-transformers
+embreex; platform_machine!='aarch64'
+diffusers
+sentencepiece
+accelerate
+einops
+torch_cluster
+tqdm
+trimesh #==3.23.5
+gdown
+transformations
+decord; platform_machine!='aarch64'
+cvxpy~=1.6.6
+coverage>=7.13
+pyspacemouse<2.0  # 2.0 causes breaking API changes in telemoma

@@ -1,0 +1,130 @@
+task_name: droid_desk_stack_dishware
+og_task_config:
+  type: PickPlaceTask
+  activity_name: ${task_name}
+  semantic_group_mapping:
+    robot: [agent]
+    cup: [cream_mug]
+    bowl: [blue_bowl]
+    plate: [green_plate]
+  init_predicates_all: null
+  init_predicates_any: null
+  init_predicates_specific: null
+  goal_predicates_all:
+    - state: OnTop
+      state_kwargs: null
+      value: true
+      group: cup
+      other_group: bowl
+    - state: OnTop
+      state_kwargs: null
+      value: true
+      group: bowl
+      other_group: plate
+  goal_predicates_any:
+    - state: Touching
+      state_kwargs: null
+      value: false
+      group: robot
+      other_group: cup
+  goal_predicates_specific: null
+  # Milestone predicates - tracked during episode (once achieved, remembered)
+  # Sequential: each milestone can only be checked if its prerequisites are satisfied
+  milestone_predicates:
+    - name: picked_bowl
+      state: IsGrasping
+      state_kwargs: null
+      value: true
+      group: robot          # Check if robot is grasping
+      other_group: bowl     # the bowl
+      requires: []          # No prerequisites - can be achieved first
+    - name: placed_bowl_on_plate
+      state: OnTop
+      state_kwargs: null
+      value: true
+      group: bowl
+      other_group: plate
+      requires: [] 
+    - name: picked_cup
+      state: IsGrasping
+      state_kwargs: null
+      value: true
+      group: robot          # Check if robot is grasping
+      other_group: cup      # the cup
+      requires: []  # Must place bowl before picking cup
+    - name: placed_cup_on_bowl
+      state: OnTop
+      state_kwargs: null
+      value: true
+      group: cup
+      other_group: bowl
+      requires: []  # Must pick cup before placing it
+  robot_pose: null
+  robot_xyz_randomization: null
+  robot_z_rot_randomization: null
+  robot_joint_randomization: 0.174    # pi / 18
+  ground_plane_z_offset: 0.02
+  ground_plane_z_randomization: 0.1 # +- 0.10m
+  camera_look_at_point: null  # auto-inferred from camera ray-ground plane intersection
+  camera_randomization:
+    delta_r: 0.05        # +/- 5cm distance variation
+    delta_theta: 0.10    # +/- ~5.7 deg polar angle variation (radians)
+    delta_phi: 0.10      # +/- ~5.7 deg azimuthal variation (radians)
+  group_init_relative_poses: null
+    # fruit: null [[0.65, 0.3023, 0.03], null]
+    # plate: null [[0.7, -0.15, 0.04], null] #[[0.0, 0.0, 0.0], null]
+  group_xyz_randomization:
+    cup: [0.165, 0.11, 0]
+    bowl: [0.165, 0.11, 0]
+    plate: [0.11, 0.165, 0]
+  group_z_rot_randomization:
+    cup: 0.174
+    bowl: 0.174
+    plate: 0.174
+  group_predicate_placement:
+    cup:
+      reference_group: plate
+      predicates: [left_of, right_of, behind, in_front_of]
+      gap:                              # per-predicate gap ranges
+        left_of: [0.03, 0.08]
+        right_of: [0.03, 0.08]
+        behind: [0.02, 0.05]
+        in_front_of: [0.01, 0.03]
+      z_offset: 0.0
+    bowl:
+      reference_group: plate
+      predicates: [left_of, right_of, behind, in_front_of]
+      gap:
+        left_of: [0.03, 0.15]
+        right_of: [0.03, 0.15]
+        behind: [0.02, 0.05]
+        in_front_of: [0.01, 0.03]
+      z_offset: 0.0
+  workspace_bounds:              # workspace limits in robot base frame (meters)
+    lower: [0.3, -1.0, -1.0]
+    upper: [0.8, 1.0, 1.0]
+  prevent_predicate_overlap: true
+  overlap_separation_multiplier: 1.5
+  # additional_objects: {}
+  # additional_objects:
+  #   n: 3                              # max number of distractor objects per reset
+  #   dataset_name: behavior-1k-assets  # dataset to pull from
+  #   filters:                          # same syntax as query_assets
+  #     - "volume < 0.001"
+  #     - "mass < 2"
+  #   category: null                    # category substring filter
+  #   abilities: null                   # e.g. [openable]
+  #   specific_assets: null             # explicit [{category: ..., model: ...}] list
+  #   reference_group: plate            # place distractors around this object group
+  #   placement_radius: 3.0            # max XY distance from reference object
+  #   z_offset: 0.01                   # gap above support surface
+  #   max_placement_attempts: 20       # retries per object to avoid collisions
+  #   placement_bounds:              # XY limits in robot base frame (meters)
+  #     lower: [0.3, -2.0]
+  #     upper: [1.0, 2.0]
+  termination_config:
+    max_steps: 1000
+  reward_config:
+    r_potential: 1.0
+  include_obs: false
+  hdr_background_name: null

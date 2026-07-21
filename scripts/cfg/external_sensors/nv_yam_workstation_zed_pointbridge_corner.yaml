@@ -1,0 +1,17 @@
+external_sensors:
+  - sensor_type: VisionSensor
+    name: external_cam_zed_corner
+    relative_prim_path: /controllable__yam__robot0/arm/external_cam_zed_corner     # Represents left frame of stereo camera
+    modalities: [ rgb, depth_linear ]
+    sensor_kwargs:
+      focal_length: 0.41671071052551273
+      # focus_distance: 28.0
+      horizontal_aperture: 1.2
+      # vertical_aperture: 0.5625,
+      image_height: 720
+      image_width: 1280
+    position: [ 0.605371  , -0.80626637,  0.6807393 ]
+    # orientation: [ 0.63184284, -0.61978279,  0.32427889, -0.33389688]
+    orientation: [ 0.35959247, -0.1511    ,  0.33322897,  0.85838249]
+    # orientation: [-0.1830,  0.1830, -0.6830,  0.6830]
+    pose_frame: parent

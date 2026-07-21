@@ -1,0 +1,26 @@
+diff --git a/inference/cogvideox_fun/make_warped_noise.py b/inference/cogvideox_fun/make_warped_noise.py
+index 3484d24..a84230f 100644
+--- a/inference/cogvideox_fun/make_warped_noise.py
++++ b/inference/cogvideox_fun/make_warped_noise.py
+@@ -12,6 +12,21 @@ import rp
+ 
+ rp.r._pip_import_autoyes=True #Automatically install missing packages
+ 
++# rp defaults to `sudo pip` for its auto-installs on Linux (_pip_install_needs_sudo=True),
++# which fires an interactive `[sudo] password` prompt in the MIDDLE of VOID Pass 2. The
++# void conda env is user-writable, so pip needs no root — disable sudo to avoid the prompt.
++rp.r._pip_install_needs_sudo = False
++
++# libx264 overflows when video_bitrate='max' is passed as an integer.
++# Intercept all rp.save_video_mp4 calls and switch to imageio backend in that case.
++_orig_save_video_mp4 = rp.save_video_mp4
++def _safe_save_video_mp4(*args, **kwargs):
++    if kwargs.get('video_bitrate') == 'max':
++        kwargs.pop('video_bitrate')
++        kwargs['backend'] = 'imageio'
++    return _orig_save_video_mp4(*args, **kwargs)
++rp.save_video_mp4 = _safe_save_video_mp4
++
+ rp.pip_import('fire')
+ rp.git_import('CommonSource') #If missing, installs code from https://github.com/RyannDaGreat/CommonSource
+ import rp.git.CommonSource.noise_warp as nw

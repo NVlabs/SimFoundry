@@ -1,0 +1,47 @@
+external_sensors:
+  - sensor_type: VisionSensor
+    name: wrist_cam_left
+    relative_prim_path: /controllable__yam__robot0/camera_d405/wrist_cam_left
+    modalities: [ rgb ]
+    sensor_kwargs:
+      focal_length: 0.3058753848075867
+      # focus_distance: 28.0
+      horizontal_aperture: 1.0
+      # vertical_aperture: 0.5625,
+      image_height: 480
+      image_width: 640
+    position: [-0.0051,  0.0978,  0.0168]
+    # orientation: [ 0.0077, -0.4253,  0.9045,  0.0304]
+    orientation: [-0.0304,  0.9045,  0.4253,  0.0077]
+    pose_frame: parent
+  - sensor_type: VisionSensor
+    name: wrist_cam_right
+    relative_prim_path: /controllable__yam__robot1/camera_d405/wrist_cam_right
+    modalities: [ rgb ]
+    sensor_kwargs:
+      focal_length: 0.3064073443412781
+      # focus_distance: 28.0
+      horizontal_aperture: 1.0
+      # vertical_aperture: 0.5625,
+      image_height: 480
+      image_width: 640
+    position: [-0.0070,  0.1054,  0.0169]
+    # orientation: [ 0.0033, -0.4340,  0.9009,  0.0054]
+    orientation: [-0.0054,  0.9009,  0.4340,  0.0033]
+    pose_frame: parent
+  - sensor_type: VisionSensor
+    name: external_cam_top_down
+    relative_prim_path: /usd_workstation_0/workstation/external_cam_top_down     # Represents left frame of stereo camera
+    modalities: [ rgb ]
+    sensor_kwargs:
+      focal_length: 0.3064006567001343
+      # focus_distance: 28.0
+      horizontal_aperture: 1.0
+      # vertical_aperture: 0.5625,
+      image_height: 960 #480
+      image_width: 1280 #640
+    position: [ 0.0860, -0.0090,  1.7043]
+    # orientation: [-0.0042, -0.4359,  0.9001,  0.0116]
+    orientation: [0.1830,  -0.1830, -0.6830,  0.6830]
+    # orientation: [-0.1830,  0.1830, -0.6830,  0.6830]
+    pose_frame: parent

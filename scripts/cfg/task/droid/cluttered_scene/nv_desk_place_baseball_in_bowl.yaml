@@ -1,0 +1,32 @@
+task_name: nv_desk_place_baseball_in_bowl
+language_instruction: "Pick up the baseball and put it in the bowl"
+og_task_config:
+  type: PickPlaceTask
+  activity_name: nv_desk_place_baseball_in_bowl
+  semantic_group_mapping:
+    baseball:
+    - baseball_xamsjn_1
+    bowl:
+    - yellow_bowl_hmtriz_18
+  init_predicates_all: null
+  init_predicates_any: null
+  init_predicates_specific: null
+  goal_predicates_all:
+  - state: OnTop
+    state_kwargs: null
+    value: true
+    group: baseball
+    other_group: bowl
+  goal_predicates_any: null
+  goal_predicates_specific: null
+  robot_pose: null
+  robot_xyz_randomization: null
+  robot_z_rot_randomization: null
+  robot_joint_randomization: null
+  group_xyz_randomization: null
+  group_z_rot_randomization: null
+  termination_config:
+    max_steps: 500
+  reward_config:
+    r_potential: 1.0
+  include_obs: false

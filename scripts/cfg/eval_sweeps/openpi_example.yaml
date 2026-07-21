@@ -1,0 +1,36 @@
+# Sweep eval config for openpi policy
+# Usage: python scripts/pipeline/sweep_eval.py --config scripts/cfg/eval_sweeps/openpi_example.yaml
+
+policy_type: openpi
+
+# Checkpoint selection
+checkpoint_dir: path/to/openpi_checkpoints/pi05_droid_jointpos_finetune_low_lr/stack_dishware_low_lr_0214
+checkpoint_interval: 1000
+# checkpoint_range: "1000:10000"  # optional: only evaluate steps in this range
+
+# Evaluation
+eval_config: stack_dishware
+# eval_overrides:
+#   - "s15_eval.n_episodes=10"
+#   - "s15_eval.timeout_s=90"
+
+# openpi server
+openpi_policy_config: pi05_droid_jointpos
+xla_mem_fraction: 0.5
+server_port: 8000
+server_host: localhost
+server_startup_timeout: 180
+
+# Project paths
+openpi_project_dir: ~/Projects/openpi
+cdc_project_dir: ~/Projects/controllable-digital-cousins
+openpi_venv_cmd: "uv run"
+cdc_venv_cmd: ""
+
+# Output
+output_dir: ./sweep_results/openpi_stack_dishware
+
+# Options
+dry_run: false
+skip_plots: false
+resume: false

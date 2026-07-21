@@ -1,0 +1,377 @@
+diff --git a/estimater.py b/estimater.py
+index 62ccdf6..5a3be5c 100644
+--- a/estimater.py
++++ b/estimater.py
+@@ -9,6 +9,7 @@ import copy
+ 
+ import numpy as np
+ import nvdiffrast.torch as dr
++import trimesh.visual.material
+ 
+ from foundationpose.Utils import *
+ from foundationpose.datareader import *
+@@ -33,7 +34,7 @@ class Any6D:
+             os.makedirs(self.scorer_dir, exist_ok=True)
+ 
+         self.reset_object(mesh=mesh, symmetry_tfs=symmetry_tfs)
+-        self.make_rotation_grid(min_n_views=40, inplane_step=60)
++        self.make_rotation_grid(40, 60) #(100, 10) #(min_n_views=40, inplane_step=60)
+ 
+         self.glctx = glctx
+ 
+@@ -70,18 +71,24 @@ class Any6D:
+             rgb_colors = mesh.visual.vertex_colors[:, :3].astype(float) / 255.0
+             mesh_o3d.vertex_colors = o3d.utility.Vector3dVector(rgb_colors)
+ 
+-        if hasattr(mesh.visual, 'uv') and mesh.visual.uv is not None and mesh.visual.material.image is not None:
+-            img = copy.deepcopy(np.array(mesh.visual.material.image.convert('RGB')))
++        if hasattr(mesh.visual, 'uv') and mesh.visual.uv is not None:
++            if isinstance(mesh.visual.material, trimesh.visual.material.PBRMaterial):
++                img = copy.deepcopy(np.array(mesh.visual.material.baseColorTexture.convert('RGB')))
++            elif mesh.visual.material.image is not None:
++                img = copy.deepcopy(np.array(mesh.visual.material.image.convert('RGB')))
++            else:
++                img = None
+ 
+-            uv = copy.deepcopy(mesh.visual.uv)
+-            uv[:, 1] = 1 - uv[:, 1]
++            if img is not None:
++                uv = copy.deepcopy(mesh.visual.uv)
++                uv[:, 1] = 1 - uv[:, 1]
+ 
+-            uv_pixels_y = np.clip((uv[:, 1] * img.shape[0]).astype(int), 0, img.shape[0] - 1)
+-            uv_pixels_x = np.clip((uv[:, 0] * img.shape[1]).astype(int), 0, img.shape[1] - 1)
++                uv_pixels_y = np.clip((uv[:, 1] * img.shape[0]).astype(int), 0, img.shape[0] - 1)
++                uv_pixels_x = np.clip((uv[:, 0] * img.shape[1]).astype(int), 0, img.shape[1] - 1)
+ 
+-            vertex_colors = img[uv_pixels_y, uv_pixels_x].astype(float) / 255.0
++                vertex_colors = img[uv_pixels_y, uv_pixels_x].astype(float) / 255.0
+ 
+-            mesh_o3d.vertex_colors = o3d.utility.Vector3dVector(vertex_colors)
++                mesh_o3d.vertex_colors = o3d.utility.Vector3dVector(vertex_colors)
+ 
+         mesh_o3d.compute_vertex_normals()
+         self.mesh_o3d = mesh_o3d
+@@ -215,7 +222,7 @@ class Any6D:
+ 
+         return center.reshape(3)
+ 
+-    def register(self, K, rgb, depth, ob_mask, ob_id=None, glctx=None, iteration=5, name=None,no_center=False, initial_center=False):
++    def register(self, K, rgb, depth, ob_mask, ob_id=None, glctx=None, iteration=5, name=None,no_center=False, initial_center=False, return_all_poses=True):
+         '''Copmute pose from given pts to self.pcd
+         @pts: (N,3) np array, downsampled scene points
+         '''
+@@ -234,12 +241,12 @@ class Any6D:
+ 
+         depth[ob_mask==False] = 0
+ 
+-        # if self.debug >= 2:
+-        #     xyz_map = depth2xyzmap(depth, K)
+-        #     valid = xyz_map[..., 2] >= 0.001
+-        #     pcd = toOpen3dCloud(xyz_map[valid], rgb[valid])
+-        #     o3d.io.write_point_cloud(f'{self.debug_dir}/scene_raw.ply', pcd)
+-        #     cv2.imwrite(f'{self.debug_dir}/ob_mask.png', (ob_mask * 255.0).clip(0, 255))
++        if self.debug >= 2:
++            xyz_map = depth2xyzmap(depth, K)
++            valid = xyz_map[..., 2] >= 0.001
++            pcd = toOpen3dCloud(xyz_map[valid], rgb[valid])
++            o3d.io.write_point_cloud(f'{self.debug_dir}/scene_raw.ply', pcd)
++            cv2.imwrite(f'{self.debug_dir}/ob_mask.png', (ob_mask * 255.0).clip(0, 255))
+ 
+         normal_map = None
+         valid = (depth >= 0.001) & (ob_mask > 0)
+@@ -249,12 +256,12 @@ class Any6D:
+             pose[:3, 3] = self.guess_translation(depth=depth, mask=ob_mask, K=K)
+             return pose
+ 
+-        # if self.debug >= 2:
+-        #     imageio.imwrite(f'{self.debug_dir}/color.png', rgb)
+-        #     cv2.imwrite(f'{self.debug_dir}/depth.png', (depth * 1000).astype(np.uint16))
+-        #     valid = xyz_map[..., 2] >= 0.001
+-        #     pcd = toOpen3dCloud(xyz_map[valid], rgb[valid])
+-        #     o3d.io.write_point_cloud(f'{self.debug_dir}/scene_complete.ply', pcd)
++        if self.debug >= 2:
++            imageio.imwrite(f'{self.debug_dir}/color.png', rgb)
++            cv2.imwrite(f'{self.debug_dir}/depth.png', (depth * 1000).astype(np.uint16))
++            valid = xyz_map[..., 2] >= 0.001
++            pcd = toOpen3dCloud(xyz_map[valid], rgb[valid])
++            o3d.io.write_point_cloud(f'{self.debug_dir}/scene_complete.ply', pcd)
+ 
+         self.H, self.W = depth.shape[:2]
+         self.K = K
+@@ -290,6 +297,19 @@ class Any6D:
+         if vis is not None:
+             imageio.imwrite(f'{self.scorer_dir}/vis_score.png', vis)
+ 
++        # Grab image info for poses
++        pose_data = make_crop_data_batch(self.refiner.cfg.input_resize, torch.as_tensor(poses.data.cpu().numpy(), device='cuda', dtype=torch.float), self.mesh, torch.as_tensor(rgb, device='cuda', dtype=torch.float), torch.as_tensor(depth, device='cuda', dtype=torch.float), K,
++                                         crop_ratio=self.refiner.cfg['crop_ratio'], normal_map=normal_map, xyz_map=torch.as_tensor(xyz_map, device='cuda', dtype=torch.float),
++                                         cfg=self.refiner.cfg, glctx=self.glctx, mesh_tensors=self.mesh_tensors, dataset=self.refiner.dataset,
++                                         mesh_diameter=self.diameter)
++
++        # pose_data = make_crop_data_batch(self.scorer.cfg.input_resize, poses.data.cpu().numpy(), self.mesh, rgb, depth, K,
++        #                                  crop_ratio=self.scorer.cfg['crop_ratio'], glctx=self.glctx, mesh_tensors=self.mesh_tensors,
++        #                                  xyz_map=torch.as_tensor(xyz_map, device='cuda', dtype=torch.float),
++        #                                  dataset=self.scorer.dataset, cfg=self.scorer.cfg, mesh_diameter=self.diameter)
++
++        # from IPython import embed; embed()
++
+         add_errs = self.compute_add_err_to_gt_pose(poses)
+         # logging.info(f"final, add_errs min:{add_errs.min()}")
+ 
+@@ -306,10 +326,26 @@ class Any6D:
+ 
+         self.poses = poses
+         self.scores = scores
+-        if no_center:
+-            return poses[0].data.cpu().numpy()
++
++        if return_all_poses:
++            ret = pose_data, ids
+         else:
+-            return best_pose.data.cpu().numpy()
++            ret = poses[0].data.cpu().numpy() if no_center else best_pose.data.cpu().numpy()
++
++            if self.debug >= 3:
++                m = self.mesh.copy()
++                m.apply_transform(ret)
++                m.export(f'{self.debug_dir}/model_tf.obj')
++                # xyz_map = depth2xyzmap(depth, K)
++                # valid = depth >= 0.001
++                # pcd = toOpen3dCloud(xyz_map[valid], rgb[valid])
++                # o3d.io.write_point_cloud(f'{debug_dir}/scene_complete.ply', pcd)
++
++        return ret
++        # if no_center:
++        #     return poses[0].data.cpu().numpy()
++        # else:
++        #     return best_pose.data.cpu().numpy()
+ 
+ 
+     def register_any6d(self, K, rgb, depth, ob_mask, ob_id=None, glctx=None, iteration=5, name=None, refinement=True, axis_align=True,coarse_est=True):
+@@ -317,7 +353,6 @@ class Any6D:
+         @pts: (N,3) np array, downsampled scene points
+         '''
+         set_seed(0)
+-
+         if self.glctx is None:
+             if glctx is None:
+                 self.glctx = dr.RasterizeCudaContext()
+diff --git a/foundationpose/Utils.py b/foundationpose/Utils.py
+index 46fad31..dd5f6bd 100644
+--- a/foundationpose/Utils.py
++++ b/foundationpose/Utils.py
+@@ -690,7 +690,10 @@ def get_bounding_box(d_model, pad_rel=0.00, return_torch=False):
+ def make_mesh_tensors(mesh, device='cuda', max_tex_size=None):
+   mesh_tensors = {}
+   if isinstance(mesh.visual, trimesh.visual.texture.TextureVisuals):
+-    img = np.array(mesh.visual.material.image.convert('RGB'))
++    if isinstance(mesh.visual.material, trimesh.visual.material.PBRMaterial):
++      img = copy.deepcopy(np.array(mesh.visual.material.baseColorTexture.convert('RGB')))
++    else:
++      img = copy.deepcopy(np.array(mesh.visual.material.image.convert('RGB')))
+     img = img[...,:3]
+     if max_tex_size is not None:
+       max_size = max(img.shape[0], img.shape[1])
+diff --git a/foundationpose/bundlesdf/mycuda/common.cu b/foundationpose/bundlesdf/mycuda/common.cu
+index 97974d2..0b592f9 100644
+--- a/foundationpose/bundlesdf/mycuda/common.cu
++++ b/foundationpose/bundlesdf/mycuda/common.cu
+@@ -117,7 +117,7 @@ at::Tensor sampleRaysUniformOccupiedVoxels(const at::Tensor z_in_out,  const at:
+   const int threadx = 32;
+   const int thready = 32;
+ 
+-  AT_DISPATCH_FLOATING_TYPES(z_in_out.type(), "sample_rays_uniform_occupied_voxels_kernel", ([&]
++  AT_DISPATCH_FLOATING_TYPES(z_in_out.scalar_type(), "sample_rays_uniform_occupied_voxels_kernel", ([&]
+   {
+     sample_rays_uniform_occupied_voxels_kernel<scalar_t><<<{divCeil(N_rays,threadx),divCeil(N_samples,thready)}, {threadx,thready}>>>(z_sampled.packed_accessor32<scalar_t,2,torch::RestrictPtrTraits>(),z_in_out.packed_accessor32<scalar_t,3,torch::RestrictPtrTraits>(),z_vals.packed_accessor32<scalar_t,2,torch::RestrictPtrTraits>());
+   }));
+@@ -159,7 +159,7 @@ at::Tensor postprocessOctreeRayTracing(const at::Tensor ray_index, const at::Ten
+   at::Tensor depths_in_out_padded = at::zeros({N_rays,max_intersections,2}, torch::TensorOptions().dtype(torch::kFloat32).device(torch::kCUDA, 0).requires_grad(false));
+   dim3 threads = {256};
+   dim3 blocks = {divCeil(n_unique_ids,threads.x)};
+-  AT_DISPATCH_FLOATING_TYPES(depth_in_out.type(), "postprocessOctreeRayTracingKernel", ([&]
++  AT_DISPATCH_FLOATING_TYPES(depth_in_out.scalar_type(), "postprocessOctreeRayTracingKernel", ([&]
+   {
+     postprocessOctreeRayTracingKernel<scalar_t><<<blocks,threads>>>(ray_index.packed_accessor32<long,1,torch::RestrictPtrTraits>(), depth_in_out.packed_accessor32<scalar_t,2,torch::RestrictPtrTraits>(), unique_intersect_ray_ids.packed_accessor32<long,1,torch::RestrictPtrTraits>(), start_poss.packed_accessor32<long,1,torch::RestrictPtrTraits>(), depths_in_out_padded.packed_accessor32<scalar_t,3,torch::RestrictPtrTraits>());
+   }));
+@@ -265,7 +265,7 @@ void rayColorToTextureImageCUDA(const at::Tensor &F, const at::Tensor &V, const
+   dim3 threads = {512};
+   dim3 blocks = {divCeil(int(hit_locations.sizes()[0]),threads.x)};
+ 
+-  AT_DISPATCH_FLOATING_TYPES(V.type(), "rayColorToTextureImageKernel", ([&]
++  AT_DISPATCH_FLOATING_TYPES(V.scalar_type(), "rayColorToTextureImageKernel", ([&]
+   {
+     rayColorToTextureImageKernel<scalar_t><<<blocks,threads>>>(F.packed_accessor32<long,2,torch::RestrictPtrTraits>(), V.packed_accessor32<scalar_t,2,torch::RestrictPtrTraits>(), hit_locations.packed_accessor32<scalar_t,2,torch::RestrictPtrTraits>(), hit_face_ids.packed_accessor32<long,1,torch::RestrictPtrTraits>(), uvs_tex.packed_accessor32<scalar_t,2,torch::RestrictPtrTraits>(), uvs.packed_accessor32<scalar_t,2,torch::RestrictPtrTraits>());
+   }));
+diff --git a/requirements.txt b/requirements.txt
+index d9364df..27565dd 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -1,89 +1,89 @@
+ # PyTorch 2.4.1
+---extra-index-url https://download.pytorch.org/whl/cu121
++#--extra-index-url https://download.pytorch.org/whl/cu121
+ 
+-torch==2.4.1+cu121
+-torchvision==0.19.1
+-torchaudio==2.4.1
++#torch #==2.4.1+cu121
++#torchvision #==0.19.1
++#torchaudio #==2.4.1
+ 
+ # JupyterLab
+-jupyterlab==4.1.5
+-ipywidgets==8.1.2
++jupyterlab #==4.1.5
++ipywidgets #==8.1.2
+ 
+ # Common Libraries
+-numpy==1.26.4
+-scipy==1.12.0
+-scikit-learn==1.4.1.post1
+-scikit-image==0.22.0
+-pyyaml==6.0.1
+-ruamel.yaml==0.18.6
+-ninja==1.11.1.1
+-h5py==3.10.0
+-numba==0.59.1
+-pybind11==2.12.0
++numpy<2 #==1.26.4
++scipy #==1.12.0
++scikit-learn #==1.4.1.post1
++scikit-image #==0.22.0
++pyyaml #==6.0.1
++ruamel.yaml #==0.18.6
++ninja #==1.11.1.1
++h5py #==3.10.0
++numba #==0.59.1
++pybind11 #==2.12.0
+ 
+ # CV Libraries
+-imageio==2.34.0
+-opencv-python==4.9.0.80
+-opencv-contrib-python==4.9.0.80
+-plotly==5.20.0
+-open3d==0.18.0
+-pyglet==1.5.28
+-pysdf==0.1.9
++imageio #==2.34.0
++opencv-python #==4.9.0.80
++opencv-contrib-python #==4.9.0.80
++plotly #==5.20.0
++open3d #==0.18.0
++pyglet #==1.5.28
++pysdf #==0.1.9
+ 
+ # Trimesh
+-trimesh==4.2.2
+-xatlas==0.0.9
+-rtree==1.2.0
++trimesh #==4.2.2
++xatlas #==0.0.9
++rtree #==1.2.0
+ 
+ # PyRender
+-pyrender==0.1.45
++pyrender #==0.1.45
+ pyOpenGL>=3.1.0
+ pyOpenGL_accelerate>=3.1.0
+ 
+-meshcat==0.3.2
+-webdataset==0.2.86
+-omegaconf==2.3.0
+-pypng==0.20220715.0
+-Panda3D==1.10.14
+-simplejson==3.19.2
+-bokeh==3.4.0
+-roma==1.4.4
+-seaborn==0.13.2
+-pin==2.7.0
+-openpyxl==3.1.2
+-torchnet==0.0.4
+-wandb==0.16.5
+-colorama==0.4.6
+-GPUtil==1.4.0
+-imgaug==0.4.0
+-xlsxwriter==3.2.0
+-timm==0.9.16
+-albumentations==1.4.2
+-xatlas==0.0.9
+-nodejs==0.1.1
+-jupyterlab==4.1.5
+-objaverse==0.1.7
+-g4f==0.2.7.1
+-ultralytics==8.0.120
+-pycocotools==2.0.7
+-py-spy==0.3.14
+-pybullet==3.2.6
+-videoio==0.2.8
+-kornia==0.7.2
+-einops==0.7.0
+-transformations==2024.6.1
+-joblib==1.3.2
+-warp-lang==1.0.2
++meshcat #==0.3.2
++webdataset #==0.2.86
++omegaconf #==2.3.0
++pypng #==0.20220715.0
++Panda3D #==1.10.14
++simplejson #==3.19.2
++bokeh #==3.4.0
++roma #==1.4.4
++seaborn #==0.13.2
++pin #==2.7.0
++openpyxl #==3.1.2
++torchnet #==0.0.4
++wandb #==0.16.5
++colorama #==0.4.6
++GPUtil #==1.4.0
++imgaug #==0.4.0
++xlsxwriter #==3.2.0
++timm #==0.9.16
++albumentations #==1.4.2
++xatlas #==0.0.9
++nodejs #==0.1.1
++jupyterlab #==4.1.5
++objaverse #==0.1.7
++g4f #==0.2.7.1
++ultralytics #==8.0.120
++pycocotools #==2.0.7
++py-spy #==0.3.14
++pybullet #==3.2.6
++videoio #==0.2.8
++kornia #==0.7.2
++einops #==0.7.0
++transformations #==2024.6.1
++joblib #==1.3.2
++warp-lang #==1.0.2
+ 
+ # For PyTorch3D
+-fvcore==0.1.5.post20221221
++fvcore #==0.1.5.post20221221
+ 
+-open3d==0.18.0
++open3d #==0.18.0
+ 
+ 
+-pytorch-lightning==2.1.2
+-gradio==3.41.2
+-huggingface-hub>=0.16.4
++pytorch-lightning #==2.1.2
++gradio #==3.41.2
++huggingface-hub #>=0.16.4
+ einops
+ omegaconf
+ torchmetrics
+@@ -93,8 +93,8 @@ tensorboard
+ PyMCubes
+ trimesh
+ rembg
+-transformers==4.41.2
+-diffusers==0.20.2
++transformers #==4.41.2
++diffusers #==0.20.2
+ bitsandbytes
+ imageio[ffmpeg]
+ xatlas

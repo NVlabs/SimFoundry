@@ -1,0 +1,32 @@
+task_name: nv_desk_place_black_marker_on_plate
+language_instruction: "Pick up the black marker and put it on the plate"
+og_task_config:
+  type: PickPlaceTask
+  activity_name: nv_desk_place_black_marker_on_plate
+  semantic_group_mapping:
+    marker:
+    - black_marker_uzfkdu_12
+    plate:
+    - teal_plate_qdudop_16
+  init_predicates_all: null
+  init_predicates_any: null
+  init_predicates_specific: null
+  goal_predicates_all:
+  - state: OnTop
+    state_kwargs: null
+    value: true
+    group: marker
+    other_group: plate
+  goal_predicates_any: null
+  goal_predicates_specific: null
+  robot_pose: null
+  robot_xyz_randomization: null
+  robot_z_rot_randomization: null
+  robot_joint_randomization: null
+  group_xyz_randomization: null
+  group_z_rot_randomization: null
+  termination_config:
+    max_steps: 500
+  reward_config:
+    r_potential: 1.0
+  include_obs: false

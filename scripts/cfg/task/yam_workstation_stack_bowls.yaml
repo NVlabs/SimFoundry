@@ -1,0 +1,52 @@
+task_name: yam_workstation_stack_bowls
+og_task_config:
+  type: PickPlaceTask
+  activity_name: ${task_name}
+  semantic_group_mapping:
+    robot: [agent]
+    bowl0: [orange_bowl]
+    bowl1: [yellow_bowl]
+    bowl2: [green_bowl]
+  init_predicates_all: null
+  init_predicates_any: null
+  init_predicates_specific: null
+  goal_predicates_all:
+    - state: OnTop
+      state_kwargs: null
+      value: true
+      group: bowl2
+      other_group: bowl1
+    - state: OnTop
+      state_kwargs: null
+      value: true
+      group: bowl1
+      other_group: bowl0
+  goal_predicates_any:
+    - state: Touching
+      state_kwargs: null
+      value: false
+      group: robot
+      other_group: bowl2
+  goal_predicates_specific: null
+  robot_pose: null
+  robot_xyz_randomization: null
+  robot_z_rot_randomization: null
+  robot_joint_randomization: 0.174    # pi / 18
+  group_init_relative_poses: null
+    # fruit: null [[0.65, 0.3023, 0.03], null]
+    # plate: null [[0.7, -0.15, 0.04], null] #[[0.0, 0.0, 0.0], null]
+  group_xyz_randomization:
+    bowl0: [0.05, 0.05, 0]
+    bowl1: [0.05, 0.05, 0]
+    bowl2: [0.05, 0.05, 0]
+  group_z_rot_randomization:
+    bowl0: 0.174
+    bowl1: 0.174
+    bowl2: 0.174
+  additional_objects: null
+  termination_config:
+    max_steps: 1000
+  reward_config:
+    r_potential: 1.0
+  include_obs: false
+  hdr_background_name: small_empty_room_3_4k

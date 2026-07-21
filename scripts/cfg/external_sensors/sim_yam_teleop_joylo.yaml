@@ -1,0 +1,12 @@
+external_sensors:
+  - sensor_type: VisionSensor
+    name: external_cam0_teleop
+    relative_prim_path: /usd_workstation_0/workstation/external_cam0_teleop
+    modalities: [ rgb ]
+    sensor_kwargs:
+      focal_length: 12.0
+      image_height: 720
+      image_width: 1280
+    position: [-0.064, 0.0, 1.666]
+    orientation: [0.226, -0.225, -0.672, 0.669]
+    pose_frame: parent

@@ -1,0 +1,16 @@
+diff --git a/threedgrut/export/scripts/ply_to_usd.py b/threedgrut/export/scripts/ply_to_usd.py
+index 0d8252c..f716eb7 100644
+--- a/threedgrut/export/scripts/ply_to_usd.py
++++ b/threedgrut/export/scripts/ply_to_usd.py
+@@ -88,7 +88,10 @@ def main():
+         model.init_from_ply(str(input_path), init_model=False)
+ 
+         # 3. Create NuRecExporter
+-        exporter = NuRecExporter()
++        # export_cameras=False: this PLY-only path has no camera dataset (dataset=None),
++        # and a background GS volume for OmniGibson/NuRec needs only the geometry. With the
++        # default export_cameras=True the exporter raises ValueError when dataset is None.
++        exporter = NuRecExporter(export_cameras=False)
+ 
+         # 4. Export to USDZ
+         logger.info(f"Exporting with NuRecExporter: {output_path}")

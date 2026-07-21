@@ -1,0 +1,27 @@
+# /deps
+/reports
+/checkpoints
+.cache/
+/data
+/assets
+/Data
+/results
+/exps
+/deps
+*.pkl
+*pyc
+*.log
+*egg-info*
+*.egg-info
+*code-workspace*
+api_keys.txt
+*.deb
+*.log
+*core*
+
+# auto_bg pipeline: large assets / outputs / logs (not source)
+/cdc-assets
+/bg_compare
+/scripts/cfg/outputs
+/scripts/pipeline/A_reconstruction/stages/auto_bg_reconstruction/_2e_logs
+Miniforge3-Linux-x86_64.sh

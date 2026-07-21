@@ -1,0 +1,60 @@
+defaults:
+  - _self_
+
+# ===== Paths =====
+# Path to behavior-1k-assets. null = auto-detect from project root.
+assets_dir: null
+# Output directory for matched assets.
+output_dir: path/to/deps/BEHAVIOR-1K/datasets/real2sim-assets/tabletop_distractors
+
+# ===== Filters =====
+# Each entry is "field op value" (AND logic — all must pass).
+# Supported fields:
+#   mass        — category avg mass (kg)
+#   volume      — category avg volume (m^3)
+#   density     — category avg density (kg/m^3)
+#   bbox_volume — per-model bounding box volume (m^3)
+#   bbox_x      — per-model bbox X dimension (m)
+#   bbox_y      — per-model bbox Y dimension (m)
+#   bbox_z      — per-model bbox Z dimension (m)
+# Supported operators: <, <=, >, >=, ==, !=
+filters:
+  - "volume < 0.001"
+  - "mass < 2"
+
+# ===== Optional category filter =====
+# Substring match on category name. null = all categories.
+category: null
+
+# ===== Ability filter =====
+# List of abilities/tags that the model must support (from link_tags in metadata).
+# All listed abilities must be present (AND logic). null = no ability filter.
+#
+# Tags found in the dataset (with model counts):
+#   glass              (720)  — has glass/transparent parts
+#   subpart            (407)  — composed of separable sub-parts (e.g. sliceable)
+#   openable           (342)  — has openable joints (doors, drawers, lids)
+#   connectedpart       (99)  — has connected/attached sub-parts
+#   extrapart           (31)  — has extra decorative/functional parts
+#   openablebothsides   (12)  — openable from both sides (e.g. double doors)
+#   locked               (4)  — has a lock mechanism
+#
+# OmniGibson also defines these runtime abilities (from factory.py):
+#   robot, attachable, particleApplier, particleRemover, particleSource,
+#   particleSink, coldSource, cookable, coverable, freezable, heatable,
+#   heatSource, meltable, mixingTool, flammable, saturable, sliceable,
+#   slicer, toggleable, cloth, fillable
+abilities: null
+# abilities:
+#   - openable
+
+# ===== Output mode =====
+symlink: true        # true = symlink model dirs, false = full copy
+dry_run: false        # true = print matches only, don't copy/link
+
+hydra:
+  job:
+    chdir: true
+  run:
+    dir: "."
+  output_subdir: null

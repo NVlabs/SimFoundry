@@ -1,0 +1,52 @@
+models:
+  FeatureMatcher:
+    # encoder kwargs
+    encoder: DinoV2Encoder
+    encoder_kwargs: null
+
+    # Grounded SAM v2 kwargs
+    gsam_box_threshold: 0.25
+    gsam_text_threshold: 0.25
+
+pipeline:
+  verbose: true
+
+  RealWorldExtractor:
+    call:
+      gpt_api_key: null
+      gpt_version: 4o
+      max_retries: 3
+      retry_wait_time: 5.0
+      captions: null
+      camera_intrinsics_matrix: null
+      depth_max_limit: 20.0
+      filter_backsplash: true
+      infer_aligned_wall: true
+      visualize: false
+
+  DigitalCousinMatcher:
+    call:
+      gpt_api_key: null
+      gpt_version: 4o
+      max_retries: 3
+      retry_wait_time: 5.0
+      top_k_categories: 3
+      top_k_models: 6
+      top_k_poses: 3
+      n_digital_cousins: 2
+      n_cousins_reselect_cand: 3
+      remove_background: false
+      gpt_select_cousins: true
+      n_cousins_link_count_threshold: 10
+      start_at_name: null
+
+  SimulatedSceneGenerator:
+    call:
+      n_scenes: 3
+      sampling_method: random
+      resolve_collision: true
+      discard_objs: null
+      visualize_scene: true
+      visualize_scene_tilt_angle: 0
+      visualize_scene_radius: 5
+      save_visualization: true

@@ -1,0 +1,60 @@
+"""Unified runner for steps 1-13 with optional streaming for contiguous stages 5-8."""
+
+from __future__ import annotations
+
+import argparse
+import os
+import time
+
+from digital_cousins import REPO_DIR
+from digital_cousins.pipeline.orchestrator import format_duration, run_pipeline
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--input-mode", choices=["video", "stereo"], default="video")
+    parser.add_argument("--include", default=None, help="Comma-separated stage ids to include (e.g. 2,3,4)")
+    parser.add_argument("--exclude", default=None, help="Comma-separated stage ids to exclude")
+    parser.add_argument("--exec-mode", choices=["mamba", "direct"], default="mamba")
+    parser.add_argument("--python-bin", default="python")
+    parser.add_argument("--env-cdc", default="cdc")
+    parser.add_argument("--env-da3", default="da3")
+    parser.add_argument("--env-hunyuan", default="hunyuan")
+    parser.add_argument("--env-b1k", default="b1k")
+    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--stream-5-8", action="store_true", help="Enable streaming for a contiguous subsequence in stages 5-8")
+    parser.add_argument("--stream-start-stage", type=int, default=5, help="Streaming subsequence start stage (5-8)")
+    parser.add_argument("--stream-end-stage", type=int, default=8, help="Streaming subsequence end stage (5-8)")
+    parser.add_argument("--detect-articulation", action="store_true", help="Run stage 8b after pose matching to decompose articulated objects")
+    parser.add_argument("overrides", nargs="*", help="Additional Hydra overrides forwarded to each stage")
+    args = parser.parse_args()
+
+    repo_root = REPO_DIR
+    stream_enabled = args.stream_5_8
+    stream_start = args.stream_start_stage
+    stream_end = args.stream_end_stage
+
+    run_pipeline(
+        cwd=repo_root,
+        pipeline_name="reconstruction",
+        input_mode=args.input_mode,
+        include_ids_csv=args.include,
+        exclude_ids_csv=args.exclude,
+        exec_mode=args.exec_mode,
+        python_bin=args.python_bin,
+        env_map={"cdc": args.env_cdc, "da3": args.env_da3, "hunyuan": args.env_hunyuan, "b1k": args.env_b1k},
+        dry_run=args.dry_run,
+        stream_subseq_enabled=stream_enabled,
+        stream_start_stage=stream_start,
+        stream_end_stage=stream_end,
+        extra_overrides=args.overrides,
+        detect_articulation=args.detect_articulation,
+    )
+
+
+if __name__ == "__main__":
+    start = time.perf_counter()
+    try:
+        main()
+    finally:
+        print(f"[Pipeline] total wall time: {format_duration(time.perf_counter() - start)}")

@@ -1,0 +1,37 @@
+# Sweep eval config for gr00t policy
+# Usage: python scripts/pipeline/sweep_eval.py --config scripts/cfg/eval_sweeps/gr00t_example.yaml
+
+policy_type: gr00t
+
+# Checkpoint selection
+checkpoint_dir: path/to/gr00t_checkpoints/checkpoints/droid-finetune/n16_droid_finetune_dev/view_randomization/your_run_name
+checkpoint_name_prefix: put_away_marker_0214 # can be null
+checkpoint_interval: 5000
+# checkpoint_range: "5000:20000"  # optional: only evaluate steps in this range
+
+# Evaluation
+eval_config: put_away_trash
+# eval_overrides:
+#   - "s15_eval.n_episodes=10"
+#   - "s15_eval.timeout_s=90"
+
+# gr00t server
+embodiment_tag: OXE_DROID_JOINT_POSITION_RELATIVE_RANDOM_VIEW
+num_inference_timesteps: 8
+server_port: 5555
+server_host: localhost
+server_startup_timeout: 180
+
+# Project paths
+gr00t_project_dir: ~/Projects/gr00t
+cdc_project_dir: ~/Projects/controllable-digital-cousins
+gr00t_venv_cmd: "uv run"
+cdc_venv_cmd: ""
+
+# Output
+output_dir: ./sweep_results/gr00t_view_randomization
+
+# Options
+dry_run: false
+skip_plots: false
+resume: false

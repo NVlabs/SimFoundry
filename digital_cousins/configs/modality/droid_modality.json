@@ -1,0 +1,57 @@
+{
+    "annotation": {
+        "language.language_instruction": {},
+        "language.language_instruction_2": {},
+        "language.language_instruction_3": {}
+    },
+    "video": {
+        "exterior_image_1_left": {
+            "type": "rgb",
+            "original_key": "observation.rgb.external_cam0_left"
+        },
+        "exterior_image_2_left": {
+            "type": "rgb",
+            "original_key": "observation.rgb.external_cam1_left"
+        },
+        "wrist_image_left": {
+            "type": "rgb",
+            "original_key": "observation.rgb.camera_link_camera_0"
+        }
+    },
+    "state": {
+        "joint_position": {
+            "start": 0,
+            "end": 7
+        },
+        "arm_0_qvel": {
+            "start": 7,
+            "end": 14
+        },
+        "eef_0_pos": {
+            "start": 14,
+            "end": 17
+        },
+        "eef_0_quat": {
+            "start": 17,
+            "end": 21
+        },
+        "gripper_0_qpos": {
+            "start": 21,
+            "end": 23
+        },
+        "gripper_position": {
+            "start": 23,
+            "end": 24
+        }
+    },
+    "action": {
+        "joint_position" : {
+            "start": 0,
+            "end": 7
+        },
+        "gripper_position": {
+            "start": 7,
+            "end": 8
+        }
+    }
+}

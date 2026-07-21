@@ -1,0 +1,34 @@
+# Dummy task to load and teleop whatever scene (no success conditions).
+# Use with: task=load_scene
+# Scene is chosen by s14_teleop.scene_json_name (null = reconstructed_og_scene.json)
+# or override scene_file when building the env.
+task_name: load_scene
+og_task_config:
+  type: PickPlaceTask
+  activity_name: ${task_name}
+  # No object groups required; scene can have any objects
+  semantic_group_mapping:
+
+  init_predicates_all: null
+  init_predicates_any: null
+  init_predicates_specific: null
+  goal_predicates_all: null   # no success condition — run for max_steps
+  goal_predicates_any: null
+  goal_predicates_specific: null
+  # robot_pose:
+  #   - [0.316, -0.266, 0]
+  #   - [0, 0, 0.3827, 0.9239]
+
+  # robot_pose:
+  #   - [0.316, -0.266, 0]
+  #   - [0, 0, 0.3827, 0.9239]
+  robot_xyz_randomization: null
+  robot_z_rot_randomization: null
+  robot_joint_randomization: null
+  group_xyz_randomization: null
+  group_z_rot_randomization: null
+  termination_config:
+    max_steps: 500
+  reward_config:
+    r_potential: 1.0
+  include_obs: false

@@ -1,0 +1,4 @@
+telemoma; platform_machine!='aarch64'
+mediapipe<=0.10.9
+pyspacemouse
+hidapi

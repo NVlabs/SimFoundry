@@ -1,0 +1,359 @@
+defaults:
+  - _self_  # all below configs will override this conf.yaml
+#  - arch: ???
+  - task: droid_desk_cube_in_mailbox
+#  - robot: ???
+  - override hydra/hydra_logging: disabled
+  - override hydra/job_logging: custom
+
+# ===== main cfg =====
+root_dir: ../../Data # Where you want to save the data, can be absolute or relative to this config file
+scene_name: droid_desk_cube_in_mailbox  # test # left_table #mail_scene_trellis_hunyuan
+seed: 0
+visualize: false
+debug: false
+gcloud_project: null # Set to your own GCP project id to use Vertex AI (Gemini).
+rerun_all: true
+
+# ===== model init cfgs =====
+model:
+  hunyuan:
+    init_kwargs:
+
+
+# ===== per-step cfg =====
+s1_zed:     # env: zed
+  rerun: true  # Set to true to rerun the step, false to skip
+  out_dirname: s1_zed
+  out_dir: "${root_dir}/${scene_name}/${s1_zed.out_dirname}"
+  n_images: 5
+  n_sec_between_images: 3
+  use_pygame_countdown: false   # Set to true for visual pygame countdown, false for terminal countdown
+  show_video_stream: true       # Set to true to show live camera feed during capture, false to disable
+s1_video:     # env: cdc
+  rerun: true  # Set to true to rerun the step, false to skip
+  out_dirname: s1_video
+  out_dir: "${root_dir}/${scene_name}/${s1_video.out_dirname}"
+  video_fpath: "path/to/Data/put_away_trash/droid_desk_trash.mp4"
+  n_subsampled_frames: 15
+s2_fs:      # env: fs
+  rerun: true
+  out_dirname: s2_fs
+  out_dir: "${root_dir}/${scene_name}/${s2_fs.out_dirname}"
+  resolution: 1008
+  fs:
+    scale: 0.5
+    hiera: 0
+    z_far: 2
+    valid_iters: 32
+    get_pc: 1
+    remove_invisible: 1
+    denoise_cloud: 1
+    denoise_nb_points: 30
+    denoise_radius: 0.03
+s2_da:      # env: da3
+  rerun: true
+  out_dirname: s2_da
+  out_dir: "${root_dir}/${scene_name}/${s2_da.out_dirname}"
+  resolution: 504    # Must be multiple of 14
+s3_ground:    # env: cdc
+  rerun: true
+  out_dirname: s3_ground
+  out_dir: "${root_dir}/${scene_name}/${s3_ground.out_dirname}"
+  floor_categories: [desk, table, counter]
+  floor_threshold: 0.5
+  floor_tilt_threshold: 0.125
+  img_idx: 0
+s4_frame:     # env: cdc
+  rerun: true
+  out_dirname: s4_frame
+  out_dir: "${root_dir}/${scene_name}/${s4_frame.out_dirname}"
+  z_far: 5.0
+  denoise_nb_points: 30
+  denoise_radius: 0.03
+s5_scene:     # env: cdc
+  rerun: true
+  out_dirname: s5_scene
+  out_dir: "${root_dir}/${scene_name}/${s5_scene.out_dirname}"
+  img_idx: "${s3_ground.img_idx}"
+  ratio: "4:3"
+  sam_conf_threshold: 0.4
+  start_iter: null
+  end_iter: null
+  force_categories: null
+  removal_outline_color: [0, 255, 0]
+  boundary_proportion: null  #0.05 #0.1
+  z_prune_threshold: -0.05
+  z_prune_threshold_proportion: 0.1
+  overlap_threshold_proportion: 0.9
+  duplicate_mask_intersect_area_threshold: 0.95
+  min_valid_pixel_prop: 0.15
+  update_categories_period: 3
+  merge_output_images: true
+  crop_removal_images: true
+  vlm_model: gemini-2.5-pro     # options: gemini-2.5-pro, gemini-2.5-flash, gemini-3-pro
+  removal_model: gemini     # options: gemini, flux
+  min_detection_iterations: 3
+  obj_removal_prompt_order: ["mask", "outline", "bbox"]   # options: mask, outline, bbox
+  pda_K: 5
+s6_upsample:      # env: cdc
+  rerun: true
+  out_dirname: s6_upsample
+  out_dir: "${root_dir}/${scene_name}/${s6_upsample.out_dirname}"
+  sam_conf_threshold: 0.1
+  # model: gemini-2.5-flash-image     # options: gpt, gemini, flux
+  model: gemini-3-pro-image-preview     # options: gpt, gemini, flux
+  validity_model: gemini
+  skip_infill: true  # Set to true to skip infill step and directly upsample
+s7_mesh:          # env: hunyuan
+  rerun: true
+  out_dirname: s7_mesh
+  out_dir: "${root_dir}/${scene_name}/${s7_mesh.out_dirname}"
+  generate_shape: true
+  generate_texture: true
+  shape_model: hunyuan #hunyuan #trellis2 #direct3d
+  texture_model: hunyuan #hunyuan #trellis2
+  save_intermediates: true
+s8_pose:          # env: any6d
+  rerun: true
+  out_dirname: s8_pose
+  out_dir: "${root_dir}/${scene_name}/${s8_pose.out_dirname}"
+  source_voxel_scale_factor: 0.25
+  voxel_size: 0.04
+  n_samples: 20
+  use_any6d: true
+s8b_articulate_objects:
+  rerun: true
+  out_dirname: s8b_articulate_objects
+  out_dir: "${root_dir}/${scene_name}/${s8b_articulate_objects.out_dirname}"
+  vlm_model: gemini-2.5-pro
+  method: hunyuan # or samesh
+  # Classification review options:
+  interactive_review: true           # If true, prompt user to review/modify VLM classification
+  force_articulated: []               # List of object names to force as articulated (overrides VLM)
+  force_non_articulated: ["white robotic arm", 'white and black robotic arm', 'small black electronic component', 'blue cup', 'small metallic sensor', 'purple cable']           # List of object names to force as non-articulated (overrides VLM)
+s9_compile:      # env: cdc
+  rerun: true
+  out_dirname: s9_compile
+  out_dir: "${root_dir}/${scene_name}/${s9_compile.out_dirname}"
+s10_sim:          # env: cdc
+  rerun: true
+  out_dirname: s10_sim
+  out_dir: "${root_dir}/${scene_name}/${s10_sim.out_dirname}"
+  hull_count: 32
+  n_submesh: 10
+s11_physics:      # env: cdc
+  rerun: true
+  out_dirname: s11_physics
+  out_dir: "${root_dir}/${scene_name}/${s11_physics.out_dirname}"
+s12_usd: #env b1k
+  rerun: true
+  out_dirname: s12_usd
+  out_dir: "${root_dir}/${scene_name}/${s12_usd.out_dirname}"
+s13_og:
+  rerun: true
+  out_dirname: s13_og
+  out_dir: "${root_dir}/${scene_name}/${s13_og.out_dirname}"
+  robot_config:
+    type: FrankaPanda
+    end_effector: robotiq
+    name: robot0
+    self_collisions: false
+    obs_modalities: [rgb, depth_linear, proprio]
+    action_normalize: false
+    grasping_mode: assisted
+    position: [0.0, 0.0, 0.0]
+    orientation: [0, 0, 0, 1]
+  include_table: false
+  include_robot: true
+  include_gs: false
+  external_sensors_cfg: nv_franka_droid    # Located in <CFG_DIR>/external_sensors
+s14_teleop:
+  rerun: true
+  task_name: ${task.task_name}                  # Located in <CFG_DIR>/task -- specify via task=... in command line
+  scene_json_name: droid_desk_cube_in_mailbox_new_background_mesh        # Name of scene JSON to load (located in CDC_ASSET_DIR/scenes, without json extension) (null = use s13_og output)
+  use_floor_plane: true
+  out_dirname: s14_teleop
+  out_dir: "${root_dir}/${scene_name}/${s14_teleop.out_dirname}"
+  instance_id: 0
+  external_sensors_cfg: sim_franka_teleop     # Located in <CFG_DIR>/external_sensors
+  max_steps: 500
+  action_freq: 15
+  arm_speed_scaledown: 0.04                   # Scaling factor for EEF control of robot using spacemouse
+  device: oculus          #  [keyboard, spacemouse, oculus]
+  save_data: true
+  data_env_kwargs:
+    viewport_camera_path: /World/scene_0/controllable__frankapanda__robot0/panda_link0/external_cam0_opposite
+    overwrite: true       # shouldn't make a difference because every dataset is written to unique timestamp
+    only_successes: true
+    obj_attr_keys: [scale, visible]
+    flush_every_n_traj: 10
+s15_eval:       # env: b1k -- Evaluate Gr00t checkpoint on OmniGibson scene
+  rerun: true
+  
+  out_dirname: s15_eval
+  checkpoint_path: pi05_base # TODO: get this from policy metadata later
+  host: "localhost"
+  policy : openpi # [openpi, gr00t]
+  port: 8000 # 8000 for OpenPI, 5555 for Gr00t
+  # policy : gr00t # [openpi, gr00t]
+  # port: 5555 # 8000 for OpenPI, 5555 for Gr00t
+  # port: 5555 # 8000 for OpenPI, 5555 for Gr00t
+  out_dir: "${root_dir}/${scene_name}/${s15_eval.out_dirname}/${s15_eval.policy}"
+  asset_id: franka                        # Normalization stats ID: 'franka' (joint pos) or 'droid' (joint vel)
+  scene_json: droid_desk_cube_in_mailbox_new_background_mesh                # Path to scene JSON (null = use s13_og output)
+  use_floor_plane: true
+  floor_plane_visible: false
+  external_sensors_cfg: nv_franka_droid   # Located in <CFG_DIR>/external_sensors
+  action_freq: 15                         # Action frequency in Hz
+  timeout_s: 120                            # Maximum episode timeout in seconds
+  execute_horizon: 8                     # Number of actions to execute per policy inference
+  n_episodes: 20                          # Number of evaluation episodes
+  # prompt: "put the blue bowl on the green plate, then put the white cup in the blue bowl" 
+  prompt: "open the mailbox, put the blue cube in the mailbox, then close the mailbox"            # Language prompt for the policy
+  base_camera_1_name: external_cam0_left  # Name of the first external camera (DROID exterior_image_1)
+  base_camera_2_name: external_cam1_left  # Name of the second external camera (DROID exterior_image_2)
+  interactive: false                      # If true, drops into IPython for interactive evaluation
+  save_video: true                        # If true, saves video of policy observations per episode
+  video_fps: 10                             # FPS for saved videos
+s15_annotate:     # env: b1k
+  rerun: true
+  out_dirname: s15_annotation
+  out_dir: "${root_dir}/${scene_name}/${s15_annotate.out_dirname}"
+  robot_id: 0
+  check_gripper_open_during_place: true
+s16_waypoints:     # env: b1k
+  rerun: true
+  out_dirname: s16_waypoints
+  out_dir: "${root_dir}/${scene_name}/${s16_waypoints.out_dirname}"
+
+  # EEF pose adjustment
+  eef_z_offset: 0.0               # Z offset in local EEF frame to apply when tracking EEF pose (meters)
+
+  # Distance-based extraction (PRIMARY - must satisfy)
+  pick_min_start_distance: 0.15     # EEF must start at least this far from object (meters)
+  pick_max_distance: 0.30          # Stop when EEF exceeds this distance from object
+  place_min_start_distance: 0.15    # EEF must start at least this far from target surface
+  place_max_distance: 0.30         # Stop when EEF exceeds this distance from target
+  open_min_start_distance: 0.05     # EEF must start at least this far from articulated object (meters)
+  open_max_distance: 0.50          # Stop when EEF exceeds this distance from articulated object
+  close_min_start_distance: 0.05    # EEF must start at least this far from articulated object (meters)
+  close_max_distance: 0.50         # Stop when EEF exceeds this distance from articulated object
+  end_z_threshold: 0.05            # Stop when distance exceeds this (euclidean from signal EEF for pick/place, relative vertical to link for open/close, meters)
+s17_generate:     # env: b1k
+  rerun: true
+  out_dirname: s17_generated_demos
+  out_dir: "${root_dir}/${scene_name}/${s17_generate.out_dirname}"
+  action_frequency: 30      # Action frequency in Hz
+  n_demos: 5                # Number of successful demos to generate
+  max_attempts: 10          # Maximum generation attempts
+  use_curobo: false         # If true, use CuRobo motion planning; if false, use linear interpolation
+  curobo_max_attempts: 10   # CuRobo motion planning max attempts
+  curobo_timeout: 60.0      # CuRobo planning timeout in seconds
+  freespace_velocity: 0.1   # Target end-effector velocity for freespace motion (m/s), used when use_curobo=false
+  smooth_freespace: false   # If true, use spline-based freespace interpolation with velocity profiling for smooth transitions
+  smooth_n_boundary_waypoints: 5      # Number of waypoints sampled from each adjacent segment boundary for direction/velocity estimation
+  smooth_velocity_ramp_fraction: 0.25 # Fraction of spline arc length used for velocity ramp at each end (0.25 = first 25% ramps up, last 25% ramps down)
+  smooth_spline_tangent_scale: 1.0    # Multiplier for cubic Hermite tangent magnitudes; larger values produce wider curves, smaller values approach a straight line
+  smooth_spline_samples: 1000         # Internal resolution for spline arc-length computation (higher = more accurate but slower)
+  inverted_gripper: false   # If true, invert the gripper action (0.0 = open, 1.0 = closed)
+  eef_z_offset: "${s16_waypoints.eef_z_offset}"  # Z offset in local EEF frame (should match s16_waypoints.eef_z_offset)
+  grasping_type: null       # If set, override robot grasping mode. Valid options: "physical", "assisted". Default null = no override
+  action_noise:                   # TCP-bounded action noise for domain randomization
+    enabled: true                 # Whether to apply action noise during data generation
+    action_scale_factor: 0.1      # Arm noise std = scale * ||tcp_delta|| (10% of commanded TCP delta)
+    rotation_noise_scale: 0.1     # Rotation noise scale relative to position noise
+    max_tcp_position_noise: 0.02  # Maximum position noise in TCP space (meters)
+    max_tcp_rotation_noise: 0.1   # Maximum rotation noise in TCP space (radians, ~5.7 degrees)
+    apply_to_freespace: true      # Whether to apply noise during freespace motions (in addition to waypoint tracking)
+s18_replay:          # env: b1k
+  rerun: true
+  out_dirname: s18_replay
+  out_dir: "${root_dir}/${scene_name}/${s18_replay.out_dirname}"
+  repo_prefix: "omnigibson"                    # Prefix for LeRobot dataset repo_id (e.g., "username")
+  dataset_name: "${scene_name}_${task.task_name}"  # Name of the LeRobot dataset
+  include_mimicgen_data: true                     # Either include mimicgen data generated in step 17 or not
+  external_sensors_cfg: nv_franka_droid    # Located in <CFG_DIR>/external_sensors
+  depth_as_rgb: false                            # Whether depth should be saved in encoded RGB or not
+  use_pointbridge: false                         # Whether to use LeRobotPointbridgePlaybackWrapper for point cloud generation
+  pointbridge_kwargs:                            # Kwargs for LeRobotPointbridgePlaybackWrapper (only used if use_pointbridge=true)
+    num_points_obj: 128                          # Number of points to sample for each object in point cloud
+    num_objects: 1                               # Number of objects to sample in point cloud
+    include_categories: null                     # Categories to include in point cloud (null = all categories)
+    pc_x_min: -2.0                               # Min X workspace bound for point cloud (in robot frame)
+    pc_x_max: 2.0                                # Max X workspace bound for point cloud (in robot frame)
+    pc_y_min: -2.0                               # Min Y workspace bound for point cloud (in robot frame)
+    pc_y_max: 2.0                                # Max Y workspace bound for point cloud (in robot frame)
+    pc_z_min: -2.0                              # Min Z workspace bound for point cloud (in robot frame)
+    pc_z_max: 2.0                                # Max Z workspace bound for point cloud (in robot frame)
+    pointcloud_sensors: null                     # Sensors to generate point clouds from (null = all depth sensors)
+  playback_kwargs:
+    n_episodes: 10                          # Number of episodes to replay
+    robot_obs_modalities: [rgb, proprio]  # Robot observation modalities to collect
+    robot_proprio_keys: [arm_0_qpos, arm_0_qvel, eef_0_pos, eef_0_quat, gripper_0_qpos, gripper_0_qpos_norm]                     # Optional list of proprioception keys to use
+    robot_sensor_config:                         # Optional sensor configuration override
+      VisionSensor:
+        modalities: [rgb]
+        sensor_kwargs:
+          image_height: 180 #720
+          image_width: 320 #1280
+    external_sensors_config: null                # DO NOT MODIFY -- this is auto-loaded from @external_sensors_cfg
+    include_sensor_names: null                   # Optional list of sensor name substrings to include
+    exclude_sensor_names: null                   # Optional list of sensor name substrings to exclude
+    n_render_iterations: 5                       # Number of rendering iterations per frame
+    overwrite: true                              # Whether to overwrite existing dataset
+    only_successes: true                         # Whether to only save successful episodes
+    flush_every_n_traj: 10                       # How often to flush data to disk (across episodes)
+    flush_every_n_steps: 0                       # How often to flush within episodes (0 = disabled)
+    include_task: true                           # Whether to include the original task
+    include_task_obs: true                       # Whether to include task observations
+    include_robot_control: true                  # Whether to enable robot control during playback
+    include_contacts: true                       # Whether to enable contacts (physics) during playback
+    include_env_wrapper: false                   # Whether to include environment wrapper class during instantiation
+    robot_type: null                             # Robot type name (null = auto-infer from env)
+    image_writer_threads: 10                     # Number of threads for writing images
+    image_writer_processes: 5                    # Number of processes for writing images
+    task_name: null                              # Task name (null = auto-infer from task)
+    lerobot_version: "v2.1"                      # LeRobot version (v2.1 or v3.0)
+    use_videos: true                            # Whether to use videos or not
+    include_multi_action_representation: false    # Whether to include multi action representation in the dataset
+    include_modalities: [rgb, proprio]                      # Modalities to include in the dataset
+  # Data transformations (applied during saving only, not during env execution)
+  invert_gripper_action: true                    # If true, invert gripper action: action[-1] = 1 - action[-1]
+  scale_gripper_state: 1.0                       # Factor to multiply gripper state (observation.state[-1]) by
+s19_cdc_generation:          # env: hunyuan
+  out_dirname: s16_cdc_generation
+  source_dir: "${root_dir}/${scene_name}/cousin_images"
+  out_dir: "${root_dir}/${scene_name}/${s16_cdc_generation.out_dirname}"
+  generate_shape: false
+  generate_texture: true
+  shape_model: hunyuan #direct3d
+  texture_model: hunyuan
+s15_prompt_cdc_structured:      # env: cdc
+  out_dirname: s15_prompt_cdc_structured
+  out_dir: "${root_dir}/${scene_name}/${s15_prompt_cdc_structured.out_dirname}"
+  num_geometry_variation: 3
+  num_topology_variation: 3
+  num_visual_variation: 3
+  check_reasonableness: true
+  sam_conf_threshold: 0.1
+generate_cousins_combination: # env: cdc
+  source_dir: "${root_dir}/${scene_name}/${s15_prompt_cdc_structured.out_dirname}"
+  out_dirname: cousins_combination
+  out_dir: "${root_dir}/${scene_name}/${generate_cousins_combination.out_dirname}"
+  seed: 42
+  num_obj_to_swap: 3
+  num_variations_used_per_object: 2
+
+# ----------------------------
+
+prefix:
+suffix:
+postsuffix:
+
+hydra:
+  job:
+    chdir: true
+  run:
+    dir: "."
+  output_subdir: null

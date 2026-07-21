@@ -1,0 +1,48 @@
+defaults:
+  - _self_
+
+# ===== Scene configuration =====
+scene_state_path: assets/scenes/droid_desk_stack_dishware/droid_desk_stack_dishware_scene_state_latest.json
+output_path: Data/stack_dishware_easy_new/init_states.json
+
+# ===== Grid configuration =====
+grid_resolution: [5, 5]  # NxM grid => 25 total init states per object
+
+# ===== Physics validation =====
+n_physics_steps: 30                # Number of physics steps for stability check
+max_velocity_threshold: 0.05       # Max linear velocity (m/s) for an object to be considered stable
+max_displacement_threshold: 0.05   # Max displacement (m) from set position to be considered stable
+seed: 7
+randomize_pairings: true            # If true, each object uses its own shuffled grid index mapping
+pairing_anchor_object: green_plate_zritke_0  # Keep plate aligned with canonical state_idx
+max_retries: 10                    # Retry failed candidates with small perturbations
+retry_perturbation: 0.02           # Max XY perturbation radius per retry (meters)
+
+# ===== Objects to randomize =====
+# name: must match object name in the scene state JSON (object_registry key)
+# grid_size: [x_size, y_size] in meters — total extent of the grid centered at default position
+# z_rot_range: [min, max] in radians — linearly spaced across all grid positions
+# relative_to: (optional) name of parent object — this object's XY follows the parent, Z = parent top + z_offset
+# z_offset: (optional, used with relative_to) approximate vertical offset above parent (meters)
+objects:
+  - name: cream_mug_bpupsc_1
+    grid_size: [0.30, 0.20]
+    z_rot_range: [-0.524, 0.524]    # ~-30 to +30 degrees
+
+  - name: green_plate_zritke_0
+    grid_size: [0.20, 0.30]
+    z_rot_range: [-0.124, 0]        # ~-10 to 0 degrees
+
+  # Bowl placed ON the plate — follows plate position, no independent randomization
+  - name: blue_bowl_jpkksu_2
+    relative_to: green_plate_zritke_0
+    z_offset: 0.03                   # Approximate plate thickness; physics will settle exact Z
+    grid_size: [0.0, 0.0]           # No independent XY offset from plate center
+    z_rot_range: [0, 0]             # No rotation randomization
+
+hydra:
+  job:
+    chdir: true
+  run:
+    dir: "."
+  output_subdir: null

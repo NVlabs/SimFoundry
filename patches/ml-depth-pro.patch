@@ -1,0 +1,19 @@
+diff --git a/pyproject.toml b/pyproject.toml
+index 51cb67a..14e10e2 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -32,7 +32,7 @@ exclude = [
+     "**/node_modules",
+     "**/__pycache__",
+ ]
+-pythonVersion = "3.9"
++pythonVersion = "3.10"
+ 
+ [tool.pytest.ini_options]
+ minversion = "6.0"
+@@ -56,4 +56,4 @@ extend-exclude = [
+     "third_party",
+ ]
+ src = ["depth_pro", "tests"]
+-target-version = "py39"
++target-version = "py310"

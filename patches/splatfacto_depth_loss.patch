@@ -1,0 +1,82 @@
+Subject: Add env-var-gated L1 depth supervision to nerfstudio splatfacto
+Target: nerfstudio v1.1.5 (https://github.com/nerfstudio-project/nerfstudio.git@v1.1.5)
+
+When NERFSTUDIO_DEPTH_LOSS=1 is set, splatfacto reads per-frame depth maps
+from NERFSTUDIO_DEPTH_DIR (one .npy per training frame, float32, same H×W
+as the image, 0 marks invalid pixels) and adds an L1 term to the loss:
+
+    loss_depth = NERFSTUDIO_DEPTH_LOSS_MULT * |pred_depth - gt_depth|
+
+over pixels where gt_depth > NERFSTUDIO_DEPTH_LOSS_MIN. Defaults preserve
+upstream behavior when the env vars are unset.
+
+This is the only patch the auto_bg pipeline needs. The auto_bg orchestrator
+(scripts/auto_bg_pipeline/train_bg_splat.py) sets the env vars and writes
+the per-frame NPYs. See auto_bg_pipeline_setup_README.md §4.2 for the apply
+recipe.
+
+--- a/nerfstudio/models/splatfacto.py
++++ b/nerfstudio/models/splatfacto.py
+@@ -311,6 +311,35 @@
+                 grid_W=self.config.grid_shape[2],
+             )
+ 
++        # ──────────── auto_bg depth-loss patch (env-var-gated) ────────────
++        # NERFSTUDIO_DEPTH_LOSS=1 enables L1 depth supervision against
++        # per-frame .npy depth maps written by the auto_bg pipeline. Files
++        # live in NERFSTUDIO_DEPTH_DIR; one per source frame, float32,
++        # training-image resolution, 0 marks invalid pixels. Defaults
++        # preserve upstream behavior.
++        import os as _os
++        from pathlib import Path as _Path
++
++        self._use_depth_loss = _os.environ.get("NERFSTUDIO_DEPTH_LOSS", "0") == "1"
++        if self._use_depth_loss:
++            self._depth_loss_mult = float(_os.environ.get("NERFSTUDIO_DEPTH_LOSS_MULT", "0.5"))
++            self._depth_loss_min = float(_os.environ.get("NERFSTUDIO_DEPTH_LOSS_MIN", "0.1"))
++            _depth_dir = _Path(_os.environ["NERFSTUDIO_DEPTH_DIR"])
++            self.config.output_depth_during_training = True
++            _all_depth_paths = sorted(_depth_dir.glob("frame_*.npy"))
++            _n_all = len(_all_depth_paths)
++            _i_train = np.linspace(0, _n_all - 1, self.num_train_data, dtype=int)
++            _train_depth_paths = [_all_depth_paths[i] for i in _i_train]
++            self._cached_depths = [
++                torch.from_numpy(np.load(p)).float() for p in _train_depth_paths
++            ]
++            CONSOLE.log(
++                f"[splatfacto] depth-loss ON: mult={self._depth_loss_mult}, "
++                f"min={self._depth_loss_min}, dir={_depth_dir}, "
++                f"all={_n_all} train={len(_train_depth_paths)} (np.linspace-matched)"
++            )
++        # ──────────── end auto_bg depth-loss patch ────────────
++
+         # Strategy for GS densification
+         self.strategy = DefaultStrategy(
+             prune_opa=self.config.cull_alpha_thresh,
+@@ -734,6 +763,26 @@
+             "scale_reg": scale_reg,
+         }
+ 
++        # ──────────── auto_bg depth-loss patch (env-var-gated) ────────────
++        # L1 between rendered depth and the per-frame DA3 depth cached in
++        # populate_modules above. Pixels with gt_depth < depth_min are
++        # treated as invalid (0 marks the NaN sentinel from the auto_bg writer).
++        if getattr(self, "_use_depth_loss", False) and "depth" in outputs:
++            _idx = batch["image_idx"]
++            _idx = int(_idx.item()) if torch.is_tensor(_idx) else int(_idx)
++            gt_depth = self._cached_depths[_idx].to(self.device)
++            pred_depth = outputs["depth"].squeeze(-1)
++            if gt_depth.shape != pred_depth.shape:
++                gt_depth = torch.nn.functional.interpolate(
++                    gt_depth[None, None], size=pred_depth.shape, mode="nearest",
++                )[0, 0]
++            valid = torch.isfinite(gt_depth) & (gt_depth > self._depth_loss_min)
++            if valid.any():
++                loss_dict["depth_loss"] = self._depth_loss_mult * torch.abs(
++                    pred_depth[valid] - gt_depth[valid]
++                ).mean()
++        # ──────────── end auto_bg depth-loss patch ────────────
++
+         if self.training:
+             # Add loss from camera optimizer
+             self.camera_optimizer.get_loss_dict(loss_dict)

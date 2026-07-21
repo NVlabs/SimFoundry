@@ -1,0 +1,39 @@
+# @package hydra.job_logging
+# Custom logging configuration for pipeline scripts
+# Root logger at ERROR level to suppress verbose library output
+# Pipeline scripts at INFO level for useful progress tracking
+
+version: 1
+formatters:
+  simple:
+    format: '[%(asctime)s][%(filename)s:%(lineno)d][%(levelname)s] - %(message)s'
+    # format: '[%(asctime)s][%(filename)s][%(levelname)s] - %(message)s'
+    datefmt: '%Y-%m-%d %H:%M:%S'
+handlers:
+  console:
+    class: logging.StreamHandler
+    formatter: simple
+    stream: ext://sys.stdout
+  file:
+    class: logging.FileHandler
+    formatter: simple
+    # Hydra will set the filename automatically
+    filename: ${hydra.job.name}.log
+    mode: w
+root:
+  level: ERROR
+  handlers: [console, file]
+loggers:
+  __main__:
+    level: INFO
+    handlers: [console, file]
+    propagate: false
+  # Add other specific loggers here if needed
+  # For example, if you want to see info from a specific library:
+  digital_cousins:
+    level: INFO
+    handlers: [console, file]
+    propagate: false
+
+disable_existing_loggers: false
+

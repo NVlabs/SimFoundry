@@ -1,0 +1,29 @@
+external_sensors:
+  - sensor_type: VisionSensor
+    name: external_cam0_left
+    relative_prim_path: /controllable__frankapanda__robot0/panda_link0/external_cam0_left     # Represents left frame of stereo camera
+    modalities: [ rgb, depth_linear ]
+    sensor_kwargs:
+      focal_length: 2.1
+      focus_distance: 28.0
+      horizontal_aperture: 5.376
+      # vertical_aperture: 3.024,
+      image_height: 180 #720
+      image_width: 320 #1280
+    # position: [-0.0767,  0.7119,  0.4202] # calibrated
+    position: [-0.067,  0.6119,  0.4202]
+    orientation: [-0.3010,  0.5097,  0.6943, -0.4094]
+    pose_frame: parent
+  - sensor_type: VisionSensor
+    name: external_cam1_left
+    relative_prim_path: /controllable__frankapanda__robot0/panda_link0/external_cam1_left     # Represents left frame of stereo camera
+    modalities: [ rgb, depth_linear ]
+    sensor_kwargs:
+      focal_length: 2.1
+      focus_distance: 28.0
+      horizontal_aperture: 5.376
+      image_height: 180 #720
+      image_width: 320 #1280
+    position: [-0.1838, -0.6026,  0.4259]
+    orientation: [ 0.5413, -0.3535, -0.4049,  0.6466]
+    pose_frame: parent

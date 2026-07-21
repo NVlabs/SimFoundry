@@ -1,0 +1,32 @@
+task_name: nv_desk_place_orange_cup_on_organizer
+language_instruction: "Pick up the orange cup and put it on the organizer"
+og_task_config:
+  type: PickPlaceTask
+  activity_name: nv_desk_place_orange_cup_on_organizer
+  semantic_group_mapping:
+    cup:
+    - orange_cup_iljebh_20
+    organizer:
+    - wooden_organizer_with_drawer_vmufpr_13
+  init_predicates_all: null
+  init_predicates_any: null
+  init_predicates_specific: null
+  goal_predicates_all:
+  - state: OnTop
+    state_kwargs: null
+    value: true
+    group: cup
+    other_group: organizer
+  goal_predicates_any: null
+  goal_predicates_specific: null
+  robot_pose: null
+  robot_xyz_randomization: null
+  robot_z_rot_randomization: null
+  robot_joint_randomization: null
+  group_xyz_randomization: null
+  group_z_rot_randomization: null
+  termination_config:
+    max_steps: 500
+  reward_config:
+    r_potential: 1.0
+  include_obs: false

@@ -1,0 +1,25 @@
+# CDC API Keys Configuration
+# Copy this file to api_keys.txt and fill in your keys.
+# Used by login_services.sh when run with --default flag.
+#
+# Lines starting with # are comments and will be ignored.
+# Leave a value blank to skip that service's login.
+
+# HuggingFace token (https://huggingface.co/settings/tokens)
+HF_TOKEN=
+
+# Weights & Biases API key (https://wandb.ai/authorize)
+WANDB_API_KEY=
+
+# Docker Hub credentials (https://hub.docker.com/settings/security)
+DOCKER_USERNAME=
+DOCKER_PASSWORD=
+
+# NVIDIA NGC API key (https://org.ngc.nvidia.com/setup)
+# Only used for docker login to nvcr.io.
+NGC_API_KEY=
+
+# Google Cloud project ID (used with gcloud auth application-default login).
+# Required: the pipeline's VLM stages (reconstruction, articulation, and B augmentation)
+# run on Google Vertex AI (Gemini).
+GCLOUD_PROJECT=

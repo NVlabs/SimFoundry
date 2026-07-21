@@ -1,0 +1,208 @@
+# =====================================================================
+# auto_bg.yaml — Hyperparameters for the auto-BG pipeline
+# =====================================================================
+# Companion to real2sim_cfg.yaml. real2sim_cfg.yaml covers the stage 1-18 main
+# pipeline; this file covers the BACKGROUND-ONLY auto-BG add-on (orchestrated by
+# scripts/pipeline/A_reconstruction/stages/auto_bg_reconstruction/run_auto_align.sh).
+#
+# auto_bg adds a BG 3DGS splat to an EXISTING canonical reconstruction. The canonical
+# pipeline (run FIRST in splat-prep mode — see canonical_run_overrides below) owns
+# stage 1 (subsample) + stage 2 (orig-DA3) + stages 3-13; this add-on REUSES those
+# outputs and runs only:
+#   Background ingest (steps 1-4): stage VOID input (symlinked from canonical s1_video) ->
+#             quadmask -> VOID Pass 1/2 chunked -> void-DA3 -> seed PLY.
+#   Splat + assets (steps 5-7): splat training, bridge to OG world, build assets.
+#
+# The stage scripts ARE Hydra-driven (each `@hydra.main(config_name="auto_bg")`),
+# so this file is load-bearing. Override per-stage values with `<section>.<key>=<val>`.
+
+defaults:
+  - _self_
+  - override hydra/hydra_logging: disabled
+  - override hydra/job_logging: custom
+
+# ===== main cfg =====
+root_dir: ../../Data                              # Data root (absolute or relative to this cfg file)
+assets_dir: ../../assets/scenes                   # Where final scene JSONs land
+scene_name: nv_desk                               # Default scene
+video_fpath: "${root_dir}/Scene_Video/${scene_name}.MOV"
+num_frames: 400                                   # Frames to subsample from source video; canonical recipe
+floor_category: "desk, table, or counter"         # Free-text label used by step 1 (quadmask) to identify the ground plane
+gcloud_project: null              # Vertex AI project for Gemini-backed steps (step 1). Set to your own GCP project id.
+seed: 42                                          # Master seed; passed to VOID Pass 1/2 explicitly
+clean: false                                      # If true, orchestrator rm -rf's Data/<scene> and assets/scenes/<scene> before running
+
+# Internal output root (everything the auto_bg steps write lands here)
+auto_bg_dir: "${root_dir}/${scene_name}/auto_bg"
+
+# VOID input layout. NOT produced here — the orchestrator STAGES it from the canonical
+# reconstruction's s1_video (run in splat_prep mode): it makes void/input a real dir and
+# symlinks subsampled/ -> s1_video/frames_subsampled_<N> (672x384) and input_video.mp4 ->
+# s1_video/input_video.mp4. So VOID cleans exactly the frames orig-DA3 (s2_da) saw.
+void_input_dir: "${auto_bg_dir}/void/input"
+void_mp4_fps: 12                                  # must equal s1_video.mp4_fps (input_video.mp4) and s2_pass1/s3_pass2 fps; quadmask encoded at same fps
+
+# ===== mamba envs (must already be installed) =====
+# Scripts call `mamba run -n <env> ...`; override the env name here if your
+# install uses a different name. The orchestrator picks these up via env vars
+# (NERFSTUDIO_ENV_NAME etc) where applicable.
+env:
+  cdc: cdc                                        # main env (most stages)
+  da3: da3                                        # DepthAnything-V3
+  void: void                                      # VOID inpainting (CogVideoX-Fun-V1.5-5b-InP)
+  nerfstudio: nerfstudio_simfoundry               # ns-train + ns-export (splatfacto-big)
+  threedgrut: 3dgrut                              # PLY -> USDZ conversion
+  hunyuan: hunyuan                                # Stage 7
+  any6d: any6d                                    # Stage 8
+
+# ===== Background ingest (steps 1-4) =====
+
+# There is NO subsample step here — auto_bg is a background-only add-on. The canonical
+# reconstruction owns stage 1 (splat_prep) and stage 2 (orig-DA3); the orchestrator
+# stages void/input from that s1_video (see void_input_dir above) and errors if the
+# canonical outputs are missing/mismatched.
+
+s1_quadmask:                                      # env: cdc — generate_quadmask_for_void.py
+  rerun: true
+  in_dir: "${void_input_dir}"
+  keyframe_idx: 0                                 # Which subsampled frame indexes the mask prompt
+  floor_category: "${floor_category}"
+  gcloud_project: "${gcloud_project}"
+  gemini_model: gemini-3-pro-image-preview  # Used to identify tabletop objects to mask out (Vertex Gemini; must support IMAGE modality)
+  sam_conf: 0.30                                  # SAM3 detection threshold
+  mask_dilate_px: 12                              # Dilation kernel on the union mask (pixels)
+  mp4_fps: "${void_mp4_fps}"
+  bg_prompt: null                                 # Optional override prompt for the background category; null = auto
+  skip: []                                        # Step labels to skip (debugging convenience)
+
+s2_pass1:                                         # env: cdc — run_void_pass1.py (shells into void env)
+  rerun: true
+  in_dir: "${auto_bg_dir}/void"                   # writes pass1/, _chunks/ under here
+  video_name: "${scene_name}"
+  out_dir: null                                   # null -> in_dir/pass1
+  # Chunking
+  chunk_size: 173                                 # VAE cap is 197; 173 satisfies (L-1)%4==0 with margin
+  min_overlap: 30                                 # Force more chunks if a linspace plan ends up thinner
+  temporal_window: 85                             # The transformer's training-time latent window
+  # Frame geometry
+  height: 384
+  width: 672
+  fps: 12
+  # Diffusion
+  num_inference_steps: 50
+  guidance_scale: 8.0
+  seed: "${seed}"
+  # Checkpoints — relative to deps/Void/ (set inside the script)
+  model_name: "CogVideoX-Fun-V1.5-5b-InP"
+  model_checkpoint: "void_pass1.safetensors"
+  skip_if_exists: true                            # Re-using existing per-chunk outputs on resume
+
+s3_pass2:                                         # env: cdc — run_void_pass2.py (shells into void env)
+  rerun: true
+  in_dir: "${auto_bg_dir}/void"                   # writes pass2/cleaned_frames/, _chunks/ under here
+  video_name: "${scene_name}"
+  out_dir: null                                   # null -> in_dir/pass2
+  temporal_window: 85
+  height: 384
+  width: 672
+  fps: 12
+  num_inference_steps: 50
+  guidance_scale: 8.0
+  seed: "${seed}"
+  model_name: "CogVideoX-Fun-V1.5-5b-InP"
+  model_checkpoint: "void_pass2.safetensors"
+  chunk_warmup_frames: 5                          # Frames re-fed at chunk boundary to maintain temporal consistency
+  restitch_only: false                            # If true, only re-stitch existing per-chunk outputs (debug)
+
+# Original-frame DA3 is OWNED by the canonical reconstruction (stage 2 / DA3 backend),
+# run BEFORE this add-on. It lives at the path below; both the canonical foreground
+# (stages 3-13) and the BG splat read it, so bg and fg share one DA3 world. auto_bg
+# REUSES it (the orchestrator asserts it exists with num_frames frames) — it never
+# re-runs orig-DA3.
+orig_da3_npz: "${root_dir}/${scene_name}/s2_da/da/exports/npz/results.npz"
+
+# Void-frame DA3 (depth GT for the splat): run via the SAME stage 2b, pointed at the
+# void cleaned_frames (s2_da.frames_dir) and a separate out_dir (s2_da.out_dir).
+void_da3:
+  frames_dir: "${auto_bg_dir}/void/pass2/cleaned_frames"
+  out_dir: "${auto_bg_dir}/da3/void"
+  out_npz: "${void_da3.out_dir}/da/exports/npz/results.npz"
+
+s4_seed_ply:                                      # env: cdc — build_seed_ply_from_void_da3.py
+  rerun: true
+  orig_da3_npz: "${orig_da3_npz}"
+  void_da3_npz: "${void_da3.out_npz}"
+  out_ply: "${auto_bg_dir}/seed.ply"
+  conf_min: 2.0                                   # DA3 confidence floor; pixels below this are dropped from seed PLY
+  max_points: 200000                              # Random subsample target for the seed PLY
+
+# ===== Canonical-run overrides required for auto_bg =====
+# Stages 1-13 are NOT run by this add-on — they belong to the canonical reconstruction,
+# which must be run in splat-prep mode FIRST. Pass these overrides to that run (after the
+# `--` in A_reconstruction/run.sh) so the reused outputs match what auto_bg expects:
+canonical_run_overrides:
+  s1_video_splat_prep: true                       # emit frames_subsampled_<N>/ @ 672x384 + input_video.mp4 into s1_video
+  s1_video_n_subsampled_frames: "${num_frames}"   # 400 — must equal --num-frames here
+  s1_video_target_w: 672
+  s1_video_target_h: 384
+  s2_depth_backend: da3                           # orig-DA3 must be DA3 (the precondition checks the npz schema)
+  s5_scene_gmask_pda_geometric_backend: depth_pro # PDA geometric backend for the gmask sub-stage
+  s10_sim_vlm_model: gemini-2.5-pro               # plain override (key exists; no `+`)
+  # Stage 13: auto-exits via os._exit(0) when interactive=false (the default); run headless:
+  s13_og_interactive: false                       # true keeps the OmniGibson viewer alive (hangs the batch run)
+  s13_og_headless: true                           # OMNIGIBSON_HEADLESS=1 env var on the canonical run
+
+# ===== Splat + assets (steps 5-7) =====
+
+s5_train_bg_splat:                                # env: cdc — train_bg_splat.py (shells into nerfstudio env)
+  rerun: true
+  out_dirname: splat
+  base_dir: "${auto_bg_dir}/${s5_train_bg_splat.out_dirname}"     # ns-train base-dir; outputs/ + export/ land under it
+  processed_dir: "${auto_bg_dir}/${s5_train_bg_splat.out_dirname}/ns_data"  # ns-train --data arg
+  # Inputs
+  inpainted_dir: "${auto_bg_dir}/void/pass2/cleaned_frames"
+  masks_dir: null                                 # SAM3 masks; canonical run uses --no-masks
+  da3_npz: "${orig_da3_npz}"                      # poses (orig DA3 world = canonical s2_da)
+  depth_da3_npz: "${void_da3.out_npz}"         # depth GT (matches the cleaned RGB used as training GT)
+  seed_ply_path: "${s4_seed_ply.out_ply}"
+  no_seed_ply: false                              # If true, splatfacto falls back to random init
+  no_masks: true                                  # Canonical run: train on full inpainted frames
+  no_export: false                                # If true, skip ns-export
+  view_only: false                                # If true, launch ns-viewer on most recent run instead of training
+  keep_viewer: false                              # If true, keep viewer alive after training
+  viewer_port: 7007
+  skip_train: false                               # If true, stop after writing transforms.json (debug)
+  # Training
+  method: splatfacto-big                          # options: splatfacto, splatfacto-big
+  max_num_iterations: 80000                       # Canonical recipe; ns-train default is 30000
+  camera_optimizer_mode: SO3xR3                   # options: off, SO3xR3, SE3 — SO3xR3 absorbs DA3 pose error + void/orig DA3 offset
+  # Seed PLY (if no --seed-ply-path)
+  seed_conf_min: 2.0
+  seed_max_points: 200000
+  # Depth supervision (env-var-gated splatfacto.py patch; see setup README)
+  use_depth_loss: true                            # CANONICAL: enabled. Suppresses flat-surface floaters
+  depth_loss_mult: 0.5                            # NERFSTUDIO_DEPTH_LOSS_MULT — 0.5 is the A/B winner over 1.0
+  depth_loss_conf_min: 2.0                        # DA3 confidence floor; pixels below this are masked in the depth loss
+
+s6_bridge:                                        # env: cdc — bridge_bg_splat_to_og.py
+  rerun: true
+  bridge_mode: single                             # options: auto, single (rigid, same-scene), umeyama (Sim(3), cross-scene)
+  target_scene_name: null                         # null -> same as scene_name; set for cross-scene bridging
+  anchor_row: null                                # null -> parse from s4_frame's image_<N>_cam2world.npy
+  in_ply: "${auto_bg_dir}/splat/export/${scene_name}_bg.ply"
+  out_ply: "${s6_bridge.in_ply}"                  # Same path -> writes only the .pose.json sidecar, no PLY byte-copy
+  src_npz: null                                   # null -> Data/<scene>/s2_da/da/exports/npz/results.npz (canonical DA3)
+
+s7_build_assets:                                  # env: cdc — build_og_scene_assets.py
+  rerun: true
+  scene_state: "${root_dir}/${scene_name}/s13_og/reconstructed_og_scene.json"
+  bg_splat_ply: "${s6_bridge.out_ply}"            # Sidecar auto-discovered at <bg_splat_ply>.pose.json
+  out_scene_dir: "${assets_dir}/${scene_name}"
+  out_state_name: "${scene_name}_scene_state_auto_bg.json"
+  skip_bg_splat: false                            # If true, skip PLY->USDZ + gs_background injection
+  symlink_assets: false                           # If true, symlink dataset object trees instead of copying
+
+# ===== final output =====
+# Final artifact written by step 7:
+#   ${assets_dir}/${scene_name}/${s7_build_assets.out_state_name}
+# Load this JSON in OmniGibson or the interactive scene editor.
