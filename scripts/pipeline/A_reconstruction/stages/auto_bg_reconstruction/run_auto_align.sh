@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 # Background-only add-on: adds a BG 3DGS splat to an EXISTING canonical reconstruction.
 #   -> assets/scenes/<scene>/<scene>_scene_state_auto_bg.json
 #

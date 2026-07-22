@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 
 FAISS_GPU_VERSION="${FAISS_GPU_VERSION:-1.12}"
 FAISS_GPU_TEMP_MEMORY="${FAISS_GPU_TEMP_MEMORY:-67108864}"

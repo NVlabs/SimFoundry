@@ -1,5 +1,8 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 """
-Taken from https://github.com/arhanjain/sim-evals/blob/main/src/inference/droid_jointpos.py
+Adapted from https://github.com/arhanjain/sim-evals/blob/main/src/inference/droid_jointpos.py
 """
 
 import numpy as np

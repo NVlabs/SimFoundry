@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 def assert_valid_key(key, valid_keys, name=None):
     """
     Helper function that asserts that @key is in dictionary @valid_keys keys. If not, it will raise an error.

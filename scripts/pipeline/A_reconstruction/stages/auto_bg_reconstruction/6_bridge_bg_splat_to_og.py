@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 """
 Compute the rigid transform from a DA3-trained splat's world frame to the OG
 world used by the main pipeline (stage 4), and emit it as a pose sidecar next

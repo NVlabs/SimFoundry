@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 """
 Chunked VOID Pass 2 (warped-noise refinement) for videos longer than the
 85-frame temporal window — canonical Pass 2 driver for auto-bg.

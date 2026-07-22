@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 #
 # install_everything.sh — build EVERY conda env the CDC real2sim + auto-BG pipeline needs,
 # end to end, with the RTX 5090 / sm_120 fixes baked in. Builds all 7 envs (cdc, hunyuan,

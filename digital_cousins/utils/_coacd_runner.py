@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 """
 Subprocess to run coacd to prevent the generate_collision_meshes() in asset_conversion_utils.py from crashing
 """

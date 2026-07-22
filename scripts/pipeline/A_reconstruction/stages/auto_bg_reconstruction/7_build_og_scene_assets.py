@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 """
 Materialise an `assets/scenes/<scene>/` directory in the nv_desk style from the
 outputs of stages 9-13 + the BG splat produced by the auto-bg pipeline.

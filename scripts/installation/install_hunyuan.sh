@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 
 # errexit + pipefail so a failed build/install ABORTS loudly instead of leaving a
 # silently-incomplete env. (No `-u`: conda/cuda-nvcc activate hooks reference unbound

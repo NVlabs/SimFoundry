@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 """
 Train splatfacto on the VOID-cleaned background sequence using DA3-supplied
 poses + intrinsics (no COLMAP). Exports the trained splat to a PLY in DA3's

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 """
 Source code originally from BEHAVIOR-1K repository (https://github.com/StanfordVL/BEHAVIOR-1K),
 slightly modified to be OmniGibson / IsaacSim agnostic
