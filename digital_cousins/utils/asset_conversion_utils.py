@@ -1,5 +1,14 @@
+# Copyright (c) 2023 Stanford Vision and Learning Group
+# Licensed under the MIT License. Full text in THIRD_PARTY_LICENSES.md.
+#
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+#
+# This file originates from OmniGibson within the BEHAVIOR-1K repository
+# (OmniGibson/omnigibson/utils/asset_conversion_utils.py), modified by NVIDIA to be
+# OmniGibson / Isaac Sim agnostic. NVIDIA modifications are licensed under Apache-2.0;
+# the adapted upstream portions remain subject to the MIT terms above, whose notice
+# MIT requires be retained.
 
 """
 Source code originally from BEHAVIOR-1K repository (https://github.com/StanfordVL/BEHAVIOR-1K),

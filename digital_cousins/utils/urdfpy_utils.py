@@ -1,5 +1,12 @@
+# Copyright (c) 2019 Matthew Matl
+# Licensed under the MIT License. Full text in THIRD_PARTY_LICENSES.md.
+#
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+#
+# This file is directly adapted from urdfpy (https://github.com/mmatl/urdfpy).
+# NVIDIA modifications are licensed under Apache-2.0; the adapted upstream portions
+# remain subject to the MIT terms above, whose notice MIT requires be retained.
 
 """
 Code directly adapted from https://github.com/mmatl/urdfpy

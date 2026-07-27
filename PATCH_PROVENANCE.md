@@ -1,6 +1,6 @@
 # Patch Provenance
 
-SimFoundry distributes nine patch files under [`patches/`](patches/). Each is a
+SimFoundry distributes eight patch files under [`patches/`](patches/). Each is a
 unified diff that an installation script applies to a third-party project after it
 is fetched into the ignored local `deps/` directory.
 
@@ -11,7 +11,7 @@ project it targets. That code remains under its upstream license — it is **not
 covered by SimFoundry's Apache 2.0 license, and a patch is not Apache-2.0 merely
 because NVIDIA authored the diff.
 
-Three of the nine carry fragments of source that is **not open source**:
+Three of the eight carry fragments of source that is **not open source**:
 
 | Patch | Upstream license of the carried source |
 |---|---|
@@ -30,7 +30,6 @@ each patch is recorded against the source it is actually applied to.
 | `Any6D.patch` | [taeyeopl/Any6D](https://github.com/taeyeopl/Any6D) | `80eb4866a1c96ecb18be18836aba4f4bd6e80e9e` | **Non-commercial / academic-only** | SimFoundry team | `install_any6d.sh` | ✅ clean |
 | `FoundationPose.patch` | [NVlabs/FoundationPose](https://github.com/NVlabs/FoundationPose) | `e3d597b8c6b851d053094ebd6fa240191c5238f8` | **NVIDIA Source Code License (non-commercial)** | SimFoundry team | `install_cdc.sh` | ✅ clean |
 | `Hunyuan3D-2.1.patch` | [Tencent-Hunyuan/Hunyuan3D-2.1](https://github.com/Tencent-Hunyuan/Hunyuan3D-2.1) | `82920d643c0dc2f7bfd7255f45f62d386edfe60c` | **Tencent Hunyuan 3D 2.1 Community License (non-OSS)** | SimFoundry team | `install_hunyuan.sh` | ✅ clean |
-| `lerobot.patch` | [huggingface/lerobot](https://github.com/huggingface/lerobot) | `577cd10974b84bea1f06b6472eb9e5e74e07f77a` | Apache-2.0 | SimFoundry team | ⚠️ **nothing** | ✅ clean |
 | `ml-depth-pro.patch` | [apple/ml-depth-pro](https://github.com/apple/ml-depth-pro) | `9efe5c1def37a26c5367a71df664b18e1306c708` | Apple Sample Code License | SimFoundry team | `install_cdc.sh` | ✅ clean |
 | `PriorDepthAnything.patch` | [SpatialVision/Prior-Depth-Anything](https://github.com/SpatialVision/Prior-Depth-Anything) | `8c029cbca669443fe0bbf8dcefb5f91ad531084d` | Apache-2.0 | SimFoundry team | `install_cdc.sh` | ✅ clean |
 | `splatfacto_depth_loss.patch` | [nerfstudio-project/nerfstudio](https://github.com/nerfstudio-project/nerfstudio) | `6b60855003011b2ca23c2fe3f8e2ca6314c69924` (tag `v1.1.5`) | Apache-2.0 | SimFoundry team | `install_nerfstudio.sh` | ✅ clean |
@@ -43,7 +42,7 @@ above and running:
 git -C <upstream-checkout> apply --check patches/<patch>
 ```
 
-All nine applied cleanly. Re-run this whenever a base commit is bumped.
+All eight applied cleanly (nine at the time of validation; `lerobot.patch` has since been removed). Re-run this whenever a base commit is bumped.
 
 ## Upstream source carried per patch
 
@@ -56,7 +55,6 @@ present in the patch file. "Added" lines are NVIDIA-authored.
 | `FoundationPose.patch` | 43 | 68 | **111** | 68 | 3 |
 | `PriorDepthAnything.patch` | 32 | 27 | **59** | 28 | 5 |
 | `Hunyuan3D-2.1.patch` | 22 | 3 | **25** | 10 | 3 |
-| `lerobot.patch` | 12 | 4 | **16** | 4 | 1 |
 | `splatfacto_depth_loss.patch` | 13 | 0 | **13** | 46 | 1 |
 | `ml-depth-pro.patch` | 9 | 2 | **11** | 2 | 1 |
 | `3dgrut.patch` | 6 | 1 | **7** | 4 | 1 |
@@ -93,15 +91,11 @@ present in the patch file. "Added" lines are NVIDIA-authored.
   `hy3dshape/hy3dshape/pipelines.py`
 - **Purpose**: Points the texture pipeline at the local `hunyuanpaintpbr` path and
   switches mesh simplification to quadric decimation with an explicit face-count target.
-- **Upstream NOTICE**: ⚠️ **`Notice.txt` (121 lines) exists at the base commit and is
-  not currently preserved by SimFoundry.** See open items below.
-
-### `lerobot.patch`
-- **Target**: `pyproject.toml`
-- **Purpose**: Relaxes `datasets` and `torch` dependency bounds.
-- **Status**: ⚠️ **No installation script applies this patch.** `install_cdc.sh`
-  installs LeRobot directly from a pinned commit via pip. See open items below.
-- **Upstream NOTICE**: none at base commit.
+- **Upstream NOTICE**: `Notice.txt` (121 lines) exists at the base commit and **is
+  preserved verbatim** at
+  [`third_party_notices/Hunyuan3D-2.1-NOTICE.txt`](third_party_notices/Hunyuan3D-2.1-NOTICE.txt)
+  (SHA-256 `ffccf6b5…0350`), referenced from
+  [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ### `ml-depth-pro.patch`
 - **Target**: `pyproject.toml`
@@ -134,16 +128,7 @@ present in the patch file. "Added" lines are NVIDIA-authored.
 
 ## Open items
 
-1. **Hunyuan3D-2.1 `Notice.txt` is not preserved.** The upstream ships a 121-line
-   `Notice.txt` at the pinned base commit. Determine whether the Tencent Hunyuan 3D 2.1
-   Community License obliges SimFoundry to carry that notice given it distributes a
-   patch against that source, and reproduce it if so.
-
-2. **`lerobot.patch` is unreferenced.** Nothing applies it. It redistributes 16 lines
-   of upstream source for no functional benefit. Remove it, or document why it is
-   retained.
-
-3. **Distribution rights for the three restricted patches.** Confirm that the Any6D
+1. **Distribution rights for the three restricted patches.** Confirm that the Any6D
    academic-only license, the NVIDIA Source Code License (FoundationPose), and the
    Tencent Hunyuan 3D 2.1 Community License each permit NVIDIA to redistribute the
    source fragments carried in the corresponding patch files. If any does not, that

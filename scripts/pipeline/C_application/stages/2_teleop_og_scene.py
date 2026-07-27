@@ -415,7 +415,7 @@ def main(cfg):
 
     # Load IK controller to control robots
     arm_teleop_method = cfg.s14_teleop.device #choose_from_options(options=TELEOP_METHOD, name="robot arm teleop method")
-    assert arm_teleop_method in ["spacemouse", "oculus"], "Must use spacemouse or oculus for teleop! (TODO: Support for JoyLo)"
+    assert arm_teleop_method in ["spacemouse", "oculus"], "Must use spacemouse or oculus for teleop!"
     for r in env.robots:
         if isinstance(r, Yam):
             open_qpos = [-0.045, 0.045]

@@ -2,6 +2,7 @@
 /reports
 /checkpoints
 .cache/
+/cache
 /data
 /assets
 /Data

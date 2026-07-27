@@ -1,5 +1,10 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+#
+# Portions of this file (the abstract robot interface) are adapted from MolmoSpaces
+# (https://github.com/allenai/molmospaces), Copyright 2026 Allen Institute for AI,
+# licensed under the Apache License, Version 2.0.
+# Modifications Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES.
 
 """
 Utilities for generating demonstration data from object-centric waypoints.

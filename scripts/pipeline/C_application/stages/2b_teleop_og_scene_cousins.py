@@ -382,7 +382,7 @@ def main(cfg):
     from omnigibson.utils.teleop_utils import TeleopSystem
 
     arm_teleop_method = cfg.s14_teleop.device #choose_from_options(options=TELEOP_METHOD, name="robot arm teleop method")
-    assert arm_teleop_method == "spacemouse", "Must use spacemouse for teleop! (TODO: Support for JoyLo)"
+    assert arm_teleop_method == "spacemouse", "Must use spacemouse for teleop!"
 
     if isinstance(robot, (LocomotionRobot, MobileManipulationRobot)):
         base_teleop_method = choose_from_options(options=TELEOP_METHOD, name="robot base teleop method")

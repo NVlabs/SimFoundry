@@ -1,5 +1,9 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+#
+# Portions of this file are adapted from 3dgrut (https://github.com/nv-tlabs/3dgrut)
+# at commit a37ef721012dea0f29c0fcfff2d525023b4e854a, Copyright (c) NVIDIA CORPORATION
+# & AFFILIATES, licensed under the Apache License, Version 2.0.
 
 """
 Standalone 3DGS PLY → USDZ converter for Isaac Sim / OmniGibson.

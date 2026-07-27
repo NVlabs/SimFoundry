@@ -2,7 +2,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-
 # Error handling: Exit and print the offending line and error message on failure
 error_handler() {
     local exit_code=$?
@@ -35,7 +34,6 @@ project_root="$(cd "$SCRIPT_DIR/../.." && pwd)"
 env_name="cdc"
 DEFAULT=false
 CUDA_VERSION="12.8"
-INSTALL_JOYLO=false
 INSTALL_TRELLIS=false
 INSTALL_ZED=false
 CUDA_ARCH_LIST=""
@@ -48,7 +46,6 @@ while [[ $# -gt 0 ]]; do
         --env-name) env_name="$2"; shift 2 ;;
         --default) DEFAULT=true; shift ;;
         --cuda-version) CUDA_VERSION="$2"; shift 2 ;;
-        --joylo) INSTALL_JOYLO=true; shift ;;
         --trellis) INSTALL_TRELLIS=true; shift ;;
         --zed) INSTALL_ZED=true; shift ;;
         --cuda-arch-list) CUDA_ARCH_LIST="$2"; shift 2 ;;
@@ -188,7 +185,6 @@ echo "Installed DINOv2"
 cd ..
 
 echo "Now in: $(pwd)"
-
 
 # Step 2.6: Install CLIP
 echo "Installing CLIP"
@@ -457,23 +453,6 @@ pip install -e packages/openpi-client/ > /dev/null
 echo "Installed OpenPI client"
 cd .. # back to deps directory
 
-# Step 2.17: Install JoyLo (optional)
-if [[ ${INSTALL_JOYLO} == true ]]; then
-  echo "Installing JoyLo..."
-  cd $PROJECT_ROOT/deps/BEHAVIOR-1K/joylo
-  # install deps manually
-  pip install --no-deps mediapipe==0.10.21
-  # TeleMoMa is deliberately NOT installed here: it ships no license file and is
-  # therefore all-rights-reserved. SimFoundry does not install or distribute it.
-  # If you have established your own right to use it, install it yourself with:
-  #     pip install --no-deps telemoma==0.3.0
-  # The teleop stages import it lazily and raise an actionable error if absent.
-  pip install pyspacemouse pynput hid
-  pip install --no-deps -e . > /dev/null
-  echo "Installed JoyLo"
-  cd $PROJECT_ROOT/deps
-fi
-
 # step 2.17: install LeRobot
 mamba install --freeze-installed ffmpeg=7.1.1 -c conda-forge -y
 pip install --no-deps lerobot@git+https://github.com/huggingface/lerobot.git@577cd10974b84bea1f06b6472eb9e5e74e07f77a
@@ -487,7 +466,6 @@ pip install \
   pynput \
   pyserial \
   "rerun-sdk>=0.21.0,<0.23.0"
-
 
 # Finally, misc dependencies
 pip install zmq

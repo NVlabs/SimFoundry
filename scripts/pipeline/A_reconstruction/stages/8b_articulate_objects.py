@@ -32,32 +32,9 @@ os.chdir(cfg_dir)
 ARTICULATE_SIMFOUNDRY_PATH = os.path.abspath("../../deps/articulate-anything/simfoundry")
 
 CONDA_ENVS = {
-    "samesh": "articulate-anything-samesh",
     "hunyuan": "articulate-anything-hunyuan",
     "partfield": "articulate-anything-partfield",
 }
-
-# samesh is published upstream without a license, so it is never installed by the
-# default installation path. Selecting it requires the same explicit opt-in used by
-# scripts/installation/install_articulate.sh --enable-samesh.
-OPT_IN_BACKENDS = {"samesh": "SIMFOUNDRY_ENABLE_SAMESH"}
-
-
-def check_backend_opt_in(method: str) -> None:
-    """Raise an actionable error if `method` is a restricted backend without opt-in."""
-    env_var = OPT_IN_BACKENDS.get(method)
-    if env_var is None or os.environ.get(env_var) == "1":
-        return
-    raise RuntimeError(
-        f"Articulation backend '{method}' is not enabled.\n\n"
-        f"samesh (https://github.com/gtangg12/samesh) is published without a license, so\n"
-        f"SimFoundry does not install or distribute it and grants no rights to it. If you\n"
-        f"have separately established your own right to use samesh, install it with:\n"
-        f"    bash scripts/installation/install_articulate.sh --enable-samesh\n"
-        f"and re-run with {env_var}=1.\n\n"
-        f"Otherwise select a different backend, e.g. 'method: hunyuan' or 'method: partfield'\n"
-        f"in your scripts/cfg/*.yaml. See THIRD_PARTY_LICENSES.md and INSTALL.md."
-    )
 
 def _normalize_name(name: str) -> str:
     return " ".join(str(name).replace("_", " ").replace("/", " ").lower().split())
@@ -399,7 +376,6 @@ def main(cfg):
 
     # Load and configure articulation config
     method = cfg.s8b_articulate_objects.get("method", "hunyuan")
-    check_backend_opt_in(method)
     template_path = f"{ARTICULATE_SIMFOUNDRY_PATH}/cfg/{method}_template.yaml"
     
     if not os.path.exists(template_path):

@@ -237,7 +237,7 @@ s8b_articulate_objects:
   out_dir: "${root_dir}/${scene_name}/${s8b_articulate_objects.out_dirname}"
   vlm_model: gemini-2.5-pro
   vlm_backend: vertex                 # [vertex] — routes all articulation VLM calls (classifier + s2/s4/s5) through Vertex AI Gemini using gcloud_project
-  method: hunyuan # or partfield; samesh is opt-in only (unlicensed upstream, see INSTALL.md)
+  method: hunyuan # or partfield
   tree_model: gemini-2.5-flash       # articulate-anything s2 VLM model
   merge_model: gemini-2.5-pro        # articulate-anything s4 VLM model; gemini-3-pro-preview is not available in all projects
   s5_model: gemini-2.5-pro           # articulate-anything joint-refinement VLM model

@@ -27,10 +27,26 @@ listed individually. Full details — license links and copyright holders — ar
 the ignored local `deps/` directory during installation, or installed from PyPI, and
 remain governed by their upstream terms.
 
-The one exception is [`patches/`](patches/): nine unified diffs applied to third-party
+The one exception is [`patches/`](patches/): eight unified diffs applied to third-party
 projects at install time, each carrying fragments of upstream source in its context
 and removed lines. Those fragments remain under their upstream licenses. See
 [PATCH_PROVENANCE.md](PATCH_PROVENANCE.md).
+
+
+## Preserved upstream notices
+
+Where an upstream project ships its own notice file and SimFoundry distributes a patch
+against that project's source, the upstream notice is reproduced verbatim under
+[`third_party_notices/`](third_party_notices/).
+
+| Upstream | Reviewed commit | Preserved as |
+|---|---|---|
+| Hunyuan3D-2.1 | `82920d643c0dc2f7bfd7255f45f62d386edfe60c` | [`third_party_notices/Hunyuan3D-2.1-NOTICE.txt`](third_party_notices/Hunyuan3D-2.1-NOTICE.txt) |
+
+The preserved file is byte-identical to the upstream original (SHA-256
+`ffccf6b539a82e6084d14ff064dadd22d33384d6164b07c0c5a3141810df0350`) and must not be
+edited. No other upstream patched by SimFoundry ships a notice file at its pinned
+base commit.
 
 
 ## Upstream project SimFoundry is derived from
@@ -44,7 +60,6 @@ and removed lines. Those fragments remain under their upstream licenses. See
 
 - OmniGibson — BEHAVIOR-1K (MIT)
 - BDDL — BEHAVIOR Domain Definition Language (MIT)
-- JoyLo / GELLO teleop (MIT)
 - DINOv2 (Apache-2.0) — model-weight add-ons carry non-commercial licenses
 - SAM 3 — Segment Anything Model 3 (SAM License, Meta — non-OSS)
 - Depth-Anything-3 (Apache-2.0)
@@ -55,8 +70,6 @@ and removed lines. Those fragments remain under their upstream licenses. See
 - Hunyuan3D-2.1 (Tencent Hunyuan 3D 2.1 Community License — non-OSS)
 - articulate-anything (MIT) —
   - CoTracker — Meta (CC-BY-NC-4.0)
-  - samesh — Segment Any Mesh (no license provided by upstream; opt-in only, never
-    fetched by the default installation)
   - PartField — NVIDIA License, non-commercial (NVIDIA-origin)
   - Hunyuan3D-Part, incl. P3-SAM & X-Part — Tencent Hunyuan 3D-Part Community License (non-OSS)
   - Renderers: pyrender (MIT, default); Blender (GPL-2.0-or-later) optional — downloaded from

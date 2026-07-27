@@ -10,7 +10,7 @@ license does not apply to those materials**.
 the ignored local `deps/` directory during installation, or installed from PyPI, and
 remain governed by their upstream terms.
 
-There is one exception. The nine patch files under [`patches/`](patches/) are unified
+There is one exception. The eight patch files under [`patches/`](patches/) are unified
 diffs applied to third-party projects at install time, and a unified diff carries
 upstream code in its context and removed lines. Those fragments remain under their
 upstream licenses — three of them are non-OSS or non-commercial. Per-patch upstream,
@@ -46,13 +46,25 @@ unlike everything else in this document.
 |-----|-----------|---------|-----------|--------------|
 | 0 | ACDC / digital-cousins (upstream of SimFoundry) | Apache-2.0 | Copyright (c) 2024 the ACDC authors (Stanford Vision and Learning Lab) | https://github.com/cremebrule/digital-cousins/blob/5a6d120fa1e3808779cfdf887b2169cbe73c3678/LICENSE |
 
+### 0a. Additional adapted sources
+
+Individual files adapted from other projects. Each carries an attribution note in its
+header. Where the upstream declares a copyright holder, that notice is reproduced;
+where it declares none, none is invented.
+
+| No. | Component | Adapted into | License | Copyright | License Link |
+|-----|-----------|--------------|---------|-----------|--------------|
+| 0a | urdfpy | `digital_cousins/utils/urdfpy_utils.py` | **MIT** | Copyright (c) 2019 Matthew Matl | https://github.com/mmatl/urdfpy/blob/5466842899b33bd549e8f9e2a9a987bd5e37373b/LICENSE |
+| 0b | MolmoSpaces | `digital_cousins/utils/data_gen_utils.py` | Apache-2.0 | Copyright 2026 Allen Institute for AI | https://github.com/allenai/molmospaces/blob/c2f1b583f087e1d3994e1377574843b759d9d0f8/LICENSE |
+| 0c | 3DGRUT | `scripts/pipeline/A_reconstruction/stages/ply_to_usdz.py` | Apache-2.0 | Copyright (c) NVIDIA CORPORATION & AFFILIATES | https://github.com/nv-tlabs/3dgrut/blob/a37ef721012dea0f29c0fcfff2d525023b4e854a/LICENSE |
+| 0d | OmniGibson (BEHAVIOR-1K) | `digital_cousins/utils/asset_conversion_utils.py` | **MIT** | Copyright (c) 2023 Stanford Vision and Learning Group | https://github.com/StanfordVL/BEHAVIOR-1K/blob/d89aae4e0e9a1de3cf8285cb9669c11d8c8bb864/OmniGibson/LICENSE |
+
 ## 1. Third-party projects fetched into `deps/` at install time (not distributed)
 
 | No. | Component | License | Copyright | License Link |
 |-----|-----------|---------|-----------|--------------|
-| 1 | OmniGibson (BEHAVIOR-1K) | MIT | Copyright (c) 2023 Stanford Vision and Learning Group | https://github.com/StanfordVL/OmniGibson/blob/main/LICENSE |
+| 1 | OmniGibson (BEHAVIOR-1K) | MIT | Copyright (c) 2023 Stanford Vision and Learning Group | https://github.com/StanfordVL/BEHAVIOR-1K/blob/d89aae4e0e9a1de3cf8285cb9669c11d8c8bb864/OmniGibson/LICENSE |
 | 2 | BDDL — BEHAVIOR Domain Definition Language | MIT | Copyright (c) 2021 Stanford Vision and Learning Lab | https://github.com/StanfordVL/bddl/blob/master/LICENSE |
-| 3 | JoyLo / GELLO teleop | MIT | Copyright (c) 2023 Philipp Wu | https://github.com/wuphilipp/gello/blob/main/LICENSE |
 | 4 | DINOv2 | Apache-2.0 (code) | Copyright (c) Meta Platforms, Inc. and affiliates | https://github.com/facebookresearch/dinov2/blob/7764ea0f912e53c92e82eb78a2a1631e92725fc8/LICENSE |
 | 5 | SAM 3 — Segment Anything Model 3 | SAM License (Meta, custom — source-available, **non-OSS**) | Copyright Meta Platforms, Inc. and affiliates | https://github.com/facebookresearch/sam3/blob/46957e47805eaa273f4aa7bbbd25a88bca9108ce/LICENSE |
 | 6 | Depth-Anything-3 | Apache-2.0 | Copyright 2025 The Depth Anything 3 Team (ByteDance) | https://github.com/ByteDance-Seed/Depth-Anything-3/blob/3d835ec1a5802d64a8b8b15f817a1ab54809bfe4/LICENSE |
@@ -72,7 +84,6 @@ articulate-anything itself (item 12) is MIT, but the articulation feature
 | No. | Component | License | Copyright | License Link |
 |-----|-----------|---------|-----------|--------------|
 | 12a | CoTracker | **CC-BY-NC-4.0** (Attribution-NonCommercial) | Copyright (c) Meta Platforms, Inc. and affiliates | https://github.com/facebookresearch/co-tracker/blob/main/LICENSE.md |
-| 12b | samesh (Segment Any Mesh) | **No license provided** — **opt-in only**, never installed by default (`--enable-samesh`) | Copyright samesh authors (gtangg12) — no license granted | https://github.com/gtangg12/samesh |
 | 12c | PartField (NVIDIA-origin) | NVIDIA License (**non-commercial** for third parties) | Copyright (c) NVIDIA Corporation & affiliates | https://github.com/nv-tlabs/PartField/blob/main/LICENSE |
 | 12d | Hunyuan3D-Part — incl. P3-SAM, X-Part | Tencent Hunyuan 3D-Part Community License (**non-OSS**) | Copyright (C) 2025 Tencent | https://github.com/Tencent-Hunyuan/Hunyuan3D-Part/blob/main/LICENSE |
 
@@ -150,7 +161,7 @@ articulate-anything itself (item 12) is MIT, but the articulation feature
 ## 4. Optional teleoperation / capture dependencies
 
 Installed only for teleop / ZED-capture workflows (`requirements_teleop.txt`,
-`--zed`, `--joylo`).
+`--zed`).
 
 | No. | Component | License | Copyright | License Link |
 |-----|-----------|---------|-----------|--------------|
@@ -208,7 +219,6 @@ below, to their model weights, or to any dataset or SDK they require.
 | VOID / CogVideoX weights | Required (`void`) | `git fetch` — `install_void.sh` | `e3914f8f…` | Apache-2.0 (code) | **CogVideoX License**, gated HF | Weights are **not** Apache-2.0; HF login required |
 | OpenPI / Gemma weights | Optional (`openpi`) | `git clone` — `install_openpi.sh` | `15a9616a…` | Apache-2.0 (client) | **Gemma Terms of Use** | Weights governed by Gemma Terms |
 | CoTracker | Optional (`articulate`) | Fetched by articulate-anything | <!-- TODO(SimFoundry) --> unpinned | **CC-BY-NC-4.0** | Same | **Non-commercial** |
-| samesh | **Opt-in only** (`--enable-samesh`) | `git clone` by articulate-anything | <!-- TODO(SimFoundry) --> unpinned | **No license provided** | SAM2 checkpoint (Apache-2.0) | **No rights granted by upstream.** Never fetched by a default install |
 | TeleMoMa | **User-supplied** | Not installed by SimFoundry | User's choice (`0.3.0` known-good) | **No license file — all rights reserved** | n/a | **No rights granted by upstream.** Not installed, distributed, or mirrored |
 | TRELLIS.2 | Optional (`--trellis`) | `git clone` — `install_cdc.sh` | `75fbf018…` | MIT | n/a | None |
 | pyzed / ZED SDK | Optional (`--zed`) | User installs the ZED SDK | User's SDK version | MIT (bindings) | n/a | **Proprietary ZED SDK** required at runtime, under Stereolabs terms |
@@ -220,12 +230,12 @@ below, to their model weights, or to any dataset or SDK they require.
 - **Non-commercial components** — Any6D, FoundationPose, FoundationStereo, nvdiffrast,
   PartField, and CoTracker restrict use to non-commercial or research purposes.
   Commercial use requires separate licensing from each upstream.
-- **No-license components** — samesh and TeleMoMa grant no rights at all. Establish
-  your own basis for using them, or use neither.
-  <!-- TODO(SimFoundry): OSRB/Legal determination outstanding. -->
+- **No-license component** — TeleMoMa grants no rights at all. SimFoundry does not
+  install, distribute, or mirror it; establish your own basis for using it, or do not
+  use the teleoperation workflow.
 - **Unpinned articulation backends** — the components fetched by articulate-anything
   are not yet pinned to immutable revisions.
-  <!-- TODO(SimFoundry): pin and record SHAs for CoTracker, PartField, Hunyuan3D-Part, samesh. -->
+  <!-- TODO(SimFoundry): pin and record SHAs for CoTracker, PartField, Hunyuan3D-Part. -->
 - **Unversioned model weights** — the FoundationPose and FoundationStereo checkpoints
   are pulled from Google Drive folders with no version or checksum.
   <!-- TODO(SimFoundry): record model revision and checksum for each. -->
