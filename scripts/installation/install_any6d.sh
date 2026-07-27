@@ -108,8 +108,11 @@ fi
 cd deps
 
 # Step 4.3: clone Any6D
+# TODO(SimFoundry): confirm this SHA matches a tested build before release (pinned 2026-07-27).
+ANY6D_COMMIT="${ANY6D_COMMIT:-80eb4866a1c96ecb18be18836aba4f4bd6e80e9e}"
 if [ ! -d "Any6D" ]; then
   git clone https://github.com/taeyeopl/Any6D.git
+  git -C Any6D checkout --detach "${ANY6D_COMMIT}"
   cd Any6D
   git apply ../../patches/Any6D.patch
   cd ..
@@ -164,7 +167,8 @@ export CPLUS_INCLUDE_PATH=$CONDA_PREFIX/include/eigen3:$CPLUS_INCLUDE_PATH
 pip install -r requirements.txt
 
 # Step 4.8: Install NVDiffRast 
-pip install --quiet --no-cache-dir --no-build-isolation git+https://github.com/NVlabs/nvdiffrast.git
+# TODO(SimFoundry): confirm this SHA matches a tested build before release (pinned 2026-07-27).
+pip install --quiet --no-cache-dir --no-build-isolation git+https://github.com/NVlabs/nvdiffrast.git@253ac4fcea7de5f396371124af597e6cc957bfae
 
 # Step 4.9: Install Kaolin
 pip install --no-cache-dir --quiet kaolin==0.18.0 -f https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.7.0_cu128.html 

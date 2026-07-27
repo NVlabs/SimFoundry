@@ -502,7 +502,18 @@ def main(cfg):
     env.is_recording = cfg.s14_teleop.save_data
 
     # Create a teleop system
-    from telemoma.configs.base_config import teleop_config
+    try:
+        from telemoma.configs.base_config import teleop_config
+    except ImportError as e:
+        raise ImportError(
+            "TeleMoMa is required for teleoperation but is not installed.\n\n"
+            "TeleMoMa (https://github.com/UT-Austin-RobIn/telemoma) ships no license file\n"
+            "and is therefore all-rights-reserved. SimFoundry does not install, distribute,\n"
+            "or mirror it, and grants no rights to it.\n\n"
+            "If you have established your own right to use TeleMoMa, install it separately:\n"
+            "    pip install --no-deps telemoma==0.3.0\n\n"
+            "See THIRD_PARTY_LICENSES.md and INSTALL.md."
+        ) from e
     from omnigibson.utils.teleop_utils import TeleopSystem
 
     if isinstance(robot, (LocomotionRobot, MobileManipulationRobot)):

@@ -16,14 +16,31 @@ limitations under the License.
 
 ---
 
-SimFoundry incorporates, installs, or depends on the third-party components
-listed below. Each component remains licensed under its own terms and copyright.
-Transitive dependencies (libraries required only because one of these components
-needs them) are not listed individually. Full details — license links and
-copyright holders — are in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
+SimFoundry installs, downloads, or depends on the third-party components listed
+below. Each component remains licensed under its own terms and copyright, and
+SimFoundry's Apache 2.0 license does not apply to them. Transitive dependencies
+(libraries required only because one of these components needs them) are not
+listed individually. Full details — license links and copyright holders — are in
+[THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
+
+**Third-party projects are not vendored in this repository.** They are fetched into
+the ignored local `deps/` directory during installation, or installed from PyPI, and
+remain governed by their upstream terms.
+
+The one exception is [`patches/`](patches/): nine unified diffs applied to third-party
+projects at install time, each carrying fragments of upstream source in its context
+and removed lines. Those fragments remain under their upstream licenses. See
+[PATCH_PROVENANCE.md](PATCH_PROVENANCE.md).
 
 
-## Bundled third-party projects (source vendored under `deps/`)
+## Upstream project SimFoundry is derived from
+
+- ACDC / digital-cousins (Apache-2.0) — Copyright (c) 2024 the ACDC authors
+  (Stanford Vision and Learning Lab). Portions of `digital_cousins/` are derived
+  from this project; derived files carry an attribution note in their header.
+
+
+## Third-party projects fetched into `deps/` at install time (not distributed)
 
 - OmniGibson — BEHAVIOR-1K (MIT)
 - BDDL — BEHAVIOR Domain Definition Language (MIT)
@@ -38,7 +55,8 @@ copyright holders — are in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
 - Hunyuan3D-2.1 (Tencent Hunyuan 3D 2.1 Community License — non-OSS)
 - articulate-anything (MIT) —
   - CoTracker — Meta (CC-BY-NC-4.0)
-  - samesh — Segment Any Mesh (no license provided by upstream)
+  - samesh — Segment Any Mesh (no license provided by upstream; opt-in only, never
+    fetched by the default installation)
   - PartField — NVIDIA License, non-commercial (NVIDIA-origin)
   - Hunyuan3D-Part, incl. P3-SAM & X-Part — Tencent Hunyuan 3D-Part Community License (non-OSS)
   - Renderers: pyrender (MIT, default); Blender (GPL-2.0-or-later) optional — downloaded from
@@ -113,15 +131,18 @@ copyright holders — are in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
 ## Optional teleoperation / capture dependencies
 
 - pyzed — ZED SDK Python API (MIT bindings; proprietary ZED SDK)
-- TeleMoMa (no license file — all rights reserved)
+- TeleMoMa (no license file — all rights reserved; not installed by SimFoundry,
+  user-supplied only)
 - MediaPipe (Apache-2.0)
 - pyspacemouse (MIT)
 - hidapi / cython-hidapi (BSD-3-Clause / GPL-3.0)
 
-## NVIDIA-origin bundled components (for completeness — not third-party)
+## NVIDIA-origin components (for completeness — not third-party)
 
-These come from NVIDIA and are not third-party, but several are under the
-**NVIDIA Source Code License (non-commercial)**, not SimFoundry's Apache-2.0:
+These come from NVIDIA and are not third-party. Like everything else in this
+document they are fetched or installed at build time, not distributed in this
+repository. Several are under the **NVIDIA Source Code License
+(non-commercial)**, not SimFoundry's Apache-2.0:
 
 - 3DGRUT — 3D Gaussian Ray Tracing (Apache-2.0)
 - FoundationPose (NVIDIA Source Code License — non-commercial)

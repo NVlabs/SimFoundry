@@ -183,15 +183,24 @@ bash scripts/installation/install_articulate.sh --default
 ```
 
 It clones the SimFoundry articulate-anything fork from public GitHub and builds one
-conda environment per segmentation backend: `articulate-anything-{samesh,hunyuan,partfield}`.
+conda environment per enabled segmentation backend: `articulate-anything-{hunyuan,partfield}`
+by default.
+
+> **The `samesh` backend is opt-in and is not installed by default.**
+> [samesh](https://github.com/gtangg12/samesh) is published upstream **without a
+> license**.  If you would like to use samesh, opt in with
+> `bash scripts/installation/install_articulate.sh --enable-samesh` (or
+> `SIMFOUNDRY_ENABLE_SAMESH=1`), and set `SIMFOUNDRY_ENABLE_SAMESH=1` at run time to
+> select `method: samesh`. Otherwise use `method: hunyuan` or `method: partfield`.
 
 Requirements specific to articulation:
 
 - **Source** — the fork is cloned from
   [`nadunRanawaka1/articulate-anything-sf`](https://github.com/nadunRanawaka1/articulate-anything-sf)
   (branch `oss_release`); override `ARTICULATE_ANYTHING_REPO` / `ARTICULATE_ANYTHING_BRANCH` to use a
-  mirror. The segmentation backends (`Hunyuan3D-Part`, `samesh`, `PartField`) are fetched from their
-  public upstreams and patched at install time (see `deps/articulate-anything/patches/`).
+  mirror. The default segmentation backends (`Hunyuan3D-Part`, `PartField`) are fetched from their
+  public upstreams and patched at install time (see `deps/articulate-anything/patches/`). `samesh`
+  is fetched only when explicitly enabled — see the opt-in note above.
 - **Git LFS** — the repos store large assets (embeddings, meshes) in Git LFS. The install
   script installs `git-lfs` automatically, but it must be present before cloning.
 - **CUDA 12.8** at `/usr/local/cuda-12.8` (flash-attn / spconv build against it).
@@ -203,11 +212,49 @@ Optional environment overrides (repo-relative defaults are used if unset):
 | Variable | Purpose | Default |
 |---|---|---|
 | `GCLOUD_PROJECT` | GCP project for the Vertex AI (Gemini) VLM calls. | unset (set it, or `gcloud_project` in the config) |
-| `SAM2_CHECKPOINT` | Path to `sam2_hiera_large.pt` (samesh backend). | `deps/samesh/third_party/segment-anything-2/checkpoints/sam2_hiera_large.pt` |
-| `SAMESH_CACHE` | samesh segmentation cache directory. | `deps/samesh/outputs/mesh_segmentation_cache` |
+| `SIMFOUNDRY_ENABLE_SAMESH` | Opt in to the unlicensed samesh backend (install and run time). | unset (samesh disabled) |
+| `SAM2_CHECKPOINT` | Path to `sam2_hiera_large.pt` (**samesh backend, opt-in only**). | `deps/samesh/third_party/segment-anything-2/checkpoints/sam2_hiera_large.pt` |
+| `SAMESH_CACHE` | samesh segmentation cache directory (**opt-in only**). | `deps/samesh/outputs/mesh_segmentation_cache` |
 
 P3-SAM weights auto-download on first use; SAM2 and PartField checkpoints are fetched by the
 install script.
+
+## Teleoperation Dependencies
+
+Teleoperation (`scripts/pipeline/C_application` stages 2 / 2b, and the JoyLo install
+path) additionally requires **TeleMoMa**, which SimFoundry does **not** install.
+
+[TeleMoMa](https://github.com/UT-Austin-RobIn/telemoma) ships no license file and is
+therefore all-rights-reserved. SimFoundry does not install, distribute, mirror, or
+cache it, and grants no rights to it. The teleop stages import it lazily and raise an
+actionable error if it is absent.
+
+If you have separately established your own right to use TeleMoMa, install it yourself:
+
+```bash
+pip install --no-deps telemoma==0.3.0
+```
+
+The remaining teleop dependencies are installed normally from `requirements_teleop.txt`.
+
+## Optional Component Boundaries
+
+SimFoundry's own source code is Apache 2.0. Several optional components it can fetch
+are **not** — they are non-commercial, research-only, source-available, or unlicensed,
+and their model weights frequently carry terms separate from their source code. None of
+them are distributed in this repository or its release artifacts.
+
+Components requiring your own review before use include SAM 3, Any6D, Hunyuan3D-2.1,
+Hunyuan3D-Part, PartField, FoundationPose, FoundationStereo, nvdiffrast, cuRobo,
+Depth Pro, VOID/CogVideoX weights, OpenPI/Gemma weights, CoTracker (CC-BY-NC-4.0),
+samesh (unlicensed, opt-in) and TeleMoMa (all-rights-reserved, user-supplied).
+
+For each of these, the **component disclosure matrix** in
+[THIRD_PARTY_LICENSES.md §6](THIRD_PARTY_LICENSES.md#6-component-disclosure-matrix--restricted-and-optional-components)
+records whether it is required or optional, how it is acquired, the exact pinned
+version, the separate terms covering its source and its model weights, and the
+restriction that applies. Sections 1–5 of the same file give the per-component
+license, copyright holder, and license link.
 
 ## Notes
 

@@ -1,4 +1,15 @@
-telemoma; platform_machine!='aarch64'
+# NOTE: TeleMoMa is intentionally NOT listed here.
+#
+# TeleMoMa (https://github.com/UT-Austin-RobIn/telemoma) ships no license file and
+# is therefore all-rights-reserved. SimFoundry does not install, distribute, mirror,
+# or cache it. The teleoperation stages import it lazily and raise an actionable
+# error if it is absent.
+#
+# If you have established your own right to use TeleMoMa, install it separately:
+#     pip install --no-deps telemoma==0.3.0
+#
+# See THIRD_PARTY_LICENSES.md and INSTALL.md.
+
 mediapipe<=0.10.9
 pyspacemouse
 hidapi

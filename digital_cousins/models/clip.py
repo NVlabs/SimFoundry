@@ -1,5 +1,10 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+#
+# This file is derived from the ACDC / digital-cousins project
+# (https://github.com/cremebrule/digital-cousins), Copyright (c) 2024 the ACDC authors,
+# licensed under the Apache License, Version 2.0.
+# Modifications Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES.
 
 import numpy as np
 import torch

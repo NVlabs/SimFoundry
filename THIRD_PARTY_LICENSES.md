@@ -1,36 +1,68 @@
 # Third-Party Licenses
 
-SimFoundry is released by NVIDIA under the [Apache License 2.0](LICENSE). It
-bundles, installs, or depends on the third-party components listed below. Each
-component remains under its own license and copyright; nothing in this file
-changes those terms.
+NVIDIA-owned SimFoundry source code is released under the
+[Apache License 2.0](LICENSE). SimFoundry installs, downloads, or depends on the
+third-party components listed below. Each component remains under its own license
+and copyright; nothing in this file changes those terms, and **the Apache 2.0
+license does not apply to those materials**.
+
+**Third-party projects are not vendored in this repository.** They are fetched into
+the ignored local `deps/` directory during installation, or installed from PyPI, and
+remain governed by their upstream terms.
+
+There is one exception. The nine patch files under [`patches/`](patches/) are unified
+diffs applied to third-party projects at install time, and a unified diff carries
+upstream code in its context and removed lines. Those fragments remain under their
+upstream licenses — three of them are non-OSS or non-commercial. Per-patch upstream,
+base commit, license, and validation status are recorded in
+[PATCH_PROVENANCE.md](PATCH_PROVENANCE.md).
 
 Scope and method:
 - The lists cover components **SimFoundry uses directly** — either its own code
-  (`digital_cousins/`, `scripts/`) imports/invokes them, they are vendored under
-  `deps/`, or they are declared in the project's own `requirements*.txt` /
-  installation scripts.
-- Licenses were read from each vendored `deps/<project>/LICENSE` where present
-  and reconciled against the authoritative upstream repository.
+  (`digital_cousins/`, `scripts/`) imports/invokes them, they are fetched into
+  `deps/` by an installation script, or they are declared in the project's own
+  `requirements*.txt` / installation scripts.
+- Licenses were reconciled against the authoritative upstream repository for each
+  project.
+- Several components are **non-commercial, research-only, or otherwise
+  restricted**, and several model weights carry terms separate from their source
+  code. See [INSTALL.md](INSTALL.md) for the optional-component boundaries.
+- **License links.** Every component that SimFoundry fetches at a pinned commit
+  links to its license **at that exact commit** (an immutable `/blob/<sha>/` URL),
+  so the link always shows the terms that actually apply to the code installed.
+  Components installed from PyPI by version link to the project's license on its
+  default branch: no single commit applies, and the governing terms are those of
+  the version resolved by `requirements*.txt` at install time.
 ---
 
-## 1. Bundled third-party projects (source vendored under `deps/`)
+## 0. Upstream project SimFoundry is derived from
+
+Portions of SimFoundry's `digital_cousins/` package are derived from the ACDC /
+digital-cousins project. Derived files carry an attribution note in their header.
+This source **is** present in the SimFoundry repository (as modified NVIDIA code),
+unlike everything else in this document.
+
+| No. | Component | License | Copyright | License Link |
+|-----|-----------|---------|-----------|--------------|
+| 0 | ACDC / digital-cousins (upstream of SimFoundry) | Apache-2.0 | Copyright (c) 2024 the ACDC authors (Stanford Vision and Learning Lab) | https://github.com/cremebrule/digital-cousins/blob/5a6d120fa1e3808779cfdf887b2169cbe73c3678/LICENSE |
+
+## 1. Third-party projects fetched into `deps/` at install time (not distributed)
 
 | No. | Component | License | Copyright | License Link |
 |-----|-----------|---------|-----------|--------------|
 | 1 | OmniGibson (BEHAVIOR-1K) | MIT | Copyright (c) 2023 Stanford Vision and Learning Group | https://github.com/StanfordVL/OmniGibson/blob/main/LICENSE |
 | 2 | BDDL — BEHAVIOR Domain Definition Language | MIT | Copyright (c) 2021 Stanford Vision and Learning Lab | https://github.com/StanfordVL/bddl/blob/master/LICENSE |
 | 3 | JoyLo / GELLO teleop | MIT | Copyright (c) 2023 Philipp Wu | https://github.com/wuphilipp/gello/blob/main/LICENSE |
-| 4 | DINOv2 | Apache-2.0 (code) | Copyright (c) Meta Platforms, Inc. and affiliates | https://github.com/facebookresearch/dinov2/blob/main/LICENSE |
-| 5 | SAM 3 — Segment Anything Model 3 | SAM License (Meta, custom — source-available, **non-OSS**) | Copyright Meta Platforms, Inc. and affiliates | https://github.com/facebookresearch/sam3/blob/main/LICENSE |
-| 6 | Depth-Anything-3 | Apache-2.0 | Copyright 2025 The Depth Anything 3 Team (ByteDance) | https://github.com/ByteDance-Seed/Depth-Anything-3/blob/main/LICENSE |
-| 7 | Prior-Depth-Anything | Apache-2.0 | Copyright the Prior-Depth-Anything authors (SpatialVision) | https://github.com/SpatialVision/Prior-Depth-Anything/blob/main/LICENSE |
-| 8 | Depth Pro (ml-depth-pro) | Apple Sample Code License (custom permissive) | Copyright (C) 2024 Apple Inc. | https://github.com/apple/ml-depth-pro/blob/main/LICENSE |
-| 9 | VOID model | Apache-2.0 (code); **CogVideoX License** (weights) | Copyright Netflix, Inc. | https://github.com/netflix/void-model/blob/main/LICENSE |
-| 10 | Any6D | Custom **non-commercial / academic-only** | Copyright (c) 2025 Taeyeop Lee | https://github.com/taeyeopl/Any6D/blob/main/LICENSE |
-| 11 | Hunyuan3D-2.1 | Tencent Hunyuan 3D 2.1 Community License (**non-OSS**) | Copyright (C) 2025 Tencent | https://github.com/Tencent-Hunyuan/Hunyuan3D-2.1/blob/main/LICENSE |
+| 4 | DINOv2 | Apache-2.0 (code) | Copyright (c) Meta Platforms, Inc. and affiliates | https://github.com/facebookresearch/dinov2/blob/7764ea0f912e53c92e82eb78a2a1631e92725fc8/LICENSE |
+| 5 | SAM 3 — Segment Anything Model 3 | SAM License (Meta, custom — source-available, **non-OSS**) | Copyright Meta Platforms, Inc. and affiliates | https://github.com/facebookresearch/sam3/blob/46957e47805eaa273f4aa7bbbd25a88bca9108ce/LICENSE |
+| 6 | Depth-Anything-3 | Apache-2.0 | Copyright 2025 The Depth Anything 3 Team (ByteDance) | https://github.com/ByteDance-Seed/Depth-Anything-3/blob/3d835ec1a5802d64a8b8b15f817a1ab54809bfe4/LICENSE |
+| 7 | Prior-Depth-Anything | Apache-2.0 | Copyright the Prior-Depth-Anything authors (SpatialVision) | https://github.com/SpatialVision/Prior-Depth-Anything/blob/8c029cbca669443fe0bbf8dcefb5f91ad531084d/LICENSE |
+| 8 | Depth Pro (ml-depth-pro) | Apple Sample Code License (custom permissive) | Copyright (C) 2024 Apple Inc. | https://github.com/apple/ml-depth-pro/blob/9efe5c1def37a26c5367a71df664b18e1306c708/LICENSE |
+| 9 | VOID model | Apache-2.0 (code); **CogVideoX License** (weights) | Copyright Netflix, Inc. | https://github.com/netflix/void-model/blob/e3914f8f551dd4b880661991fd6b28cd1699a97a/LICENSE |
+| 10 | Any6D | Custom **non-commercial / academic-only** | Copyright (c) 2025 Taeyeop Lee | https://github.com/taeyeopl/Any6D/blob/80eb4866a1c96ecb18be18836aba4f4bd6e80e9e/LICENSE |
+| 11 | Hunyuan3D-2.1 | Tencent Hunyuan 3D 2.1 Community License (**non-OSS**) | Copyright (C) 2025 Tencent | https://github.com/Tencent-Hunyuan/Hunyuan3D-2.1/blob/82920d643c0dc2f7bfd7255f45f62d386edfe60c/LICENSE |
 | 12 | articulate-anything | MIT | Copyright (c) 2024 Long Le and the Articulate Anything authors| https://github.com/vlongle/articulate-anything/blob/main/LICENSE |
-| 13 | openpi (openpi-client) | Apache-2.0 (client); **Gemma Terms** (some weights) | Copyright Physical Intelligence | https://github.com/Physical-Intelligence/openpi/blob/main/LICENSE |
+| 13 | openpi (openpi-client) | Apache-2.0 (client); **Gemma Terms** (some weights) | Copyright Physical Intelligence | https://github.com/Physical-Intelligence/openpi/blob/15a9616a00943ada6c20a0f158e3adb39df2ccac/LICENSE |
 
 ### 1a. Articulation-stage backends (fetched at install into `deps/articulate-anything/deps/`)
 
@@ -40,7 +72,7 @@ articulate-anything itself (item 12) is MIT, but the articulation feature
 | No. | Component | License | Copyright | License Link |
 |-----|-----------|---------|-----------|--------------|
 | 12a | CoTracker | **CC-BY-NC-4.0** (Attribution-NonCommercial) | Copyright (c) Meta Platforms, Inc. and affiliates | https://github.com/facebookresearch/co-tracker/blob/main/LICENSE.md |
-| 12b | samesh (Segment Any Mesh) | **No license provided** — optional dependency | Copyright samesh authors (gtangg12) — no license granted | https://github.com/gtangg12/samesh |
+| 12b | samesh (Segment Any Mesh) | **No license provided** — **opt-in only**, never installed by default (`--enable-samesh`) | Copyright samesh authors (gtangg12) — no license granted | https://github.com/gtangg12/samesh |
 | 12c | PartField (NVIDIA-origin) | NVIDIA License (**non-commercial** for third parties) | Copyright (c) NVIDIA Corporation & affiliates | https://github.com/nv-tlabs/PartField/blob/main/LICENSE |
 | 12d | Hunyuan3D-Part — incl. P3-SAM, X-Part | Tencent Hunyuan 3D-Part Community License (**non-OSS**) | Copyright (C) 2025 Tencent | https://github.com/Tencent-Hunyuan/Hunyuan3D-Part/blob/main/LICENSE |
 
@@ -49,14 +81,15 @@ articulate-anything itself (item 12) is MIT, but the articulation feature
 
 | No. | Component | License | Copyright | License Link |
 |-----|-----------|---------|-----------|--------------|
-| 14 | OpenAI CLIP | MIT | Copyright (c) 2021 OpenAI | https://github.com/openai/CLIP/blob/main/LICENSE |
+| 14 | OpenAI CLIP | MIT | Copyright (c) 2021 OpenAI | https://github.com/openai/CLIP/blob/d05afc436d78f1c48dc0dbf8e5980a9d471f35f6/LICENSE |
 | 15 | SAM 2 — Segment Anything 2 | Apache-2.0 | Copyright (c) Meta Platforms, Inc. and affiliates | https://github.com/facebookresearch/sam2/blob/main/LICENSE |
 | 16 | Nerfstudio | Apache-2.0 | Copyright 2022 The Nerfstudio Team | https://github.com/nerfstudio-project/nerfstudio/blob/main/LICENSE |
-| 17 | LeRobot | Apache-2.0 | Copyright The HuggingFace Inc. team | https://github.com/huggingface/lerobot/blob/main/LICENSE |
-| 18 | PyTorch3D | BSD-3-Clause | Copyright (c) Meta Platforms, Inc. and affiliates | https://github.com/facebookresearch/pytorch3d/blob/main/LICENSE |
-| 19 | TRELLIS.2 | MIT | Copyright (c) Microsoft Corporation | https://github.com/microsoft/TRELLIS.2/blob/main/LICENSE |
+| 17 | LeRobot | Apache-2.0 | Copyright The HuggingFace Inc. team | https://github.com/huggingface/lerobot/blob/577cd10974b84bea1f06b6472eb9e5e74e07f77a/LICENSE |
+| 18 | PyTorch3D | BSD-3-Clause | Copyright (c) Meta Platforms, Inc. and affiliates | https://github.com/facebookresearch/pytorch3d/blob/75ebeeaea0908c5527e7b1e305fbc7681382db47/LICENSE |
+| 19 | TRELLIS.2 | MIT | Copyright (c) Microsoft Corporation | https://github.com/microsoft/TRELLIS.2/blob/75fbf0183001ed9876c8dbb35de6b68552ee08bd/LICENSE |
 | 20 | CoACD | MIT | Copyright (c) 2022 Xinyue Wei and contributors | https://github.com/SarahWeiii/CoACD/blob/main/LICENSE |
-| 21 | xFormers | BSD-3-Clause | Copyright (c) Facebook, Inc. and its affiliates | https://github.com/facebookresearch/xformers/blob/main/LICENSE |
+| 21 | xFormers | BSD-3-Clause | Copyright (c) Facebook, Inc. and its affiliates | https://github.com/facebookresearch/xformers/blob/4cf69f0967128217f1798de70b3e4477de138570/LICENSE |
+| 21a | Real-ESRGAN (`RealESRGAN_x4plus.pth` weight, fetched for Hunyuan3D-2.1) | BSD-3-Clause | Copyright (c) 2021 Xintao Wang | https://github.com/xinntao/Real-ESRGAN/blob/master/LICENSE |
 
 ## 3. Direct third-party Python libraries (PyPI)
 
@@ -122,21 +155,77 @@ Installed only for teleop / ZED-capture workflows (`requirements_teleop.txt`,
 | No. | Component | License | Copyright | License Link |
 |-----|-----------|---------|-----------|--------------|
 | 73 | pyzed — ZED SDK Python API | MIT (bindings); **proprietary ZED SDK** required at runtime | Copyright (c) 2018 Stereolabs | https://github.com/stereolabs/zed-python-api/blob/master/LICENSE |
-| 74 | TeleMoMa | **No license file (all rights reserved)** | The University of Texas at Austin (RobIn Lab) | https://github.com/UT-Austin-RobIn/telemoma |
+| 74 | TeleMoMa | **No license file (all rights reserved)** — **not installed by SimFoundry; user-supplied only** | The University of Texas at Austin (RobIn Lab) | https://github.com/UT-Austin-RobIn/telemoma |
 | 75 | MediaPipe | Apache-2.0 | Copyright The MediaPipe Authors (Google LLC) | https://github.com/google-ai-edge/mediapipe/blob/master/LICENSE |
 | 76 | pyspacemouse | MIT | Copyright (c) Jakub Andrýsek | https://github.com/JakubAndrysek/PySpaceMouse/blob/master/LICENSE |
 | 77 | hidapi (cython-hidapi) | Tri-licensed: BSD-3-Clause / GPL-3.0 / custom (your choice) | Copyright (c) Gary Bishop, Pavol Rusnak, contributors | https://github.com/trezor/cython-hidapi/blob/master/LICENSE.txt |
 
-## 5. NVIDIA-origin bundled components (for completeness — not third-party)
+## 5. NVIDIA-origin components (for completeness — not third-party)
 
-These originate from NVIDIA and are therefore **not third-party**, but they are
-bundled/installed and carry their own licenses. **Note:** several use the
+These originate from NVIDIA and are therefore **not third-party**. Like everything
+else in this document they are fetched or installed at build time, not distributed
+in this repository, and they carry their own licenses. **Note:** several use the
 **NVIDIA Source Code License (non-commercial)**, which is *not* the Apache-2.0
 license under which SimFoundry itself is released.
 
 | No. | Component | License | Copyright | License Link |
 |-----|-----------|---------|-----------|--------------|
-| 78 | 3DGRUT (3D Gaussian Ray Tracing) | Apache-2.0 | Copyright NVIDIA Corporation & affiliates | https://github.com/nv-tlabs/3dgrut/blob/main/LICENSE |
-| 79 | FoundationPose | NVIDIA Source Code License (**non-commercial**) | Copyright (c) 2022–Present, NVIDIA Corporation & affiliates | https://github.com/NVlabs/FoundationPose/blob/main/LICENSE |
-| 80 | FoundationStereo | NVIDIA Source Code License (**non-commercial**) | Copyright (c) 2024–Present, NVIDIA Corporation & affiliates | https://github.com/NVlabs/FoundationStereo/blob/master/LICENSE |
-| 81 | nvdiffrast | NVIDIA Source Code License (1-Way Commercial, **non-commercial** for third parties) | Copyright (c) 2020, NVIDIA Corporation | https://github.com/NVlabs/nvdiffrast/blob/main/LICENSE.txt |
+| 78 | 3DGRUT (3D Gaussian Ray Tracing) | Apache-2.0 | Copyright NVIDIA Corporation & affiliates | https://github.com/nv-tlabs/3dgrut/blob/a37ef721012dea0f29c0fcfff2d525023b4e854a/LICENSE |
+| 79 | FoundationPose | NVIDIA Source Code License (**non-commercial**) | Copyright (c) 2022–Present, NVIDIA Corporation & affiliates | https://github.com/NVlabs/FoundationPose/blob/e3d597b8c6b851d053094ebd6fa240191c5238f8/LICENSE |
+| 80 | FoundationStereo | NVIDIA Source Code License (**non-commercial**) | Copyright (c) 2024–Present, NVIDIA Corporation & affiliates | https://github.com/NVlabs/FoundationStereo/blob/6e8806816b533e4d13ddbb95ffa907b797060a62/LICENSE |
+| 81 | nvdiffrast | NVIDIA Source Code License (1-Way Commercial, **non-commercial** for third parties) | Copyright (c) 2020, NVIDIA Corporation | https://github.com/NVlabs/nvdiffrast/blob/253ac4fcea7de5f396371124af597e6cc957bfae/LICENSE.txt |
+| 82 | cuRobo (reached through OmniGibson; invoked directly by `digital_cousins/utils/data_gen_utils.py`) | Apache-2.0 | Copyright (c) NVIDIA CORPORATION & AFFILIATES | https://github.com/NVlabs/curobo/blob/main/LICENSE |
+
+## 6. Component disclosure matrix — restricted and optional components
+
+This section records, for every component with terms that differ from SimFoundry's
+Apache 2.0 license, the facts an evaluator needs before installing it.
+
+**Distribution status — applies to every row below.** None of these components are
+distributed by SimFoundry. None are included in the source repository, a release
+artifact, a container, a cache, a model bundle, or an NVIDIA mirror. Each is fetched
+from its own upstream, by the user, at install time. The sole exception is the
+upstream source fragments carried inside `patches/` — see
+[PATCH_PROVENANCE.md](PATCH_PROVENANCE.md).
+
+**The Apache 2.0 boundary.** SimFoundry's Apache 2.0 license covers only
+NVIDIA-authored SimFoundry code — `digital_cousins/`, `scripts/`, `tests/`, and the
+repository's own configuration and documentation. It does not extend to any component
+below, to their model weights, or to any dataset or SDK they require.
+
+| Component | Required? | Acquisition | Exact version | Source terms | Weights terms | Key restriction |
+|---|---|---|---|---|---|---|
+| SAM 3 | Required (`cdc`) | `git clone` — `install_cdc.sh` | `46957e47…` | SAM License (Meta) | Gated Hugging Face download | **Non-OSS**, source-available; HF login required |
+| Any6D | Required (`any6d`) | `git clone` — `install_any6d.sh` | `80eb4866…` | Custom academic-only | n/a | **Non-commercial / academic use only** |
+| Hunyuan3D-2.1 | Required (`hunyuan`) | `git clone` — `install_hunyuan.sh` | `82920d64…` | Tencent Hunyuan 3D 2.1 Community License | Same, plus Real-ESRGAN weight (BSD-3-Clause) | **Non-OSS** community license; upstream `Notice.txt` not currently preserved |
+| Hunyuan3D-Part (P3-SAM, X-Part) | Optional (`articulate`) | Fetched by articulate-anything | <!-- TODO(SimFoundry) --> unpinned | Tencent Hunyuan 3D-Part Community License | P3-SAM weights auto-download on first use | **Non-OSS** community license |
+| PartField | Optional (`articulate`) | Fetched by articulate-anything | <!-- TODO(SimFoundry) --> unpinned | NVIDIA License | Checkpoint via install script | **Non-commercial for third parties** |
+| FoundationPose | Required (`cdc`) | `git clone` — `install_cdc.sh` | `e3d597b8…` | NVIDIA Source Code License | Google Drive folders, **unversioned** | **Non-commercial** |
+| FoundationStereo | Required (`cdc`) | `git clone` — `install_cdc.sh` | `6e880681…` | NVIDIA Source Code License | Google Drive folder, **unversioned** | **Non-commercial** |
+| nvdiffrast | Required (`cdc`) | `git clone` tag `v0.4.0` | `253ac4fc…` | NVIDIA Source Code License (1-Way Commercial) | n/a | **Non-commercial for third parties** |
+| cuRobo | Required (via OmniGibson) | Transitive — BEHAVIOR-1K install | <!-- TODO(SimFoundry) --> transitive | Apache-2.0 | n/a | None |
+| Depth Pro | Required (`cdc`) | `git clone` — `install_cdc.sh` | `9efe5c1d…` | Apple Sample Code License | `depth_pro.pt` from Apple CDN | Apple sample-code terms |
+| VOID / CogVideoX weights | Required (`void`) | `git fetch` — `install_void.sh` | `e3914f8f…` | Apache-2.0 (code) | **CogVideoX License**, gated HF | Weights are **not** Apache-2.0; HF login required |
+| OpenPI / Gemma weights | Optional (`openpi`) | `git clone` — `install_openpi.sh` | `15a9616a…` | Apache-2.0 (client) | **Gemma Terms of Use** | Weights governed by Gemma Terms |
+| CoTracker | Optional (`articulate`) | Fetched by articulate-anything | <!-- TODO(SimFoundry) --> unpinned | **CC-BY-NC-4.0** | Same | **Non-commercial** |
+| samesh | **Opt-in only** (`--enable-samesh`) | `git clone` by articulate-anything | <!-- TODO(SimFoundry) --> unpinned | **No license provided** | SAM2 checkpoint (Apache-2.0) | **No rights granted by upstream.** Never fetched by a default install |
+| TeleMoMa | **User-supplied** | Not installed by SimFoundry | User's choice (`0.3.0` known-good) | **No license file — all rights reserved** | n/a | **No rights granted by upstream.** Not installed, distributed, or mirrored |
+| TRELLIS.2 | Optional (`--trellis`) | `git clone` — `install_cdc.sh` | `75fbf018…` | MIT | n/a | None |
+| pyzed / ZED SDK | Optional (`--zed`) | User installs the ZED SDK | User's SDK version | MIT (bindings) | n/a | **Proprietary ZED SDK** required at runtime, under Stereolabs terms |
+
+### Components requiring your acceptance or approval before use
+
+- **Gated downloads** — SAM 3 and the VOID/CogVideoX weights require a Hugging Face
+  account and `huggingface-cli login`. You accept the model terms at that point.
+- **Non-commercial components** — Any6D, FoundationPose, FoundationStereo, nvdiffrast,
+  PartField, and CoTracker restrict use to non-commercial or research purposes.
+  Commercial use requires separate licensing from each upstream.
+- **No-license components** — samesh and TeleMoMa grant no rights at all. Establish
+  your own basis for using them, or use neither.
+  <!-- TODO(SimFoundry): OSRB/Legal determination outstanding. -->
+- **Unpinned articulation backends** — the components fetched by articulate-anything
+  are not yet pinned to immutable revisions.
+  <!-- TODO(SimFoundry): pin and record SHAs for CoTracker, PartField, Hunyuan3D-Part, samesh. -->
+- **Unversioned model weights** — the FoundationPose and FoundationStereo checkpoints
+  are pulled from Google Drive folders with no version or checksum.
+  <!-- TODO(SimFoundry): record model revision and checksum for each. -->

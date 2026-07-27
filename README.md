@@ -114,3 +114,25 @@ Important outputs include:
 - [INSTALL.md](INSTALL.md): installation and service setup
 - [scripts/pipeline/README.md](scripts/pipeline/README.md): stage-by-stage pipeline reference
 - [Auto-background README](scripts/pipeline/A_reconstruction/stages/auto_bg_reconstruction/README.md): optional 3D Gaussian Splat background flow
+
+## License
+
+NVIDIA-owned SimFoundry source code is licensed under the
+[Apache License 2.0](LICENSE).
+
+Portions of SimFoundry are derived from the
+[ACDC / digital-cousins](https://github.com/cremebrule/digital-cousins) project,
+Copyright (c) 2024 the ACDC authors, also licensed under Apache 2.0. Files
+containing derived code carry an attribution note in their header.
+
+SimFoundry can optionally download or integrate third-party source code,
+models, datasets, and SDKs governed by separate terms. The Apache 2.0
+license does not apply to those materials. Several optional components are
+non-commercial, research-only, or otherwise restricted.
+
+See:
+
+- [Third-Party Licenses](THIRD_PARTY_LICENSES.md)
+- [Third-Party Notices](THIRD_PARTY_NOTICES.md)
+- [Patch Provenance](PATCH_PROVENANCE.md)
+- [Installation and optional component boundaries](INSTALL.md)

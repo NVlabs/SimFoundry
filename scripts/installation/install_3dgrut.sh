@@ -84,6 +84,8 @@ mkdir -p "${project_root}/deps"
 if [ ! -d "${THREEDGRUT_DIR}" ]; then
   echo "Cloning 3dgrut..."
   git clone --recursive https://github.com/nv-tlabs/3dgrut.git "${THREEDGRUT_DIR}"
+  # TODO(SimFoundry): confirm this SHA matches a tested build before release (pinned 2026-07-27).
+  git -C "${THREEDGRUT_DIR}" checkout --detach "${THREEDGRUT_COMMIT:-a37ef721012dea0f29c0fcfff2d525023b4e854a}"
 fi
 ( cd "${THREEDGRUT_DIR}" && git submodule update --init --recursive )
 

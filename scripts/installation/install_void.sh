@@ -61,7 +61,8 @@ if [[ ! -d "${VOID_DIR}/.git" ]]; then
   mkdir -p "${VOID_DIR}"
   git -C "${VOID_DIR}" init
   git -C "${VOID_DIR}" remote add origin https://github.com/netflix/void-model
-  git -C "${VOID_DIR}" fetch --depth 1 origin HEAD
+  # TODO(SimFoundry): confirm this SHA matches a tested build before release (pinned 2026-07-27).
+  git -C "${VOID_DIR}" fetch --depth 1 origin "${VOID_COMMIT:-e3914f8f551dd4b880661991fd6b28cd1699a97a}"
   git -C "${VOID_DIR}" checkout --detach FETCH_HEAD
 fi
 if [[ ! -f "${VOID_DIR}/requirements.txt" ]]; then

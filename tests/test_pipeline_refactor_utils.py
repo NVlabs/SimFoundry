@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 import time
 
 from digital_cousins.pipeline.depth_backends import DepthAnythingV3Backend, FoundationStereoBackend, create_backend

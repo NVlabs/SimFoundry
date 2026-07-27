@@ -9,14 +9,38 @@ SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 project_root="$(cd "$SCRIPT_DIR/../.." && pwd)"
 DEFAULT=false
 
+# samesh (Segment Any Mesh) is an OPTIONAL articulation segmentation backend that
+# upstream publishes with NO LICENSE. It is therefore never installed by default.
+# Enable it only if you have separately established your own right to use it:
+#   bash install_articulate.sh --enable-samesh
+#   SIMFOUNDRY_ENABLE_SAMESH=1 bash install_articulate.sh
+ENABLE_SAMESH="${SIMFOUNDRY_ENABLE_SAMESH:-0}"
+
 # Parse command-line options
 while [[ $# -gt 0 ]]; do
     case $1 in
         --project-root) project_root="$2"; shift 2 ;;
         --default) DEFAULT=true; shift ;;
+        --enable-samesh) ENABLE_SAMESH=1; shift ;;
         *) echo "Unknown option: $1"; exit 1 ;;
     esac
 done
+
+if [[ "${ENABLE_SAMESH}" == "1" ]]; then
+  echo ""
+  echo "=============================================================================="
+  echo "WARNING: samesh backend enabled."
+  echo ""
+  echo "  samesh (https://github.com/gtangg12/samesh) is published WITHOUT A LICENSE."
+  echo "  No copyright permission to copy, modify, install, or redistribute it has"
+  echo "  been granted by its authors. SimFoundry does not distribute it and makes"
+  echo "  no representation that you may use it."
+  echo ""
+  echo "  By enabling this backend you confirm you have established your own rights"
+  echo "  to obtain and use samesh. See THIRD_PARTY_LICENSES.md and INSTALL.md."
+  echo "=============================================================================="
+  echo ""
+fi
 
 if [[ ! ${DEFAULT} == true ]]; then
   read -p "Enter project root (default: $project_root): " PROJECT_ROOT
@@ -36,6 +60,7 @@ cd $PROJECT_ROOT  # Change to your project root
 # stored in Git LFS, so git-lfs must be installed (handled above).
 export ARTICULATE_ANYTHING_REPO="${ARTICULATE_ANYTHING_REPO:-https://github.com/nadunRanawaka1/articulate-anything-sf.git}"
 export ARTICULATE_ANYTHING_BRANCH="${ARTICULATE_ANYTHING_BRANCH:-oss_release}"
+export ARTICULATE_ANYTHING_COMMIT="${ARTICULATE_ANYTHING_COMMIT:-a6759b62992bcea9fecb6c1259e6a4311bda4ee4}"
 
 # ==============================================================================
 # SYSTEM DEPENDENCIES (run first)
@@ -100,12 +125,18 @@ if [ ! -d "articulate-anything" ]; then
 fi
 
 cd articulate-anything
-git checkout "${ARTICULATE_ANYTHING_BRANCH}"
-git pull
+git fetch origin "${ARTICULATE_ANYTHING_BRANCH}"
+git checkout --detach "${ARTICULATE_ANYTHING_COMMIT}"
 
 bash installation_hunyuan.sh   # create hunyuan environment
-bash installation_samesh.sh    # create samesh environment
 bash installation_partfield.sh # create partfield environment
+
+# samesh is unlicensed upstream — opt-in only (see --enable-samesh above).
+if [[ "${ENABLE_SAMESH}" == "1" ]]; then
+  bash installation_samesh.sh  # create samesh environment
+else
+  echo "Skipping samesh environment (unlicensed upstream; use --enable-samesh to opt in)."
+fi
 
 # ==============================================================================
 # LIBIGL (watertight mesh conversion, required in hunyuan env)
@@ -130,11 +161,17 @@ else
     echo "P3-SAM weights already present, skipping download."
 fi
 
-echo "=== Downloading SAM2 large checkpoint ==="
-SAM2_CKPT_DIR="deps/samesh/third_party/segment-anything-2/checkpoints"
-if [ ! -f "$SAM2_CKPT_DIR/sam2_hiera_large.pt" ]; then
-    wget -O $SAM2_CKPT_DIR/sam2_hiera_large.pt \
-        https://dl.fbaipublicfiles.com/segment_anything_2/072824/sam2_hiera_large.pt
+# The SAM2 checkpoint is only used by the samesh backend and lands under
+# deps/samesh/, so it is gated on the same opt-in.
+if [[ "${ENABLE_SAMESH}" == "1" ]]; then
+    echo "=== Downloading SAM2 large checkpoint (samesh backend) ==="
+    SAM2_CKPT_DIR="deps/samesh/third_party/segment-anything-2/checkpoints"
+    if [ ! -f "$SAM2_CKPT_DIR/sam2_hiera_large.pt" ]; then
+        wget -O $SAM2_CKPT_DIR/sam2_hiera_large.pt \
+            https://dl.fbaipublicfiles.com/segment_anything_2/072824/sam2_hiera_large.pt
+    else
+        echo "SAM2 checkpoint already present, skipping download."
+    fi
 else
-    echo "SAM2 checkpoint already present, skipping download."
+    echo "Skipping SAM2 checkpoint download (samesh backend not enabled)."
 fi

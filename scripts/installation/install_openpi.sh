@@ -66,11 +66,14 @@ cd deps
 
 # Step 4: Install BEHAVIOR-1K
 echo "=== Installing BEHAVIOR-1K ==="
+# TODO(SimFoundry): confirm this SHA matches a tested build before release (pinned 2026-07-27).
+# Was tracking branch feat/isaac-5.0.
+BEHAVIOR1K_COMMIT="${BEHAVIOR1K_COMMIT:-d89aae4e0e9a1de3cf8285cb9669c11d8c8bb864}"
 if [ ! -d "BEHAVIOR-1K" ]; then
   git clone https://github.com/StanfordVL/BEHAVIOR-1K.git
 fi
 cd BEHAVIOR-1K
-git checkout feat/isaac-5.0
+git checkout --detach "${BEHAVIOR1K_COMMIT}"
 echo "Starting BEHAVIOR-1K setup, this may take a while..."
 ./setup.sh --bddl --omnigibson --cuda-version 12.8 --accept-conda-tos --accept-nvidia-eula --accept-dataset-tos
 echo "Installed BEHAVIOR-1K"
@@ -85,8 +88,12 @@ echo "Installed PyTorch 2.7.1 with CUDA 12.8"
 
 # Step 6: Clone OpenPI repository
 echo "=== Installing OpenPI ==="
+# TODO(SimFoundry): confirm this SHA matches a tested build before release (pinned 2026-07-27).
+OPENPI_COMMIT="${OPENPI_COMMIT:-15a9616a00943ada6c20a0f158e3adb39df2ccac}"
 if [ ! -d "openpi" ]; then
   git clone --recurse-submodules https://github.com/Physical-Intelligence/openpi.git
+  git -C openpi checkout --detach "${OPENPI_COMMIT}"
+  git -C openpi submodule update --init --recursive
 fi
 cd openpi
 

@@ -131,7 +131,7 @@ s8b_articulate_objects:
   out_dirname: s8b_articulate_objects
   out_dir: "${root_dir}/${scene_name}/${s8b_articulate_objects.out_dirname}"
   vlm_model: gemini-2.5-pro
-  method: hunyuan # or samesh
+  method: hunyuan # or partfield; samesh is opt-in only (unlicensed upstream, see INSTALL.md)
   # Classification review options:
   interactive_review: true           # If true, prompt user to review/modify VLM classification
   force_articulated: []               # List of object names to force as articulated (overrides VLM)

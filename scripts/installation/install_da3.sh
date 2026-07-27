@@ -96,7 +96,9 @@ mamba activate "$ENV_NAME"
 pip install torch==2.7.0 torchvision==0.22.0 torchaudio==2.7.0 xformers==0.0.30 --index-url https://download.pytorch.org/whl/cu128 >> /dev/null
 pip install "setuptools<80"
 mamba install -y -c nvidia cuda-toolkit=12.8
-pip install -v --no-build-isolation -U git+https://github.com/facebookresearch/xformers.git@v0.0.30#egg=xformers
+# TODO(SimFoundry): confirm this SHA matches a tested build before release (pinned 2026-07-27).
+# Was pinned to tag v0.0.30 (tags are mutable); now the SHA that tag resolved to.
+pip install -v --no-build-isolation -U git+https://github.com/facebookresearch/xformers.git@4cf69f0967128217f1798de70b3e4477de138570#egg=xformers
 echo "Installed PyTorch, xformers, and CUDA toolkit 12.8 for DA3"
 
 # Install gsplat (required for 3DGS rendering)
@@ -120,8 +122,11 @@ if [ ! -d "deps" ]; then
 fi
 cd deps
 
+# TODO(SimFoundry): confirm this SHA matches a tested build before release (pinned 2026-07-27).
+DA3_COMMIT="${DA3_COMMIT:-3d835ec1a5802d64a8b8b15f817a1ab54809bfe4}"
 if [ ! -d "Depth-Anything-3" ]; then
   git clone https://github.com/ByteDance-Seed/Depth-Anything-3.git
+  git -C Depth-Anything-3 checkout --detach "${DA3_COMMIT}"
 fi
 cd Depth-Anything-3
 if [ -f "requirements.txt" ]; then

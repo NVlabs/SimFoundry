@@ -176,8 +176,11 @@ fi
 cd deps
 
 # Step 2.4: Install DINOv2
+# TODO(SimFoundry): confirm this SHA matches a tested build before release (pinned 2026-07-27).
+DINOV2_COMMIT="${DINOV2_COMMIT:-7764ea0f912e53c92e82eb78a2a1631e92725fc8}"
 if [ ! -d "dinov2" ]; then
   git clone https://github.com/facebookresearch/dinov2.git
+  git -C dinov2 checkout --detach "${DINOV2_COMMIT}"
 fi
 cd dinov2
 conda-develop .  # Do NOT run 'pip install -r requirements.txt'!!
@@ -189,12 +192,16 @@ echo "Now in: $(pwd)"
 
 # Step 2.6: Install CLIP
 echo "Installing CLIP"
-pip install git+https://github.com/openai/CLIP.git > /dev/null
+# TODO(SimFoundry): confirm this SHA matches a tested build before release (pinned 2026-07-27).
+pip install git+https://github.com/openai/CLIP.git@d05afc436d78f1c48dc0dbf8e5980a9d471f35f6 > /dev/null
 echo "Installed CLIP"
 
 # Step 2.7: Install Foundation Stereo
+# TODO(SimFoundry): confirm this SHA matches a tested build before release (pinned 2026-07-27).
+FOUNDATIONSTEREO_COMMIT="${FOUNDATIONSTEREO_COMMIT:-6e8806816b533e4d13ddbb95ffa907b797060a62}"
 if [ ! -d "FoundationStereo" ]; then
   git clone https://github.com/NVlabs/FoundationStereo.git
+  git -C FoundationStereo checkout --detach "${FOUNDATIONSTEREO_COMMIT}"
 fi
 cd FoundationStereo
 echo "Installing Foundation Stereo"
@@ -233,6 +240,8 @@ cd extensions
 
 if [ ! -d "nvdiffrast" ]; then
   git clone -b v0.4.0 https://github.com/NVlabs/nvdiffrast.git nvdiffrast
+  # TODO(SimFoundry): confirm this SHA matches a tested build before release (pinned 2026-07-27).
+  git -C nvdiffrast checkout --detach "${NVDIFFRAST_COMMIT:-253ac4fcea7de5f396371124af597e6cc957bfae}"
 fi
 pip install nvdiffrast/ --no-build-isolation
 cd ..
@@ -267,8 +276,11 @@ echo "Installed Prior Depth Anything"
 cd ..
 
 # Step 2.11: Install Depth Anything 3 runtime for PDA geometric depth refinement
+# TODO(SimFoundry): confirm this SHA matches a tested build before release (pinned 2026-07-27).
+DA3_COMMIT="${DA3_COMMIT:-3d835ec1a5802d64a8b8b15f817a1ab54809bfe4}"
 if [ ! -d "Depth-Anything-3" ]; then
   git clone https://github.com/ByteDance-Seed/Depth-Anything-3.git
+  git -C Depth-Anything-3 checkout --detach "${DA3_COMMIT}"
 fi
 cd Depth-Anything-3
 pip install "numpy==1.26.4" moviepy==1.0.3 pycolmap plyfile e3nn evo pillow_heif fastapi uvicorn typer safetensors > /dev/null
@@ -277,11 +289,14 @@ echo "Installed Depth Anything 3 runtime"
 cd ..
 
 # Step 2.12: Install BEHAVIOR-1K
+# TODO(SimFoundry): confirm this SHA matches a tested build before release (pinned 2026-07-27).
+# Was tracking branch feat/isaac-5.0.
+BEHAVIOR1K_COMMIT="${BEHAVIOR1K_COMMIT:-d89aae4e0e9a1de3cf8285cb9669c11d8c8bb864}"
 if [ ! -d "BEHAVIOR-1K" ]; then
   git clone https://github.com/StanfordVL/BEHAVIOR-1K.git
 fi
 cd BEHAVIOR-1K
-git checkout feat/isaac-5.0
+git checkout --detach "${BEHAVIOR1K_COMMIT}"
 # Detect OS architecture to choose correct gcc/g++ packages
 ARCH=$(uname -m)
 if [ "$ARCH" = "aarch64" ]; then
@@ -298,7 +313,9 @@ cd .. # back to deps directory
 
 # Step 2.12: Install CUDA toolkit and pytorch3d
 ensure_cuda_toolkit
-pip install "git+https://github.com/facebookresearch/pytorch3d.git@stable"
+# TODO(SimFoundry): confirm this SHA matches a tested build before release (pinned 2026-07-27).
+# Was tracking the mutable 'stable' branch.
+pip install "git+https://github.com/facebookresearch/pytorch3d.git@75ebeeaea0908c5527e7b1e305fbc7681382db47"
 pip install packaging==25 > /dev/null
 echo "Installed CUDA toolkit, pytorch3d, and packaging for CDC"
 
@@ -340,8 +357,11 @@ python -c 'import coacd, evdev, pymeshlab; print("Verified coacd, pymeshlab, and
 echo "Installed coacd, pymeshlab, and evdev"
 
 # Step 2.14: Install SAM3
+# TODO(SimFoundry): confirm this SHA matches a tested build before release (pinned 2026-07-27).
+SAM3_COMMIT="${SAM3_COMMIT:-46957e47805eaa273f4aa7bbbd25a88bca9108ce}"
 if [ ! -d "sam3" ]; then
   git clone https://github.com/facebookresearch/sam3.git
+  git -C sam3 checkout --detach "${SAM3_COMMIT}"
 fi
 cd sam3
 
@@ -361,6 +381,9 @@ echo "Installed rembg (CPU onnxruntime)"
 if [[ ${INSTALL_TRELLIS} == true ]]; then
   if [ ! -d "TRELLIS.2" ]; then
     git clone https://github.com/microsoft/TRELLIS.2.git --recursive
+    # TODO(SimFoundry): confirm this SHA matches a tested build before release (pinned 2026-07-27).
+    git -C TRELLIS.2 checkout --detach "${TRELLIS2_COMMIT:-75fbf0183001ed9876c8dbb35de6b68552ee08bd}"
+    git -C TRELLIS.2 submodule update --init --recursive
   fi
   cd TRELLIS.2
   pip install imageio imageio-ffmpeg tqdm easydict opencv-python-headless ninja trimesh transformers==4.57.6 gradio==6.0.1 tensorboard pandas lpips zstandard utils3d
@@ -384,21 +407,31 @@ if [[ ${INSTALL_TRELLIS} == true ]]; then
 
   if [ ! -d "nvdiffrast" ]; then
     git clone -b v0.4.0 https://github.com/NVlabs/nvdiffrast.git nvdiffrast
+    # TODO(SimFoundry): confirm this SHA matches a tested build before release (pinned 2026-07-27).
+    git -C nvdiffrast checkout --detach "${NVDIFFRAST_COMMIT:-253ac4fcea7de5f396371124af597e6cc957bfae}"
   fi
   pip install nvdiffrast/ --no-build-isolation
 
   if [ ! -d "nvdiffrec" ]; then
     git clone -b renderutils https://github.com/JeffreyXiang/nvdiffrec.git nvdiffrec
+    # TODO(SimFoundry): confirm this SHA matches a tested build before release (pinned 2026-07-27).
+    git -C nvdiffrec checkout --detach "${NVDIFFREC_COMMIT:-b296927cc7fd01c2ac1087c8065c4d7248f72da4}"
   fi
   pip install nvdiffrec/ --no-build-isolation
 
   if [ ! -d "CuMesh" ]; then
     git clone https://github.com/JeffreyXiang/CuMesh.git CuMesh --recursive
+    # TODO(SimFoundry): confirm this SHA matches a tested build before release (pinned 2026-07-27).
+    git -C CuMesh checkout --detach "${CUMESH_COMMIT:-12289e1062f0603f2f0d0771b02e1395d247f26f}"
+    git -C CuMesh submodule update --init --recursive
   fi
   pip install CuMesh/ --no-build-isolation
 
   if [ ! -d "FlexGEMM" ]; then
     git clone https://github.com/JeffreyXiang/FlexGEMM.git FlexGEMM --recursive
+    # TODO(SimFoundry): confirm this SHA matches a tested build before release (pinned 2026-07-27).
+    git -C FlexGEMM checkout --detach "${FLEXGEMM_COMMIT:-6dd94a859c26ee8246888502eada3dd8ad85532e}"
+    git -C FlexGEMM submodule update --init --recursive
   fi
   pip install FlexGEMM/ --no-build-isolation
 
@@ -413,8 +446,11 @@ if [[ ${INSTALL_TRELLIS} == true ]]; then
 fi
 
 # step 2.16: install openpi
+# TODO(SimFoundry): confirm this SHA matches a tested build before release (pinned 2026-07-27).
+OPENPI_COMMIT="${OPENPI_COMMIT:-15a9616a00943ada6c20a0f158e3adb39df2ccac}"
 if [ ! -d "openpi" ]; then
 git clone https://github.com/Physical-Intelligence/openpi.git
+git -C openpi checkout --detach "${OPENPI_COMMIT}"
 fi
 cd openpi
 pip install -e packages/openpi-client/ > /dev/null
@@ -427,7 +463,11 @@ if [[ ${INSTALL_JOYLO} == true ]]; then
   cd $PROJECT_ROOT/deps/BEHAVIOR-1K/joylo
   # install deps manually
   pip install --no-deps mediapipe==0.10.21
-  pip install --no-deps telemoma==0.3.0
+  # TeleMoMa is deliberately NOT installed here: it ships no license file and is
+  # therefore all-rights-reserved. SimFoundry does not install or distribute it.
+  # If you have established your own right to use it, install it yourself with:
+  #     pip install --no-deps telemoma==0.3.0
+  # The teleop stages import it lazily and raise an actionable error if absent.
   pip install pyspacemouse pynput hid
   pip install --no-deps -e . > /dev/null
   echo "Installed JoyLo"
