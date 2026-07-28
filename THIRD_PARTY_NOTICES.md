@@ -136,7 +136,6 @@ base commit.
 - google-cloud-aiplatform (Apache-2.0)
 - google-genai (Apache-2.0)
 - openai (Apache-2.0)
-- OpenUSD / pxr (Modified Apache-2.0 / Tomorrow Open Source Technology License)
 - packaging (Apache-2.0 OR BSD-2-Clause)
 - coverage.py (Apache-2.0)
 - setuptools (MIT)
@@ -150,7 +149,21 @@ base commit.
 - pyspacemouse (MIT)
 - hidapi / cython-hidapi (BSD-3-Clause / GPL-3.0)
 
-## NVIDIA-origin components (for completeness — not third-party)
+## NVIDIA proprietary platform software (not open source)
+
+SimFoundry runs on NVIDIA proprietary platform software, governed by NVIDIA licence
+terms and not by SimFoundry's Apache-2.0 licence. Not distributed by SimFoundry.
+
+- Isaac Sim (NVIDIA Omniverse License Agreement)
+- Omniverse Kit runtime — `omni.ui`, `omni.appwindow` (NVIDIA Omniverse License Agreement)
+- Omniverse Kit USD libraries — `pxr` (NVIDIA Omniverse License Agreement)
+- NuRec neural-reconstruction compositor (NVIDIA Omniverse License Agreement)
+- NGC container registry, `nvcr.io` — optional (NVIDIA NGC Terms of Use)
+
+The installer accepts these terms on your behalf via `--accept-nvidia-eula` and
+`OMNI_KIT_ACCEPT_EULA=YES`; see [INSTALL.md](INSTALL.md).
+
+## NVIDIA-origin open components (for completeness — not third-party)
 
 These come from NVIDIA and are not third-party. Like everything else in this
 document they are fetched or installed at build time, not distributed in this

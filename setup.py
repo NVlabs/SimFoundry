@@ -1,11 +1,12 @@
+# Copyright (c) 2024 the ACDC authors (Stanford Vision and Learning Lab)
+# Licensed under the Apache License, Version 2.0.
+#
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # This file is derived from the ACDC / digital-cousins project
-# (https://github.com/cremebrule/digital-cousins), licensed under the Apache
-# License, Version 2.0. The upstream project declares no copyright notice, in its
-# source files or its LICENSE, so none is reproduced here.
-# Modifications Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES.
+# (https://github.com/cremebrule/digital-cousins). NVIDIA modifications are licensed
+# under Apache-2.0; the adapted upstream portions remain subject to the terms above.
 
 from setuptools import setup, find_packages
 

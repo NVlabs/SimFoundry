@@ -225,6 +225,28 @@ pip install --no-deps telemoma==0.3.0
 
 The remaining teleop dependencies are installed normally from `requirements_teleop.txt`.
 
+## Licence Terms Accepted During Installation
+
+**The installer accepts NVIDIA and third-party terms on your behalf.** Running the
+install scripts constitutes your acceptance of the following. Review them before
+installing; if you do not accept them, do not run these scripts.
+
+| Accepted by | Flag / variable | What it accepts |
+|---|---|---|
+| `install_cdc.sh:306`, `install_openpi.sh:78` | `--accept-nvidia-eula` | [NVIDIA Omniverse License Agreement](https://docs.isaacsim.omniverse.nvidia.com/latest/common/NVIDIA_Omniverse_License_Agreement.html) — covers Isaac Sim, the Omniverse Kit runtime, the Kit USD libraries (`pxr`), and NuRec |
+| `install_cdc.sh:306`, `install_openpi.sh:78` | `--accept-dataset-tos` | BEHAVIOR-1K / OmniGibson dataset terms |
+| `install_cdc.sh:306`, `install_openpi.sh:78` | `--accept-conda-tos` | Anaconda / conda channel Terms of Service |
+| `install_cdc.sh:509`, `reparent_usd_joints.py:21` | `OMNI_KIT_ACCEPT_EULA=YES` | NVIDIA Omniverse Kit EULA, set so Kit can start headless |
+
+SimFoundry's own Apache 2.0 licence does **not** cover any of the above. The NVIDIA
+platform components are listed in
+[THIRD_PARTY_LICENSES.md §5a](THIRD_PARTY_LICENSES.md).
+
+Separately, `scripts/installation/login_services.sh` can perform a `docker login` to
+NVIDIA NGC (`nvcr.io`) using an API key you supply in `api_keys.txt`. That step is
+optional, is skipped when no key is provided, and is governed by the
+[NGC Terms of Use](https://ngc.nvidia.com/legal/terms).
+
 ## Optional Component Boundaries
 
 SimFoundry's own source code is Apache 2.0. Several optional components it can fetch

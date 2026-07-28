@@ -10,12 +10,9 @@ license does not apply to those materials**.
 the ignored local `deps/` directory during installation, or installed from PyPI, and
 remain governed by their upstream terms.
 
-There is one exception. The eight patch files under [`patches/`](patches/) are unified
-diffs applied to third-party projects at install time, and a unified diff carries
-upstream code in its context and removed lines. Those fragments remain under their
-upstream licenses — three of them are non-OSS or non-commercial. Per-patch upstream,
-base commit, license, and validation status are recorded in
-[PATCH_PROVENANCE.md](PATCH_PROVENANCE.md).
+One exception: the eight patch files under [`patches/`](patches/) carry fragments of
+upstream source in their context and removed lines — three under non-OSS or
+non-commercial terms. See [PATCH_PROVENANCE.md](PATCH_PROVENANCE.md).
 
 Scope and method:
 - The lists cover components **SimFoundry uses directly** — either its own code
@@ -27,20 +24,16 @@ Scope and method:
 - Several components are **non-commercial, research-only, or otherwise
   restricted**, and several model weights carry terms separate from their source
   code. See [INSTALL.md](INSTALL.md) for the optional-component boundaries.
-- **License links.** Every component that SimFoundry fetches at a pinned commit
-  links to its license **at that exact commit** (an immutable `/blob/<sha>/` URL),
-  so the link always shows the terms that actually apply to the code installed.
-  Components installed from PyPI by version link to the project's license on its
-  default branch: no single commit applies, and the governing terms are those of
-  the version resolved by `requirements*.txt` at install time.
+- **License links** are commit-pinned (`/blob/<sha>/`) for components fetched at a
+  pinned commit. PyPI packages link to the default branch, since no single commit
+  applies — the governing terms are those of the version `requirements*.txt` resolves.
 ---
 
 ## 0. Upstream project SimFoundry is derived from
 
 Portions of SimFoundry's `digital_cousins/` package are derived from the ACDC /
-digital-cousins project. Derived files carry an attribution note in their header.
-This source **is** present in the SimFoundry repository (as modified NVIDIA code),
-unlike everything else in this document.
+digital-cousins project and are present in this repository as modified NVIDIA code.
+Derived files carry an attribution note in their header.
 
 | No. | Component | License | Copyright | License Link |
 |-----|-----------|---------|-----------|--------------|
@@ -48,15 +41,13 @@ unlike everything else in this document.
 
 ### 0a. Additional adapted sources
 
-Individual files adapted from other projects. Each carries an attribution note in its
-header. Where the upstream declares a copyright holder, that notice is reproduced;
-where it declares none, none is invented.
+Individual files adapted from other projects, each carrying an attribution note in its
+header. Upstream copyright is reproduced where the upstream declares one.
 
 | No. | Component | Adapted into | License | Copyright | License Link |
 |-----|-----------|--------------|---------|-----------|--------------|
 | 0a | urdfpy | `digital_cousins/utils/urdfpy_utils.py` | **MIT** | Copyright (c) 2019 Matthew Matl | https://github.com/mmatl/urdfpy/blob/5466842899b33bd549e8f9e2a9a987bd5e37373b/LICENSE |
 | 0b | MolmoSpaces | `digital_cousins/utils/data_gen_utils.py` | Apache-2.0 | Copyright 2026 Allen Institute for AI | https://github.com/allenai/molmospaces/blob/c2f1b583f087e1d3994e1377574843b759d9d0f8/LICENSE |
-| 0c | 3DGRUT | `scripts/pipeline/A_reconstruction/stages/ply_to_usdz.py` | Apache-2.0 | Copyright (c) NVIDIA CORPORATION & AFFILIATES | https://github.com/nv-tlabs/3dgrut/blob/a37ef721012dea0f29c0fcfff2d525023b4e854a/LICENSE |
 | 0d | OmniGibson (BEHAVIOR-1K) | `digital_cousins/utils/asset_conversion_utils.py` | **MIT** | Copyright (c) 2023 Stanford Vision and Learning Group | https://github.com/StanfordVL/BEHAVIOR-1K/blob/d89aae4e0e9a1de3cf8285cb9669c11d8c8bb864/OmniGibson/LICENSE |
 
 ## 1. Third-party projects fetched into `deps/` at install time (not distributed)
@@ -153,7 +144,7 @@ articulate-anything itself (item 12) is MIT, but the articulation feature
 | 66 | google-cloud-aiplatform (Vertex AI SDK) | Apache-2.0 | Copyright Google LLC | https://github.com/googleapis/python-aiplatform/blob/main/LICENSE |
 | 67 | google-genai (Google Gen AI SDK) | Apache-2.0 | Copyright Google LLC | https://github.com/googleapis/python-genai/blob/main/LICENSE |
 | 68 | openai (OpenAI Python library) | Apache-2.0 | Copyright OpenAI | https://github.com/openai/openai-python/blob/main/LICENSE |
-| 69 | OpenUSD / pxr | Modified Apache-2.0 (Tomorrow Open Source Technology License 1.0) | Copyright Pixar Animation Studios | https://github.com/PixarAnimationStudios/OpenUSD/blob/release/LICENSE.txt |
+| 69 | `pxr` USD Python bindings — **supplied by Isaac Sim, not PyPI**. Resolves to the Omniverse Kit extension `omni.usd.libs-1.0.1+69cbf6ad.lx64.r.cp311` under `site-packages/isaacsim/extscache/`. No `usd-core` package is installed from PyPI. | **NVIDIA Omniverse License Agreement** (the Kit build; code sets `OMNI_KIT_ACCEPT_EULA=YES`). The upstream OpenUSD project is separately under the Modified Apache-2.0 "Tomorrow Open Source Technology License 1.0" (Copyright Pixar Animation Studios), but that is **not** the build loaded at runtime. | Copyright (c) NVIDIA CORPORATION & AFFILIATES (Kit build); Copyright Pixar Animation Studios (upstream OpenUSD) | https://docs.omniverse.nvidia.com/platform/latest/common/NVIDIA_Omniverse_License_Agreement.html |
 | 70 | packaging | Apache-2.0 OR BSD-2-Clause | Copyright (c) Donald Stufft and contributors | https://github.com/pypa/packaging/blob/main/LICENSE |
 | 71 | coverage.py | Apache-2.0 | Copyright 2004 Ned Batchelder | https://github.com/nedbat/coveragepy/blob/master/LICENSE.txt |
 | 72 | setuptools | MIT | Copyright (c) Python Packaging Authority (PyPA) | https://github.com/pypa/setuptools/blob/main/LICENSE |
@@ -169,15 +160,13 @@ Installed only for teleop / ZED-capture workflows (`requirements_teleop.txt`,
 | 74 | TeleMoMa | **No license file (all rights reserved)** — **not installed by SimFoundry; user-supplied only** | The University of Texas at Austin (RobIn Lab) | https://github.com/UT-Austin-RobIn/telemoma |
 | 75 | MediaPipe | Apache-2.0 | Copyright The MediaPipe Authors (Google LLC) | https://github.com/google-ai-edge/mediapipe/blob/master/LICENSE |
 | 76 | pyspacemouse | MIT | Copyright (c) Jakub Andrýsek | https://github.com/JakubAndrysek/PySpaceMouse/blob/master/LICENSE |
-| 77 | hidapi (cython-hidapi) | Tri-licensed: BSD-3-Clause / GPL-3.0 / custom (your choice) | Copyright (c) Gary Bishop, Pavol Rusnak, contributors | https://github.com/trezor/cython-hidapi/blob/master/LICENSE.txt |
+| 77 | hidapi (cython-hidapi) | BSD-3-Clause | Copyright (c) Gary Bishop, Pavol Rusnak, contributors | https://github.com/trezor/cython-hidapi/blob/master/LICENSE.txt |
 
 ## 5. NVIDIA-origin components (for completeness — not third-party)
 
-These originate from NVIDIA and are therefore **not third-party**. Like everything
-else in this document they are fetched or installed at build time, not distributed
-in this repository, and they carry their own licenses. **Note:** several use the
-**NVIDIA Source Code License (non-commercial)**, which is *not* the Apache-2.0
-license under which SimFoundry itself is released.
+These originate from NVIDIA and are therefore **not third-party**, but several use the
+**NVIDIA Source Code License (non-commercial)**, which is *not* the Apache-2.0 license
+under which SimFoundry itself is released.
 
 | No. | Component | License | Copyright | License Link |
 |-----|-----------|---------|-----------|--------------|
@@ -187,22 +176,37 @@ license under which SimFoundry itself is released.
 | 81 | nvdiffrast | NVIDIA Source Code License (1-Way Commercial, **non-commercial** for third parties) | Copyright (c) 2020, NVIDIA Corporation | https://github.com/NVlabs/nvdiffrast/blob/253ac4fcea7de5f396371124af597e6cc957bfae/LICENSE.txt |
 | 82 | cuRobo (reached through OmniGibson; invoked directly by `digital_cousins/utils/data_gen_utils.py`) | Apache-2.0 | Copyright (c) NVIDIA CORPORATION & AFFILIATES | https://github.com/NVlabs/curobo/blob/main/LICENSE |
 
+### 5a. NVIDIA proprietary platform software
+
+SimFoundry runs on NVIDIA proprietary platform software. It is **not open source** and
+**not third-party**, is not distributed by SimFoundry, and is governed by NVIDIA
+license terms rather than SimFoundry's Apache 2.0 license. It is listed here because
+SimFoundry's code calls it directly.
+
+| No. | Component | Used by SimFoundry for | License terms | Link |
+|-----|-----------|------------------------|---------------|------|
+| 82 | Isaac Sim | Physics materials, debug draw, USD stage access — `lazy.isaacsim.*` in `digital_cousins/utils/og_utils.py`, `scripts/pipeline/C_application/stages/1_eval_policy_og_scene.py`, `scripts/interactive/interactive_scene_editor.py` | NVIDIA Omniverse License Agreement | https://docs.isaacsim.omniverse.nvidia.com/latest/common/NVIDIA_Omniverse_License_Agreement.html |
+| 83 | Omniverse Kit runtime | In-viewport overlay UI — `lazy.omni.ui`, `lazy.omni.appwindow` in `digital_cousins/utils/og_utils.py` | NVIDIA Omniverse License Agreement | https://docs.omniverse.nvidia.com/platform/latest/common/NVIDIA_Omniverse_License_Agreement.html |
+| 84 | Omniverse Kit USD libraries (`pxr`) | USD authoring and joint reparenting — see item 69 | NVIDIA Omniverse License Agreement | https://docs.omniverse.nvidia.com/platform/latest/common/NVIDIA_Omniverse_License_Agreement.html |
+| 85 | NuRec (Omniverse neural reconstruction / GS compositor) | Rendering Gaussian-splat backgrounds as USDZ volumes in Isaac Sim — `scripts/interactive/interactive_scene_editor.py` | NVIDIA Omniverse License Agreement | https://docs.omniverse.nvidia.com/platform/latest/common/NVIDIA_Omniverse_License_Agreement.html |
+| 86 | NGC container registry (`nvcr.io`) | Optional `docker login` for NGC-hosted images — `scripts/installation/login_services.sh`, key supplied via `api_keys.template.txt` | NVIDIA NGC Terms of Use | https://ngc.nvidia.com/legal/terms |
+
+Isaac Sim, the Kit runtime, the Kit USD libraries and NuRec are obtained together as
+part of the Isaac Sim / OmniGibson installation; SimFoundry neither redistributes nor
+mirrors them. NGC access is optional and only used to pull container images.
+
 ## 6. Component disclosure matrix — restricted and optional components
 
 This section records, for every component with terms that differ from SimFoundry's
 Apache 2.0 license, the facts an evaluator needs before installing it.
 
-**Distribution status — applies to every row below.** None of these components are
-distributed by SimFoundry. None are included in the source repository, a release
-artifact, a container, a cache, a model bundle, or an NVIDIA mirror. Each is fetched
-from its own upstream, by the user, at install time. The sole exception is the
-upstream source fragments carried inside `patches/` — see
-[PATCH_PROVENANCE.md](PATCH_PROVENANCE.md).
+**Distribution status — applies to every row below.** None are distributed by
+SimFoundry: no source archive, release artifact, container, cache, model bundle, or
+NVIDIA mirror. Each is fetched from its own upstream, by the user, at install time.
 
-**The Apache 2.0 boundary.** SimFoundry's Apache 2.0 license covers only
-NVIDIA-authored SimFoundry code — `digital_cousins/`, `scripts/`, `tests/`, and the
-repository's own configuration and documentation. It does not extend to any component
-below, to their model weights, or to any dataset or SDK they require.
+**The Apache 2.0 boundary.** SimFoundry's license covers only NVIDIA-authored code —
+`digital_cousins/`, `scripts/`, `tests/`, and the repo's own config and docs. It does
+not extend to any component below, their model weights, or any dataset or SDK required.
 
 | Component | Required? | Acquisition | Exact version | Source terms | Weights terms | Key restriction |
 |---|---|---|---|---|---|---|
@@ -222,6 +226,27 @@ below, to their model weights, or to any dataset or SDK they require.
 | TeleMoMa | **User-supplied** | Not installed by SimFoundry | User's choice (`0.3.0` known-good) | **No license file — all rights reserved** | n/a | **No rights granted by upstream.** Not installed, distributed, or mirrored |
 | TRELLIS.2 | Optional (`--trellis`) | `git clone` — `install_cdc.sh` | `75fbf018…` | MIT | n/a | None |
 | pyzed / ZED SDK | Optional (`--zed`) | User installs the ZED SDK | User's SDK version | MIT (bindings) | n/a | **Proprietary ZED SDK** required at runtime, under Stereolabs terms |
+
+### GPL components and process boundaries
+
+No SimFoundry module imports a GPL library and the Omniverse Kit USD bindings (`pxr`)
+together. Positions as of 2026-07-28:
+
+- **pymeshlab (GPL-3.0-only)** — imported by `digital_cousins/utils/asset_conversion_utils.py`,
+  which contains no `pxr` reference. USD editing runs in a separate process
+  (`12_import_usd.py` → `reparent_usd_joints.py`), which imports no GPL library.
+  **OmniGibson does import pymeshlab inside the Isaac Sim process**
+  (`omnigibson/prims/cloth_prim.py`, `omnigibson/utils/asset_conversion_utils.py`);
+  SimFoundry inherits this upstream behaviour, and some SimFoundry modules run in that
+  process. This is the one place the two combine.
+  <!-- TODO(SimFoundry): OSRB/Legal to assess the upstream OmniGibson pymeshlab/Kit combination. -->
+- **plyfile (GPL-3.0-or-later)** — used by two auto-background stages and by the upstream
+  3dgrut script, which runs via `subprocess.run` in the separate `3dgrut` environment.
+  Neither path loads `pxr`.
+- **Blender (GPL-2.0-or-later)** — invoked as a separate executable by
+  articulate-anything; never linked or imported.
+
+`hidapi` is tri-licensed and **SimFoundry elects BSD-3-Clause** (item 77).
 
 ### Components requiring your acceptance or approval before use
 

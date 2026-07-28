@@ -1,9 +1,12 @@
+# Copyright (c) 2024 the ACDC authors (Stanford Vision and Learning Lab)
+# Licensed under the Apache License, Version 2.0.
+#
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # This file is derived from the ACDC / digital-cousins project
-# (https://github.com/cremebrule/digital-cousins).
-# Modifications Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES.
+# (https://github.com/cremebrule/digital-cousins). NVIDIA modifications are licensed
+# under Apache-2.0; the adapted upstream portions remain subject to the terms above.
 
 import numpy as np
 import torch
