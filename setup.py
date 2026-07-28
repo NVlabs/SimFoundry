@@ -29,6 +29,6 @@ setup(
     ),
     maintainer="NVIDIA CORPORATION & AFFILIATES",
     url="https://github.com/NVlabs/SimFoundry",
-    author_email="nadun.ranawaka@gatech.edu, ",  # TODO(SimFoundry): set a team contact alias before public release. Add Josiah's
+    author_email="nadun.ranawaka@gatech.edu, jdwong@alumni.stanford.edu", 
     version="0.1.0",
 )
