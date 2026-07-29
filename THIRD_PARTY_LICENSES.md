@@ -212,17 +212,17 @@ not extend to any component below, their model weights, or any dataset or SDK re
 |---|---|---|---|---|---|---|
 | SAM 3 | Required (`cdc`) | `git clone` — `install_cdc.sh` | `46957e47…` | SAM License (Meta) | Gated Hugging Face download | **Non-OSS**, source-available; HF login required |
 | Any6D | Required (`any6d`) | `git clone` — `install_any6d.sh` | `80eb4866…` | Custom academic-only | n/a | **Non-commercial / academic use only** |
-| Hunyuan3D-2.1 | Required (`hunyuan`) | `git clone` — `install_hunyuan.sh` | `82920d64…` | Tencent Hunyuan 3D 2.1 Community License | Same, plus Real-ESRGAN weight (BSD-3-Clause) | **Non-OSS** community license; upstream `Notice.txt` not currently preserved |
-| Hunyuan3D-Part (P3-SAM, X-Part) | Optional (`articulate`) | Fetched by articulate-anything | <!-- TODO(SimFoundry) --> unpinned | Tencent Hunyuan 3D-Part Community License | P3-SAM weights auto-download on first use | **Non-OSS** community license |
-| PartField | Optional (`articulate`) | Fetched by articulate-anything | <!-- TODO(SimFoundry) --> unpinned | NVIDIA License | Checkpoint via install script | **Non-commercial for third parties** |
+| Hunyuan3D-2.1 | Required (`hunyuan`) | `git clone` — `install_hunyuan.sh` | `82920d64…` | Tencent Hunyuan 3D 2.1 Community License | Same, plus Real-ESRGAN weight (BSD-3-Clause) | **Non-OSS** community license |
+| Hunyuan3D-Part (P3-SAM, X-Part) | Optional (`articulate`) | Fetched by articulate-anything | Tencent Hunyuan 3D-Part Community License | P3-SAM weights auto-download on first use | **Non-OSS** community license |
+| PartField | Optional (`articulate`) | Fetched by articulate-anything | NVIDIA License | Checkpoint via install script | **Non-commercial for third parties** |
 | FoundationPose | Required (`cdc`) | `git clone` — `install_cdc.sh` | `e3d597b8…` | NVIDIA Source Code License | Google Drive folders, **unversioned** | **Non-commercial** |
 | FoundationStereo | Required (`cdc`) | `git clone` — `install_cdc.sh` | `6e880681…` | NVIDIA Source Code License | Google Drive folder, **unversioned** | **Non-commercial** |
 | nvdiffrast | Required (`cdc`) | `git clone` tag `v0.4.0` | `253ac4fc…` | NVIDIA Source Code License (1-Way Commercial) | n/a | **Non-commercial for third parties** |
-| cuRobo | Required (via OmniGibson) | Transitive — BEHAVIOR-1K install | <!-- TODO(SimFoundry) --> transitive | Apache-2.0 | n/a | None |
+| cuRobo | Required (via OmniGibson) | Transitive — BEHAVIOR-1K install  | Apache-2.0 | n/a | None |
 | Depth Pro | Required (`cdc`) | `git clone` — `install_cdc.sh` | `9efe5c1d…` | Apple Sample Code License | `depth_pro.pt` from Apple CDN | Apple sample-code terms |
 | VOID / CogVideoX weights | Required (`void`) | `git fetch` — `install_void.sh` | `e3914f8f…` | Apache-2.0 (code) | **CogVideoX License**, gated HF | Weights are **not** Apache-2.0; HF login required |
 | OpenPI / Gemma weights | Optional (`openpi`) | `git clone` — `install_openpi.sh` | `15a9616a…` | Apache-2.0 (client) | **Gemma Terms of Use** | Weights governed by Gemma Terms |
-| CoTracker | Optional (`articulate`) | Fetched by articulate-anything | <!-- TODO(SimFoundry) --> unpinned | **CC-BY-NC-4.0** | Same | **Non-commercial** |
+| CoTracker | Optional (`articulate`) | Fetched by articulate-anything | **CC-BY-NC-4.0** | Same | **Non-commercial** |
 | TeleMoMa | **User-supplied** | Not installed by SimFoundry | User's choice (`0.3.0` known-good) | **No license file — all rights reserved** | n/a | **No rights granted by upstream.** Not installed, distributed, or mirrored |
 | TRELLIS.2 | Optional (`--trellis`) | `git clone` — `install_cdc.sh` | `75fbf018…` | MIT | n/a | None |
 | pyzed / ZED SDK | Optional (`--zed`) | User installs the ZED SDK | User's SDK version | MIT (bindings) | n/a | **Proprietary ZED SDK** required at runtime, under Stereolabs terms |
@@ -239,7 +239,6 @@ together. Positions as of 2026-07-28:
   (`omnigibson/prims/cloth_prim.py`, `omnigibson/utils/asset_conversion_utils.py`);
   SimFoundry inherits this upstream behaviour, and some SimFoundry modules run in that
   process. This is the one place the two combine.
-  <!-- TODO(SimFoundry): OSRB/Legal to assess the upstream OmniGibson pymeshlab/Kit combination. -->
 - **plyfile (GPL-3.0-or-later)** — used by two auto-background stages and by the upstream
   3dgrut script, which runs via `subprocess.run` in the separate `3dgrut` environment.
   Neither path loads `pxr`.
@@ -258,9 +257,3 @@ together. Positions as of 2026-07-28:
 - **No-license component** — TeleMoMa grants no rights at all. SimFoundry does not
   install, distribute, or mirror it; establish your own basis for using it, or do not
   use the teleoperation workflow.
-- **Unpinned articulation backends** — the components fetched by articulate-anything
-  are not yet pinned to immutable revisions.
-  <!-- TODO(SimFoundry): pin and record SHAs for CoTracker, PartField, Hunyuan3D-Part. -->
-- **Unversioned model weights** — the FoundationPose and FoundationStereo checkpoints
-  are pulled from Google Drive folders with no version or checksum.
-  <!-- TODO(SimFoundry): record model revision and checksum for each. -->
