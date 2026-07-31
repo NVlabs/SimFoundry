@@ -69,6 +69,20 @@ mkdir -p checkpoints
 CKPT_DIR="${REPO_DIR}/checkpoints"
 cd "${CKPT_DIR}"
 
+# Every asset is attempted independently. A failure (a rate-limited Google Drive folder, a
+# missing HF login, a flaky mirror) is recorded and the script moves on, so one bad download
+# cannot cost you all the others. A non-zero exit is still returned at the end.
+DOWNLOAD_OK=()
+DOWNLOAD_PRESENT=()
+DOWNLOAD_FAILED=()
+
+record_ok()      { DOWNLOAD_OK+=("$1"); }
+record_present() { DOWNLOAD_PRESENT+=("$1"); }
+record_failed()  {
+  DOWNLOAD_FAILED+=("$1")
+  echo "ERROR: could not obtain ${1}. Continuing with the remaining downloads." >&2
+}
+
 copy_dir_from_fallback() {
   local rel_dir="$1"
   local dest_dir="${REPO_DIR}/${rel_dir}"
@@ -105,7 +119,8 @@ run_download_or_fallback_dir() {
   local rel_dir="$3"
   shift 3
   if [[ -f "${marker}" ]]; then
-    return
+    record_present "${desc}"
+    return 0
   fi
   echo "Downloading ${desc}..."
   mkdir -p "${REPO_DIR}/${rel_dir}"
@@ -116,10 +131,12 @@ run_download_or_fallback_dir() {
   if [[ ${status} -ne 0 || ! -f "${marker}" ]]; then
     echo "WARNING: Download failed or marker missing for ${desc}."
     if ! copy_dir_from_fallback "${rel_dir}"; then
-      echo "ERROR: Could not download ${desc} and no fallback copy was available." >&2
-      return 1
+      record_failed "${desc}"
+      return 0
     fi
   fi
+  record_ok "${desc}"
+  return 0
 }
 
 run_download_or_fallback_file() {
@@ -128,7 +145,8 @@ run_download_or_fallback_file() {
   local url="$3"
   local dest_file="${REPO_DIR}/${rel_file}"
   if [[ -f "${dest_file}" ]]; then
-    return
+    record_present "${desc}"
+    return 0
   fi
   echo "Downloading ${desc}..."
   mkdir -p "$(dirname "${dest_file}")"
@@ -140,65 +158,57 @@ run_download_or_fallback_file() {
     rm -f "${dest_file}"
     echo "WARNING: Download failed for ${desc}."
     if ! copy_file_from_fallback "${rel_file}"; then
-      echo "ERROR: Could not download ${desc} and no fallback copy was available." >&2
-      return 1
+      record_failed "${desc}"
+      return 0
     fi
   fi
+  record_ok "${desc}"
+  return 0
 }
+
+# Each helper already skips when its marker file exists, so no outer guard is needed; going
+# through the helper is what lets an already-present asset show up in the summary.
 
 # FoundationStereo checkpoint
 FS_PATH="${REPO_DIR}/deps/FoundationStereo/pretrained_models/23-51-11"
-if [[ ! -f "${FS_PATH}/cfg.yaml" ]]; then
-  run_download_or_fallback_dir \
-    "FoundationStereo checkpoint" \
-    "${FS_PATH}/cfg.yaml" \
-    "deps/FoundationStereo/pretrained_models/23-51-11" \
-    gdown --folder 'https://drive.google.com/drive/folders/1BbhoPliFqPJlrtD65TgNX49sJYuYcwA-?usp=drive_link' -O "${FS_PATH}"
-fi
+run_download_or_fallback_dir \
+  "FoundationStereo checkpoint" \
+  "${FS_PATH}/cfg.yaml" \
+  "deps/FoundationStereo/pretrained_models/23-51-11" \
+  gdown --folder 'https://drive.google.com/drive/folders/1BbhoPliFqPJlrtD65TgNX49sJYuYcwA-?usp=drive_link' -O "${FS_PATH}"
 
 # FoundationPose checkpoint
 FP_REFINER_PATH="${REPO_DIR}/deps/FoundationPose/weights/2023-10-28-18-33-37"
-if [[ ! -f "${FP_REFINER_PATH}/model_best.pth" ]]; then
-  run_download_or_fallback_dir \
-    "FoundationPose Refiner checkpoint" \
-    "${FP_REFINER_PATH}/model_best.pth" \
-    "deps/FoundationPose/weights/2023-10-28-18-33-37" \
-    gdown --folder 'https://drive.google.com/drive/folders/1BEQLZH69UO5EOfah-K9bfI3JyP9Hf7wC' -O "${FP_REFINER_PATH}"
-fi
+run_download_or_fallback_dir \
+  "FoundationPose Refiner checkpoint" \
+  "${FP_REFINER_PATH}/model_best.pth" \
+  "deps/FoundationPose/weights/2023-10-28-18-33-37" \
+  gdown --folder 'https://drive.google.com/drive/folders/1BEQLZH69UO5EOfah-K9bfI3JyP9Hf7wC' -O "${FP_REFINER_PATH}"
+
 FP_SCORER_PATH="${REPO_DIR}/deps/FoundationPose/weights/2024-01-11-20-02-45"
-if [[ ! -f "${FP_SCORER_PATH}/model_best.pth" ]]; then
-  run_download_or_fallback_dir \
-    "FoundationPose Scorer checkpoint" \
-    "${FP_SCORER_PATH}/model_best.pth" \
-    "deps/FoundationPose/weights/2024-01-11-20-02-45" \
-    gdown --folder 'https://drive.google.com/drive/folders/12Te_3TELLes5cim1d7F7EBTwUSe7iRBj' -O "${FP_SCORER_PATH}"
-fi
+run_download_or_fallback_dir \
+  "FoundationPose Scorer checkpoint" \
+  "${FP_SCORER_PATH}/model_best.pth" \
+  "deps/FoundationPose/weights/2024-01-11-20-02-45" \
+  gdown --folder 'https://drive.google.com/drive/folders/12Te_3TELLes5cim1d7F7EBTwUSe7iRBj' -O "${FP_SCORER_PATH}"
 
 # SAM2.1 checkpoint
-if [[ ! -f "${REPO_DIR}/checkpoints/sam2.1_hiera_large.pt" ]]; then
-  run_download_or_fallback_file \
-    "SAM2.1 checkpoint" \
-    "checkpoints/sam2.1_hiera_large.pt" \
-    "https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_large.pt"
-fi
+run_download_or_fallback_file \
+  "SAM2.1 checkpoint" \
+  "checkpoints/sam2.1_hiera_large.pt" \
+  "https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_large.pt"
 
 # DepthPro checkpoint
-DP_PATH="${REPO_DIR}/deps/ml-depth-pro/checkpoints"
-if [[ ! -f "${DP_PATH}/depth_pro.pt" ]]; then
-  run_download_or_fallback_file \
-    "DepthPro checkpoint" \
-    "deps/ml-depth-pro/checkpoints/depth_pro.pt" \
-    "https://ml-site.cdn-apple.com/models/depth-pro/depth_pro.pt"
-fi
+run_download_or_fallback_file \
+  "DepthPro checkpoint" \
+  "deps/ml-depth-pro/checkpoints/depth_pro.pt" \
+  "https://ml-site.cdn-apple.com/models/depth-pro/depth_pro.pt"
 
 # Hunyuan checkpoint
-HY_PATH="${REPO_DIR}/deps/Hunyuan3D-2.1/ckpt"
-if [[ ! -f "${HY_PATH}/RealESRGAN_x4plus.pth" ]]; then
-  run_download_or_fallback_file \
-    "RealESRGAN_x4plus checkpoint" \
-    "deps/Hunyuan3D-2.1/ckpt/RealESRGAN_x4plus.pth" \
-    "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth"
-fi
+run_download_or_fallback_file \
+  "RealESRGAN_x4plus checkpoint" \
+  "deps/Hunyuan3D-2.1/ckpt/RealESRGAN_x4plus.pth" \
+  "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth"
 
 # VOID inpainting weights (auto_bg VOID passes 1+2; ~15 GB total). Downloaded via the
 # Hugging Face CLI: the CogVideoX-Fun base model + the two VOID pass transformers.
@@ -212,7 +222,8 @@ download_void_hf() {
   local desc="$1" rel_marker="$2"
   shift 2
   if [[ -f "${REPO_DIR}/${rel_marker}" ]]; then
-    return
+    record_present "${desc}"
+    return 0
   fi
   if [[ -z "${HF_BIN}" ]]; then
     echo "WARNING: neither 'hf' nor 'huggingface-cli' on PATH for ${desc}." >&2
@@ -225,10 +236,12 @@ download_void_hf() {
   if [[ ! -f "${REPO_DIR}/${rel_marker}" ]]; then
     echo "WARNING: Download failed or marker missing for ${desc}."
     if ! copy_file_from_fallback "${rel_marker}"; then
-      echo "ERROR: Could not download ${desc} and no fallback copy was available." >&2
-      return 1
+      record_failed "${desc}"
+      return 0
     fi
   fi
+  record_ok "${desc}"
+  return 0
 }
 download_void_hf \
   "CogVideoX-Fun-V1.5-5b-InP (VOID base model)" \
@@ -242,6 +255,34 @@ download_void_hf \
   "VOID Pass 2 transformer" \
   "deps/void-model/void_pass2.safetensors" \
   download netflix/void-model void_pass2.safetensors --local-dir "${VOID_CKPT_DIR}"
+
+# ==============================================================================
+# SUMMARY
+# ==============================================================================
+echo ""
+echo "=== Checkpoint download summary ==="
+if (( ${#DOWNLOAD_PRESENT[@]} )); then
+  echo "Already present (${#DOWNLOAD_PRESENT[@]}):"
+  printf '  - %s\n' "${DOWNLOAD_PRESENT[@]}"
+fi
+if (( ${#DOWNLOAD_OK[@]} )); then
+  echo "Downloaded (${#DOWNLOAD_OK[@]}):"
+  printf '  - %s\n' "${DOWNLOAD_OK[@]}"
+fi
+if (( ${#DOWNLOAD_FAILED[@]} )); then
+  echo "FAILED (${#DOWNLOAD_FAILED[@]}):" >&2
+  printf '  - %s\n' "${DOWNLOAD_FAILED[@]}" >&2
+  cat >&2 <<EOF
+
+These are usually transient. Common causes and fixes:
+  - Google Drive "too many users have viewed or downloaded this file recently":
+    wait and re-run, or pass --checkpoint-fallback-root /path/to/known-good/repo-copy.
+  - Hugging Face gated repos (netflix/void-model): run 'hf auth login' first.
+Re-running is safe and cheap: anything already downloaded is skipped.
+EOF
+  exit 1
+fi
+echo "All checkpoints accounted for."
 
 # # Any6D checkpoint
 # FP_REFINER_PATH="${REPO_DIR}/deps/Any6D/foundationpose/weights/2023-10-28-18-33-37"
