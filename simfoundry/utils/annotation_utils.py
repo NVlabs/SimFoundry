@@ -21,8 +21,6 @@ from omnigibson.object_states import ContactBodies, OnTop, Inside, Open
 import omnigibson.utils.transform_utils as T
 from pathlib import Path
 
-import pdb
-
 from simfoundry.utils.og_utils import draw_trajectory_gradient, clear_trajectory_visualization
 
 

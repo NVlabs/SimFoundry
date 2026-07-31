@@ -73,7 +73,8 @@ Optional environments:
 ## 3. Log In To Services
 
 The pipeline's VLM stages (reconstruction 3/5/6/10 and B augmentation) run on
-**Google Cloud Vertex AI (Gemini)**. Authenticate and set your project:
+**Google Cloud Vertex AI**. First, create a [gcloud project](https://docs.cloud.google.com/distributed-cloud/hosted/docs/latest/appliance/application/ao-user/vertex-ai-set-up-project).
+Then, authenticate and set your project:
 
 ```bash
 gcloud auth application-default login
@@ -90,7 +91,7 @@ Make sure the Gemini model IDs referenced in the configs are enabled in your pro
 Log in to the other services (Hugging Face is required for gated model weights such as SAM3 and VOID):
 
 ```bash
-bash scripts/installation/login_services.sh --gcloud
+bash scripts/installation/login_services.sh
 ```
 
 Non-interactive login reads keys from a file:
@@ -98,7 +99,7 @@ Non-interactive login reads keys from a file:
 ```bash
 cp scripts/installation/api_keys.template.txt scripts/installation/api_keys.txt
 # Fill in scripts/installation/api_keys.txt (at minimum HF_TOKEN and GCLOUD_PROJECT). It is ignored by git.
-bash scripts/installation/login_services.sh --default --gcloud
+bash scripts/installation/login_services.sh --default
 ```
 
 Minimum service setup for the main (A reconstruction) pipeline:
@@ -125,22 +126,68 @@ bash scripts/installation/download_checkpoints.sh \
   --checkpoint-fallback-root /path/to/known-good/repo-copy
 ```
 
+### Robot assets
+
+`install_simfoundry.sh` provisions OmniGibson robot assets in two steps, into
+`deps/BEHAVIOR-1K/datasets/omnigibson-robot-assets/`:
+
+1. OmniGibson's own public download (`franka_panda`, `sky.jpg`, and the other stock robots).
+2. The SimFoundry asset bundle from
+   [`og_cdc_assets`](https://github.com/cremebrule/og_cdc_assets), which adds the
+   `franka_robotiq` end effector used by most task configs. Its `models/` tree is merged over
+   the public assets without overwriting them.
+
+Override the source or pin a revision if needed:
+
+```bash
+OG_SIMFOUNDRY_ASSETS_REPO=git@github.com:cremebrule/og_cdc_assets.git \
+OG_SIMFOUNDRY_ASSETS_COMMIT=<sha> \
+  bash scripts/installation/install_simfoundry.sh --project-root ../.. --env-name simfoundry --default
+```
+
+If you already have a checkout containing the assets, point at it instead:
+
+```bash
+bash scripts/installation/install_simfoundry.sh \
+  --project-root ../.. --env-name simfoundry --default \
+  --robot-asset-fallback-root /path/to/repo-with-assets
+```
+
 ## 5. Verify The Install
 
 Basic environment checks:
 
 ```bash
 mamba run -n simfoundry python -c "import torch, hydra, simfoundry; print('simfoundry ok')"
-mamba run -n da3 python -c "import torch; print('da3 ok')"
-mamba run -n hunyuan python -c "import torch; print('hunyuan ok')"
+mamba run -n any6d    python -c "import torch, simfoundry; print('any6d ok')"
+mamba run -n da3      python -c "import torch, simfoundry; print('da3 ok')"
+mamba run -n hunyuan  python -c "import torch, simfoundry; print('hunyuan ok')"
 ```
 
-Dry-run the pipeline wrappers:
+Each should print a path inside *this* checkout. All four environments install the
+`simfoundry` package editable, so a mismatch means a stale editable install is shadowing it.
+
+Dry-run the pipeline wrappers (prints the stage plan; executes nothing):
 
 ```bash
 bash scripts/pipeline/A_reconstruction/run.sh --dry-run --include 1b,2
 bash scripts/pipeline/B_augmentation/run.sh --dry-run --include 1
 bash scripts/pipeline/C_application/run.sh --dry-run --mode smoke-random
+```
+
+Run the test suite:
+
+```bash
+pip install -r requirements_dev.txt
+mamba run -n simfoundry python -m pytest -q
+```
+
+A four-file subset needs no runtime dependencies at all, so it works before any environment
+is built:
+
+```bash
+pytest tests/test_subpipeline_layout.py tests/test_resource_scheduler.py \
+       tests/test_pipeline_reporting.py tests/test_pipeline_orchestrator.py
 ```
 
 ## 6. Run A Small Smoke Test

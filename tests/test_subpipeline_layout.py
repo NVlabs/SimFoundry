@@ -16,17 +16,26 @@ def test_subpipeline_entrypoints_exist():
 
 
 def test_automated_pipeline_scripts_have_no_live_breakpoints():
-    automated_roots = [
-        PIPELINE_ROOT / "A_reconstruction" / "stages",
-        PIPELINE_ROOT / "B_augmentation" / "stages",
+    """No debugger residue anywhere in shipped code.
+
+    Covers the whole tree (package + all three sub-pipelines + interactive tools), and
+    rejects commented-out debugger calls too — they are dead code in a release.
+    """
+    scanned_roots = [
+        REPO_ROOT / "simfoundry",
+        PIPELINE_ROOT,
+        REPO_ROOT / "scripts" / "interactive",
+        REPO_ROOT / "scripts" / "installation",
     ]
+    needles = ("breakpoint()", "pdb.set_trace", "import pdb")
     offenders = []
-    for root in automated_roots:
-        for path in root.glob("*.py"):
-            text = path.read_text(encoding="utf-8")
-            if "breakpoint()" in text:
-                offenders.append(str(path))
-    assert offenders == []
+    for root in scanned_roots:
+        for path in sorted(root.rglob("*.py")) + sorted(root.rglob("*.sh")):
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            for needle in needles:
+                if needle in text:
+                    offenders.append(f"{path.relative_to(REPO_ROOT)}: {needle}")
+    assert offenders == [], offenders
 
 
 def test_superseded_upcoming_pipeline_removed():

@@ -28,7 +28,7 @@ scene_name: nv_desk                               # Default scene
 video_fpath: "${root_dir}/Scene_Video/${scene_name}.MOV"
 num_frames: 400                                   # Frames to subsample from source video; canonical recipe
 floor_category: "desk, table, or counter"         # Free-text label used by step 1 (quadmask) to identify the ground plane
-gcloud_project: null              # Vertex AI project for Gemini-backed steps (step 1). Set to your own GCP project id.
+gcloud_project: ${oc.env:GCLOUD_PROJECT,null}              # Vertex AI project for Gemini-backed steps (step 1). Set to your own GCP project id.
 seed: 42                                          # Master seed; passed to VOID Pass 1/2 explicitly
 clean: false                                      # If true, orchestrator rm -rf's Data/<scene> and assets/scenes/<scene> before running
 

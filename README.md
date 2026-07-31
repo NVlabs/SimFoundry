@@ -10,10 +10,10 @@ SimFoundry builds simulation-ready OmniGibson scenes from real video or ZED capt
 bash scripts/installation/install_everything.sh
 ```
 
-2. Set up service access — the pipeline's VLM stages run on **Google Cloud Vertex AI (Gemini)**, and Hugging Face is required before downloading the gated VOID weights:
+2. Set up service access — the pipeline's VLM stages run on **Google Cloud Vertex AI (Gemini)**. First, setup a Vertex AI-enabled [gcloud project](https://docs.cloud.google.com/distributed-cloud/hosted/docs/latest/appliance/application/ao-user/vertex-ai-set-up-project). A Hugging Face account is also required before downloading the gated VOID weights:
 
 ```bash
-export GCLOUD_PROJECT=<your-gcp-project>   # or: bash scripts/installation/login_services.sh --gcloud
+export GCLOUD_PROJECT=<your-gcp-project>   # or: bash scripts/installation/login_services.sh
 gcloud auth application-default login
 huggingface-cli login
 ```
@@ -27,7 +27,7 @@ bash scripts/installation/download_checkpoints.sh --default
 > Already logged in to Hugging Face? You can fold step 3 into step 1 with
 > `bash scripts/installation/install_everything.sh --checkpoints`.
 
-All VLM stages — reconstruction (stages 3, 5, 6, 10) and the B augmentation pipeline — run on **Google Vertex AI (Gemini)**. Set `gcloud_project` in `scripts/cfg/real2sim_cfg.yaml` (or `export GCLOUD_PROJECT`) and authenticate with `login_services.sh --gcloud` or `gcloud auth application-default login`. Make sure the Gemini model IDs referenced in the configs are enabled in your GCP project and region.
+All VLM stages — reconstruction (stages 3, 5, 6, 10) and the B augmentation pipeline — run on **Google Vertex AI (Gemini)**. Set `gcloud_project` in `scripts/cfg/real2sim_cfg.yaml` (or `export GCLOUD_PROJECT`) and authenticate with `login_services.sh` or `gcloud auth application-default login`. Make sure the Gemini model IDs referenced in the configs are enabled in your GCP project and region.
 
 More installation detail: [INSTALL.md](INSTALL.md)
 

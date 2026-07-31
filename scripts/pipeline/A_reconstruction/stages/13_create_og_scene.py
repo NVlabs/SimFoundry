@@ -144,9 +144,10 @@ def validate_robot_assets(robot_cfg):
         f"  - end_effector: {end_effector}\n"
         f"  - expected USD: {usd_path}\n"
         "The default 'gripper' end effector is included in the public OmniGibson robot assets. "
-        "Robotiq configs require the SimFoundry-specific robot asset bundle; install it with "
-        "./install.sh --robot-asset-fallback-root <repo-with-assets> or override "
-        "s13_og.robot_config.end_effector=gripper."
+        "Robotiq configs additionally require the SimFoundry robot asset bundle, which "
+        "scripts/installation/install_simfoundry.sh fetches automatically. Re-run that installer, "
+        "or pass --robot-asset-fallback-root <repo-with-assets> if you have a local copy, "
+        "or override s13_og.robot_config.end_effector=gripper."
     )
 
 @hydra.main(config_name="real2sim_cfg", config_path=CFG_DIR, version_base="1.3")

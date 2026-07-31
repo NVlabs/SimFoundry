@@ -17,9 +17,9 @@
 # # Default mode with custom keys file and env
 # bash scripts/installation/login_services.sh --default --keys-file /path/to/my_keys.txt --env-name my_env
 
-# # Pipeline VLM calls run on Google Cloud Vertex AI (Gemini); include --gcloud
-# # to also authenticate gcloud (or run 'gcloud auth application-default login'):
-# bash scripts/installation/login_services.sh --default --gcloud
+# # Pipeline VLM calls run on Google Cloud Vertex AI (Gemini), so gcloud is
+# # authenticated by default. Pass --no-gcloud to skip it:
+# bash scripts/installation/login_services.sh --default --no-gcloud
 # ==============================================================================
 
 # Error handling: Exit and print the offending line and error message on failure
@@ -43,7 +43,8 @@ project_root="$(cd "$SCRIPT_DIR/../.." && pwd)"
 # Defaults
 env_name="simfoundry"
 DEFAULT=false
-GCLOUD_LOGIN=false
+# Vertex AI backs every remote VLM stage, so Google Cloud login is on by default.
+GCLOUD_LOGIN=true
 KEYS_FILE="${SCRIPT_DIR}/api_keys.txt"
 
 # Parse command-line options
@@ -51,20 +52,20 @@ while [[ $# -gt 0 ]]; do
     case $1 in
         --env-name) env_name="$2"; shift 2 ;;
         --default) DEFAULT=true; shift ;;
-        --gcloud) GCLOUD_LOGIN=true; shift ;;
+        --no-gcloud) GCLOUD_LOGIN=false; shift ;;
         --keys-file) KEYS_FILE="$2"; shift 2 ;;
         -h|--help)
             echo "Usage: bash login_services.sh [OPTIONS]"
             echo ""
-            echo "Logs into HuggingFace, WandB, Docker Hub, and nvcr.io (NGC). Include"
-            echo "--gcloud to also authenticate Google Cloud (Vertex AI backs the pipeline's"
-            echo "VLM calls)."
+            echo "Logs into Google Cloud, HuggingFace, WandB, Docker Hub, and nvcr.io (NGC)."
+            echo "Google Cloud is included by default because Vertex AI backs the pipeline's"
+            echo "VLM calls; pass --no-gcloud to skip it."
             echo ""
             echo "Options:"
             echo "  --env-name NAME     Mamba environment to activate (default: simfoundry)"
             echo "  --default           Read API keys from a file instead of prompting"
-            echo "  --gcloud            Also log into Google Cloud (Vertex AI backs the"
-            echo "                      pipeline's VLM stages)"
+            echo "  --no-gcloud         Skip Google Cloud login (the pipeline will not run"
+            echo "                      until you authenticate separately)"
             echo "  --keys-file PATH    Path to API keys file (default: scripts/installation/api_keys.txt)"
             echo "  -h, --help          Show this help message"
             echo ""
@@ -206,24 +207,41 @@ echo ""
 echo "--- Google Cloud Login ---"
 
 if [[ ${GCLOUD_LOGIN} != true ]]; then
-    echo "Skipping Google Cloud login. The pipeline's VLM stages run on Vertex AI (Gemini),"
-    echo "so re-run with --gcloud (or run 'gcloud auth application-default login' yourself)."
+    echo "Skipping Google Cloud login at your request (--no-gcloud)."
+    echo "WARNING: Vertex AI (Gemini) backs every remote VLM stage. The pipeline will fail"
+    echo "         until you run 'gcloud auth application-default login' and set a project."
+elif ! command -v gcloud >/dev/null 2>&1; then
+    echo "WARNING: 'gcloud' is not on PATH, so Google Cloud login was skipped." >&2
+    echo "         Install the Google Cloud SDK, then re-run this script." >&2
 else
+    # Project id: explicit env/prompt first, then whatever gcloud is already configured with.
     if [[ ${DEFAULT} == true ]]; then
         GCLOUD_PROJECT_VALUE="${GCLOUD_PROJECT:-}"
     else
-        read -p "Enter Google Cloud project ID (leave blank to skip): " GCLOUD_PROJECT_VALUE
+        read -p "Enter Google Cloud project ID (blank to keep the current gcloud project): " GCLOUD_PROJECT_VALUE
+    fi
+    if [[ -z "$GCLOUD_PROJECT_VALUE" ]]; then
+        GCLOUD_PROJECT_VALUE="$(gcloud config get-value project 2>/dev/null || true)"
+        [[ "$GCLOUD_PROJECT_VALUE" == "(unset)" ]] && GCLOUD_PROJECT_VALUE=""
+        [[ -n "$GCLOUD_PROJECT_VALUE" ]] && echo "Using project already configured in gcloud: ${GCLOUD_PROJECT_VALUE}"
     fi
 
     if [[ -n "$GCLOUD_PROJECT_VALUE" ]]; then
         echo "Setting Google Cloud project: $GCLOUD_PROJECT_VALUE"
         gcloud config set project "$GCLOUD_PROJECT_VALUE"
+    else
+        echo "WARNING: no Google Cloud project id available." >&2
+        echo "         Set GCLOUD_PROJECT, or set gcloud_project in scripts/cfg/real2sim_cfg.yaml." >&2
+    fi
+
+    # Application-default credentials are what the Vertex AI SDK actually reads.
+    if gcloud auth application-default print-access-token >/dev/null 2>&1; then
+        echo "Google Cloud application-default credentials already present; skipping browser login."
+    else
         echo "Launching Google Cloud application-default login (this will open a browser)..."
         gcloud auth application-default login
-        echo "Logged into Google Cloud."
-    else
-        echo "Skipping Google Cloud login (no project ID provided)."
     fi
+    echo "Logged into Google Cloud."
 fi
 
 # ==============================================================================

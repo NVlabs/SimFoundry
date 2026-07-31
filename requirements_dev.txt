@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Development / test dependencies. Not needed to run the pipeline.
+#   pip install -r requirements_dev.txt
+#
+# Note: the bulk of the test suite additionally needs the runtime dependencies from
+# requirements.txt (torch, open3d, hydra, ...). A four-file subset runs without them:
+#   pytest tests/test_subpipeline_layout.py tests/test_resource_scheduler.py \
+#          tests/test_pipeline_reporting.py tests/test_pipeline_orchestrator.py
+
+pytest>=8.0

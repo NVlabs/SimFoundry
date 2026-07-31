@@ -122,7 +122,7 @@ def test_run_pipeline_partial_multi_step(tmp_path, monkeypatch):
     assert "stage=WALL" in log_text
 
 
-def test_run_pipeline_stream_collapse(monkeypatch):
+def test_run_pipeline_stream_collapse(monkeypatch, tmp_path):
     calls = {"stream": 0, "single": []}
 
     import simfoundry.pipeline.orchestrator as orch
@@ -159,7 +159,8 @@ def test_run_pipeline_stream_collapse(monkeypatch):
         stream_subseq_enabled=True,
         stream_start_stage=6,
         stream_end_stage=7,
-        extra_overrides=["scene_name=scene_under_test"],
+        # root_dir must be overridden, or the report/timing artifacts land in the repo's own Data/.
+        extra_overrides=[f"root_dir={tmp_path}", "scene_name=scene_under_test"],
     )
 
     assert calls["stream"] == 1

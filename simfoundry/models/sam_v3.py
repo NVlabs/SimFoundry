@@ -351,7 +351,6 @@ class SAM3(torch.nn.Module):
                 if inter_area > obj_mask_intersect_area_threshold * min_area:
                     if mask_area_a > mask_area_b:
                         print(f"Pruning {phrase_b} because of sufficient overlap")
-                        # breakpoint()
                         if j not in idxs_to_remove:
                             idxs_to_remove[j] = "mask pixels proportion overlap"
                             continue

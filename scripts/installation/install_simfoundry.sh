@@ -510,9 +510,42 @@ export OMNI_KIT_ACCEPT_EULA=YES
 echo "Ensuring OmniGibson robot assets are installed..."
 python -c "from omnigibson.utils.asset_utils import download_omnigibson_robot_assets; download_omnigibson_robot_assets()"
 ROBOT_ASSETS_DIR="${PROJECT_ROOT}/deps/BEHAVIOR-1K/datasets/omnigibson-robot-assets"
+
+# SimFoundry-specific OmniGibson robot assets (e.g. the franka_robotiq end effector), which the
+# public OmniGibson robot-asset download does not carry. Must run AFTER
+# download_omnigibson_robot_assets() so the public download cannot clobber the merged files.
+# TODO(SimFoundry): confirm this SHA matches a tested build before release.
+OG_SIMFOUNDRY_ASSETS_REPO="${OG_SIMFOUNDRY_ASSETS_REPO:-https://github.com/cremebrule/og_cdc_assets.git}"
+OG_SIMFOUNDRY_ASSETS_COMMIT="${OG_SIMFOUNDRY_ASSETS_COMMIT:-}"
+OG_SIMFOUNDRY_ASSETS_SRC="${PROJECT_ROOT}/deps/og_cdc_assets"
+
+fetch_simfoundry_robot_assets() {
+  if [[ ! -d "${OG_SIMFOUNDRY_ASSETS_SRC}/.git" ]]; then
+    echo "Fetching SimFoundry OmniGibson robot assets from ${OG_SIMFOUNDRY_ASSETS_REPO}..."
+    git clone "${OG_SIMFOUNDRY_ASSETS_REPO}" "${OG_SIMFOUNDRY_ASSETS_SRC}"
+  fi
+  if [[ -n "${OG_SIMFOUNDRY_ASSETS_COMMIT}" ]]; then
+    git -C "${OG_SIMFOUNDRY_ASSETS_SRC}" checkout --detach "${OG_SIMFOUNDRY_ASSETS_COMMIT}"
+  fi
+
+  # The repo carries `models/...` at its root; merge it into the robot-assets tree without
+  # overwriting anything the public download already provided.
+  if [[ ! -d "${OG_SIMFOUNDRY_ASSETS_SRC}/models" ]]; then
+    echo "ERROR: ${OG_SIMFOUNDRY_ASSETS_SRC} has no models/ directory; unexpected repo layout." >&2
+    return 1
+  fi
+  mkdir -p "${ROBOT_ASSETS_DIR}"
+  cp -an "${OG_SIMFOUNDRY_ASSETS_SRC}/models/." "${ROBOT_ASSETS_DIR}/models/" 2>/dev/null || true
+  echo "Merged SimFoundry robot assets into ${ROBOT_ASSETS_DIR}"
+}
+
+if ! fetch_simfoundry_robot_assets; then
+  echo "WARNING: could not fetch SimFoundry robot assets; falling back to --robot-asset-fallback-root." >&2
+fi
+
 validate_robot_asset_file "models/franka/franka_panda/usd/franka_panda.usda" required "models/franka/franka_panda"
 validate_robot_asset_file "models/background/sky.jpg" required "models/background/sky.jpg"
-validate_robot_asset_file "models/franka/franka_robotiq/usd/franka_robotiq.usda" optional "models/franka/franka_robotiq"
+validate_robot_asset_file "models/franka/franka_robotiq/usd/franka_robotiq.usda" required "models/franka/franka_robotiq"
 
 install_faiss_gpu "$ENV_NAME"
 

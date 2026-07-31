@@ -248,7 +248,6 @@ def main(cfg):
     # Iterate over all upsampled transparent images from step 6
     processed_objects = 0
     for filename in sorted(os.listdir(unsampled_img_dir)):
-        # breakpoint()
 
         if not filename.endswith('_transparent.png'):
             continue

@@ -12,7 +12,7 @@ scene_name: PutMarkerInCup #yam_desk_throw_away_trash  # test # left_table #mail
 seed: 0
 visualize: false
 debug: false
-gcloud_project: null # Set to your own GCP project id to use Vertex AI (Gemini).
+gcloud_project: ${oc.env:GCLOUD_PROJECT,null} # Set to your own GCP project id to use Vertex AI (Gemini).
 rerun_all: true
 
 # ===== model init cfgs =====

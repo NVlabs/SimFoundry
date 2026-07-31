@@ -12,7 +12,7 @@ scene_name: MarkerInCup #yam_desk_throw_away_trash  # test # left_table #mail_sc
 seed: 0
 visualize: false
 debug: false
-gcloud_project: null # Google Cloud project id (required — Vertex AI backs all remote VLM stages). Set this to your own GCP project id.
+gcloud_project: ${oc.env:GCLOUD_PROJECT,null} # Google Cloud project id (required — Vertex AI backs all remote VLM stages). Reads $GCLOUD_PROJECT; replace with a literal id to hardcode it.
 rerun_all: true
 low_vram: true
 

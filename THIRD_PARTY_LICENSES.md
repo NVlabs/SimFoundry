@@ -38,6 +38,7 @@ Derived files carry an attribution note in their header.
 | No. | Component | License | Copyright | License Link |
 |-----|-----------|---------|-----------|--------------|
 | 0 | ACDC / digital-cousins (upstream of SimFoundry) | Apache-2.0 | Copyright (c) 2024 the ACDC authors (Stanford Vision and Learning Lab) | https://github.com/cremebrule/digital-cousins/blob/5a6d120fa1e3808779cfdf887b2169cbe73c3678/LICENSE |
+| 0e | og_cdc_assets (SimFoundry OmniGibson robot assets, e.g. `franka_robotiq`) | Apache-2.0 | Copyright (c) 2024 the ACDC authors (Stanford Vision and Learning Lab) | https://github.com/cremebrule/og_cdc_assets |
 
 ### 0a. Additional adapted sources
 
@@ -211,6 +212,7 @@ not extend to any component below, their model weights, or any dataset or SDK re
 | Component | Required? | Acquisition | Exact version | Source terms | Weights terms | Key restriction |
 |---|---|---|---|---|---|---|
 | SAM 3 | Required (`simfoundry`) | `git clone` — `install_simfoundry.sh` | `46957e47…` | SAM License (Meta) | Gated Hugging Face download | **Non-OSS**, source-available; HF login required |
+| og_cdc_assets (robot assets) | Required (`simfoundry`) | `git clone` — `install_simfoundry.sh` | unpinned | Apache-2.0 | n/a — assets only | Merged into `deps/BEHAVIOR-1K/datasets/omnigibson-robot-assets/` |
 | Any6D | Required (`any6d`) | `git clone` — `install_any6d.sh` | `80eb4866…` | Custom academic-only | n/a | **Non-commercial / academic use only** |
 | Hunyuan3D-2.1 | Required (`hunyuan`) | `git clone` — `install_hunyuan.sh` | `82920d64…` | Tencent Hunyuan 3D 2.1 Community License | Same, plus Real-ESRGAN weight (BSD-3-Clause) | **Non-OSS** community license |
 | Hunyuan3D-Part (P3-SAM, X-Part) | Optional (`articulate`) | Fetched by articulate-anything | Tencent Hunyuan 3D-Part Community License | P3-SAM weights auto-download on first use | **Non-OSS** community license |
