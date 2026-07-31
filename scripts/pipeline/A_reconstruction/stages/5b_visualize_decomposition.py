@@ -4,7 +4,7 @@
 """
 Visualize the output from 5_decompose_scene.py
 
-Should be run from `cdc` env
+Should be run from `simfoundry` env
 
 This script provides a GUI to visualize the iterative scene decomposition process,
 showing:
@@ -38,7 +38,7 @@ import numpy as np
 from matplotlib.widgets import Button, Slider, TextBox, CheckButtons
 from omegaconf import OmegaConf
 from PIL import Image
-from digital_cousins import CFG_DIR
+from simfoundry import CFG_DIR
 
 # Set up logger
 logger = logging.getLogger(__name__)

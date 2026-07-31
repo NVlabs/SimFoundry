@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Should be run from cdc or from foundationpose if using foundationpose
+Should be run from simfoundry or from foundationpose if using foundationpose
 
 Requires installing:
 
@@ -27,11 +27,11 @@ from probreg import cpd, gmmtree, filterreg, bcpd, l2dist_regs, transformation
 import cv2
 import json
 import hydra
-from digital_cousins.utils.faiss_utils import l2_search
-from digital_cousins.utils.processing_utils import compute_point_cloud_from_depth, pad_image_to_ratio, unpad_image, \
+from simfoundry.utils.faiss_utils import l2_search
+from simfoundry.utils.processing_utils import compute_point_cloud_from_depth, pad_image_to_ratio, unpad_image, \
     dilate_mask, erode_mask, extract_numbers_from_str, denoise_obj_point_cloud
-from digital_cousins.utils.prompt_utils import prompt_topk_image_select
-from digital_cousins.pipeline.stage_utils import StageResult, bootstrap_hydra_workdir, finalize_stage
+from simfoundry.utils.prompt_utils import prompt_topk_image_select
+from simfoundry.pipeline.stage_utils import StageResult, bootstrap_hydra_workdir, finalize_stage
 import multiprocessing
 from tqdm import trange
 import logging
@@ -39,7 +39,7 @@ import os
 
 logger = logging.getLogger(__name__)
 # To import FoundationPose
-from digital_cousins import REPO_DIR
+from simfoundry import REPO_DIR
 foundationpose_dir = f"{REPO_DIR}/deps/FoundationPose"
 sys.path.append(foundationpose_dir)
 
@@ -48,7 +48,7 @@ sys.path.append(foundationpose_dir)
 if hydra.core.global_hydra.GlobalHydra.instance().is_initialized():
         hydra.core.global_hydra.GlobalHydra.instance().clear()
 
-from digital_cousins import CFG_DIR
+from simfoundry import CFG_DIR
 
 bootstrap_hydra_workdir(__file__)
 

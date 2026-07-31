@@ -29,7 +29,7 @@ Options:
   --exec-mode mamba|direct        Process execution mode. Default: mamba
   --no-env-switch                 Alias for --exec-mode direct.
   --python-bin PATH               Python executable inside each target env. Default: python
-  --env-cdc NAME                  Mamba env for CDC stages. Default: cdc
+  --env-simfoundry NAME           Mamba env for SimFoundry stages. Default: simfoundry
   --env-da3 NAME                  Mamba env for depth stage. Default: da3
   --env-hunyuan NAME              Mamba env for mesh generation. Default: hunyuan
   --env-b1k NAME                  Mamba env for OmniGibson stages. Default: b1k
@@ -37,10 +37,10 @@ Options:
   --stream-start-stage N          Streaming start stage, 5-8. Default: 5
   --stream-end-stage N            Streaming end stage, 5-8. Default: 8
   --max-vram-gb N                 Single-GPU hard VRAM budget for streaming. Default: 30
-  --detect-articulation           Run automated articulation decomposition stage 8b after stage 8.
+  --detect-articulation           Run stage 8b (articulated objects). Not shipped in this release; ignored with a warning.
   --cache-mode                    Cache raw remote model responses.
   --test-mode                     Replay remote model responses from cache.
-  --model-cache-dir DIR           Cache root. Default: .cache/cdc/model_calls
+  --model-cache-dir DIR           Cache root. Default: .cache/simfoundry/model_calls
   --dry-run                       Print commands without running stages.
   -h, --help                      Show this help.
 
@@ -54,7 +54,7 @@ ROOT_DIR="${ROOT_DIR:-${REPO_DIR}/Data}"
 VIDEO_FPATH="${VIDEO_FPATH:-${ROOT_DIR}/${SCENE_NAME}/s1_video/video/scene.mp4}"
 EXEC_MODE="${EXEC_MODE:-mamba}"
 PYTHON_BIN="${PYTHON_BIN:-python}"
-ENV_CDC="${ENV_CDC:-cdc}"
+ENV_SIMFOUNDRY="${ENV_SIMFOUNDRY:-simfoundry}"
 ENV_DA3="${ENV_DA3:-da3}"
 ENV_HUNYUAN="${ENV_HUNYUAN:-hunyuan}"
 ENV_B1K="${ENV_B1K:-b1k}"
@@ -65,7 +65,7 @@ MAX_VRAM_GB="${MAX_VRAM_GB:-30}"
 DETECT_ARTICULATION="${DETECT_ARTICULATION:-0}"
 CACHE_MODE_ENABLED=0
 TEST_MODE_ENABLED=0
-MODEL_CACHE_DIR="${CDC_MODEL_CACHE_DIR:-}"
+MODEL_CACHE_DIR="${SIMFOUNDRY_MODEL_CACHE_DIR:-}"
 DRY_RUN=0
 INCLUDE_IDS=""
 EXCLUDE_IDS=""
@@ -109,8 +109,8 @@ while [[ $# -gt 0 ]]; do
       PYTHON_BIN="$2"
       shift 2
       ;;
-    --env-cdc)
-      ENV_CDC="$2"
+    --env-simfoundry)
+      ENV_SIMFOUNDRY="$2"
       shift 2
       ;;
     --env-da3|--env-da)
@@ -194,6 +194,13 @@ case "${PIPELINE}" in
     ;;
 esac
 
+# Stage 8b (articulation) is not shipped in this release. Disable it here rather than at
+# the flag, so restoring the stage script re-enables --detect-articulation automatically.
+if [[ "${DETECT_ARTICULATION}" == "1" && ! -f "${REPO_DIR}/scripts/pipeline/A_reconstruction/stages/8b_articulate_objects.py" ]]; then
+  echo "WARNING: Articulation component is not installed; continuing without articulation." >&2
+  DETECT_ARTICULATION=0
+fi
+
 if [[ "${CACHE_MODE_ENABLED}" == "1" && "${TEST_MODE_ENABLED}" == "1" ]]; then
   echo "--cache-mode and --test-mode are mutually exclusive." >&2
   exit 2
@@ -208,18 +215,18 @@ elif [[ "${TEST_MODE_ENABLED}" == "1" ]]; then
 fi
 
 if [[ "${CACHE_MODE_ENABLED}" == "1" || "${TEST_MODE_ENABLED}" == "1" ]]; then
-  MODEL_CACHE_DIR="${MODEL_CACHE_DIR:-${REPO_DIR}/.cache/cdc/model_calls}"
+  MODEL_CACHE_DIR="${MODEL_CACHE_DIR:-${REPO_DIR}/.cache/simfoundry/model_calls}"
 fi
 if [[ -n "${MODEL_CACHE_DIR}" ]]; then
   if [[ "${MODEL_CACHE_DIR}" != /* ]]; then
     MODEL_CACHE_DIR="${REPO_DIR}/${MODEL_CACHE_DIR}"
   fi
-  export CDC_MODEL_CACHE_DIR="${MODEL_CACHE_DIR}"
+  export SIMFOUNDRY_MODEL_CACHE_DIR="${MODEL_CACHE_DIR}"
 fi
 
 RUNNER_CMD=("${PYTHON_BIN}")
 if [[ "${EXEC_MODE}" == "mamba" ]]; then
-  RUNNER_CMD=(mamba run -n "${ENV_CDC}" "${PYTHON_BIN}")
+  RUNNER_CMD=(mamba run -n "${ENV_SIMFOUNDRY}" "${PYTHON_BIN}")
 fi
 
 CMD=(
@@ -228,7 +235,7 @@ CMD=(
   "--input-mode" "${INPUT_MODE}"
   "--exec-mode" "${EXEC_MODE}"
   "--python-bin" "${PYTHON_BIN}"
-  "--env-cdc" "${ENV_CDC}"
+  "--env-simfoundry" "${ENV_SIMFOUNDRY}"
   "--env-da3" "${ENV_DA3}"
   "--env-hunyuan" "${ENV_HUNYUAN}"
   "--env-b1k" "${ENV_B1K}"

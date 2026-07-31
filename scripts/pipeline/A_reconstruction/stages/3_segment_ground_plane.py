@@ -2,14 +2,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Should be run from `cdc` env
+Should be run from `simfoundry` env
 
 Requires installing:
 
-- digital_cousins, see the main README
+- simfoundry, see the main README
 """
-from digital_cousins.models.sam_v3 import SAM3
-from digital_cousins.utils.processing_utils import compute_point_cloud_from_depth, annotate
+from simfoundry.models.sam_v3 import SAM3
+from simfoundry.utils.processing_utils import compute_point_cloud_from_depth, annotate
 import numpy as np
 import open3d as o3d
 from pathlib import Path
@@ -18,8 +18,8 @@ import json
 import hydra
 import os
 from copy import deepcopy
-from digital_cousins.pipeline.stage_utils import StageResult, bootstrap_hydra_workdir, finalize_stage
-from digital_cousins import CFG_DIR
+from simfoundry.pipeline.stage_utils import StageResult, bootstrap_hydra_workdir, finalize_stage
+from simfoundry import CFG_DIR
 import logging
 import einops
 
@@ -47,8 +47,8 @@ def predict_floor_masks(rgb_fpath, sam3, floor_categories, floor_threshold, visu
 
 
 def predict_masks_with_llm(rgb_fpath, cfg, sam3):
-    from digital_cousins.models.vlm import Gemini
-    from digital_cousins.utils.prompt_utils import prompt_floor_setlist
+    from simfoundry.models.vlm import Gemini
+    from simfoundry.utils.prompt_utils import prompt_floor_setlist
     vlm = Gemini(
         project=cfg.gcloud_project,
         location="global",

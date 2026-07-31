@@ -17,7 +17,7 @@ transforms.json only lists frames that COLMAP successfully registered. Use
 matching_method=vocab_tree (default here) so most frames get poses; sequential
 often registers only a few.
 
-Should be run from `cdc` env (nerfstudio installed).
+Should be run from `simfoundry` env (nerfstudio installed).
 """
 import logging
 import os
@@ -32,8 +32,8 @@ logger = logging.getLogger(__name__)
 
 # Resolve scripts/cfg the same way the sibling stages do (location-independent,
 # replaces the old hand-rolled "../cfg" chdir that only worked from scripts/pipeline/).
-from digital_cousins import CFG_DIR
-from digital_cousins.pipeline.stage_utils import bootstrap_hydra_workdir
+from simfoundry import CFG_DIR
+from simfoundry.pipeline.stage_utils import bootstrap_hydra_workdir
 
 bootstrap_hydra_workdir(__file__)
 
@@ -223,8 +223,8 @@ def main(cfg):
     # "/usr/include/c++/11/cmath: fatal error: math.h: No such file or directory".
     # This is the canonical nerfstudio_v2 toolchain, so default to NOT injecting.
     # Opt back in (for envs that genuinely need it, e.g. to find crypt.h) via
-    # CDC_INJECT_SYSTEM_INCLUDES=1.
-    if os.environ.get("CDC_INJECT_SYSTEM_INCLUDES", "0") == "1":
+    # SIMFOUNDRY_INJECT_SYSTEM_INCLUDES=1.
+    if os.environ.get("SIMFOUNDRY_INJECT_SYSTEM_INCLUDES", "0") == "1":
         existing_paths = [p for p in system_include_paths if os.path.exists(p)]
     else:
         existing_paths = []

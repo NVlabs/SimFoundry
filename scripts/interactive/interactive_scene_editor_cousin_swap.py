@@ -68,7 +68,7 @@ import numpy as np
 import re
 import math
 from datetime import datetime
-from digital_cousins import ASSET_DIR
+from simfoundry import ASSET_DIR
 
 class InteractiveSceneEditor:
     """

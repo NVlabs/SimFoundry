@@ -191,11 +191,11 @@ echo "Installed sam2"
 cd bop_toolkit && python setup.py install && cd .. >> /dev/null
 echo "Installed bop_toolkit"
 
-# Step 4.14: Install CDC requirements
+# Step 4.14: Install SimFoundry requirements
 cd ../.. # back in root
 pip install -r requirements.txt >> /dev/null
 pip install -e . >> /dev/null
-echo "Installed ACDC in Any6D environment"
+echo "Installed SimFoundry in Any6D environment"
 
 # Step 4.15: Install and validate faiss-gpu
 install_faiss_gpu "$ENV_NAME"

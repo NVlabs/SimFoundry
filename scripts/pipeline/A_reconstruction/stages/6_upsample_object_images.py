@@ -2,24 +2,24 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Should be run from `cdc` env
+Should be run from `simfoundry` env
 
 Requires installing:
 
-- digital_cousins, see the main README
+- simfoundry, see the main README
 
 Don't forget to register API key from openai / Gemini CLI!
 """
 import cv2
 import logging
 
-from digital_cousins.models.vlm import GPT, FLUX1, Gemini
-from digital_cousins.utils.prompt_utils import prompt_upsample_image, prompt_upsample_image_rotate, \
+from simfoundry.models.vlm import GPT, FLUX1, Gemini
+from simfoundry.utils.prompt_utils import prompt_upsample_image, prompt_upsample_image_rotate, \
     prompt_flux_object_completion_and_upsample_preserve, prompt_upsample_image_gemini, prompt_infill_image, prompt_infill_image_no_conditioning, \
     prompt_check_object_validity, parse_json_response
-from digital_cousins.utils.processing_utils import pad_image_to_ratio, remove_background
-from digital_cousins.pipeline.stage_utils import StageResult, bootstrap_hydra_workdir, finalize_stage
-from digital_cousins.utils.python_utils import assert_valid_key
+from simfoundry.utils.processing_utils import pad_image_to_ratio, remove_background
+from simfoundry.pipeline.stage_utils import StageResult, bootstrap_hydra_workdir, finalize_stage
+from simfoundry.utils.python_utils import assert_valid_key
 import torch
 from pathlib import Path
 from PIL import Image
@@ -46,7 +46,7 @@ UPSAMPLE_MODELS = {
     "flux",
 }
 
-from digital_cousins import CFG_DIR
+from simfoundry import CFG_DIR
 
 
 def resolve_requested_indices(cfg):

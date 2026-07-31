@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from digital_cousins.pipeline.stream_subsequence import (
+from simfoundry.pipeline.stream_subsequence import (
     discover_ready_artifact_mtimes,
     discover_ready_indices,
     per_index_override,

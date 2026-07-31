@@ -4,7 +4,7 @@
 """
 Interactive version of 8_match_object_poses.py
 
-Should be run from cdc or from any6d if using any6d
+Should be run from simfoundry or from any6d if using any6d
 
 Enables users to interactively move, scale, and rotate objects in the visualization window.
 Controls:
@@ -40,11 +40,11 @@ import cv2
 import json
 import hydra
 from omegaconf import OmegaConf
-from digital_cousins.models.vlm import Gemini # , Imagen3
-from digital_cousins.utils.faiss_utils import l2_search
-from digital_cousins.utils.processing_utils import compute_point_cloud_from_depth, pad_image_to_ratio, unpad_image, \
+from simfoundry.models.vlm import Gemini # , Imagen3
+from simfoundry.utils.faiss_utils import l2_search
+from simfoundry.utils.processing_utils import compute_point_cloud_from_depth, pad_image_to_ratio, unpad_image, \
     dilate_mask, erode_mask, extract_numbers_from_str, denoise_obj_point_cloud, dump_json
-from digital_cousins.utils.prompt_utils import prompt_topk_image_select
+from simfoundry.utils.prompt_utils import prompt_topk_image_select
 import multiprocessing
 from tqdm import trange
 import logging
@@ -52,7 +52,7 @@ import os
 
 logger = logging.getLogger(__name__)
 # TO import Any6D
-from digital_cousins import REPO_DIR
+from simfoundry import REPO_DIR
 any6d_dir = f"{REPO_DIR}/deps/Any6D"
 sys.path.append(any6d_dir)
 
@@ -61,7 +61,7 @@ sys.path.append(any6d_dir)
 if hydra.core.global_hydra.GlobalHydra.instance().is_initialized():
         hydra.core.global_hydra.GlobalHydra.instance().clear()
 
-from digital_cousins import CFG_DIR
+from simfoundry import CFG_DIR
 
 ### At the start of every script, we cd into the scripts/config directory
 scripts_dir = os.path.dirname(os.path.abspath(__file__))

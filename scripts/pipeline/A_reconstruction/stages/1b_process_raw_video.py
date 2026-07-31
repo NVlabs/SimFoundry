@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Should be run from `cdc` env
+Should be run from `simfoundry` env
 """
 import shutil
 
@@ -13,8 +13,8 @@ import cv2
 import time
 from pathlib import Path
 import hydra
-from digital_cousins import CFG_DIR
-from digital_cousins.pipeline.stage_utils import StageResult, bootstrap_hydra_workdir, finalize_stage
+from simfoundry import CFG_DIR
+from simfoundry.pipeline.stage_utils import StageResult, bootstrap_hydra_workdir, finalize_stage
 import subprocess
 import logging
 

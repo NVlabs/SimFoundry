@@ -82,13 +82,13 @@ def main():
     from omnigibson.utils.ui_utils import KeyboardEventHandler
 
     # Import domain randomization
-    from digital_cousins.domain_randomization import (
+    from simfoundry.domain_randomization import (
         DomainRandomizationCfg,
         MaterialRandomizationCfg,
         LightingRandomizationCfg,
         DomainRandomizationManager,
     )
-    from digital_cousins.utils.scene_utils import load_json_with_absolute_usd_paths
+    from simfoundry.utils.scene_utils import load_json_with_absolute_usd_paths
 
     # ----------------------------------------------------------------
     # Load scene

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Should be run from `cdc` env
+Should be run from `simfoundry` env
 
 Structured approach to generating digital cousins:
 1. Decompose object into functional components based on affordance
@@ -13,11 +13,11 @@ Structured approach to generating digital cousins:
 3. Apply variations through nano-banana
 
 Requires installing:
-- digital_cousins, see the main README
+- simfoundry, see the main README
 
 Don't forget to register API key from Gemini CLI!
 """
-from digital_cousins.models.vlm import Gemini
+from simfoundry.models.vlm import Gemini
 from pathlib import Path
 from PIL import Image
 import json
@@ -28,7 +28,7 @@ import logging
 from omegaconf import OmegaConf
 from rembg import remove, new_session
 import tempfile
-from digital_cousins import CFG_DIR
+from simfoundry import CFG_DIR
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -198,11 +198,11 @@ def main(cfg):
     img_dir = cfg_path(cfg.s5_scene.out_dir)
     scene_dir = cfg_path(cfg.s1_video.out_dir)
     unsampled_img_dir = cfg_path(cfg.s6_upsample.out_dir, "upsampled")
-    out_dir = cfg_path(cfg.prompt_cdc_structured.out_dir)
+    out_dir = cfg_path(cfg.prompt_cousin_structured.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # Get optional reasonableness check flag from config
-    check_reasonableness = cfg.prompt_cdc_structured.get('check_reasonableness', False)
+    check_reasonableness = cfg.prompt_cousin_structured.get('check_reasonableness', False)
     print(f"Reasonableness check: {'ENABLED' if check_reasonableness else 'DISABLED'}")
 
     # Scene context
@@ -214,16 +214,16 @@ def main(cfg):
         scene_img_path = None
 
     # Max retries for reasonableness check
-    max_reasonableness_attempts = cfg.prompt_cdc_structured.get(
+    max_reasonableness_attempts = cfg.prompt_cousin_structured.get(
         "max_reasonableness_attempts",
-        cfg.prompt_cdc_structured.get("max_scene_score_attempts", 3),
+        cfg.prompt_cousin_structured.get("max_scene_score_attempts", 3),
     )
     print(f"Reasonableness max attempts: {max_reasonableness_attempts}")
-    include_iters = _optional_iter_set(cfg.prompt_cdc_structured.get("include_iters"))
-    max_objects = _optional_int(cfg.prompt_cdc_structured.get("max_objects"))
-    max_components = _optional_int(cfg.prompt_cdc_structured.get("max_components"))
+    include_iters = _optional_iter_set(cfg.prompt_cousin_structured.get("include_iters"))
+    max_objects = _optional_int(cfg.prompt_cousin_structured.get("max_objects"))
+    max_components = _optional_int(cfg.prompt_cousin_structured.get("max_components"))
     max_generated_images_per_object = _optional_int(
-        cfg.prompt_cdc_structured.get("max_generated_images_per_object")
+        cfg.prompt_cousin_structured.get("max_generated_images_per_object")
     )
     print(
         "Prompt limits: "
@@ -237,12 +237,12 @@ def main(cfg):
     gemini_pro = Gemini(
         project=cfg.gcloud_project,
         location="global",
-        model=cfg.prompt_cdc_structured.get("text_model", "gemini-2.5-pro"),
+        model=cfg.prompt_cousin_structured.get("text_model", "gemini-2.5-pro"),
     )
     nano_banana = Gemini(
         project=cfg.gcloud_project,
         location="global",
-        model=cfg.prompt_cdc_structured.get("image_model", "gemini-3-pro-image-preview"),
+        model=cfg.prompt_cousin_structured.get("image_model", "gemini-3-pro-image-preview"),
     )
 
     # Iterate over all upsampled transparent images from step 6
@@ -368,9 +368,9 @@ def main(cfg):
         all_variations = {}
         
         # Get variation counts from config
-        num_geometry = cfg.prompt_cdc_structured.num_geometry_variation
-        num_topology = cfg.prompt_cdc_structured.num_topology_variation
-        num_visual = cfg.prompt_cdc_structured.num_visual_variation
+        num_geometry = cfg.prompt_cousin_structured.num_geometry_variation
+        num_topology = cfg.prompt_cousin_structured.num_topology_variation
+        num_visual = cfg.prompt_cousin_structured.num_visual_variation
         
         print(f"  Variation counts: Geometry={num_geometry}, Topology={num_topology}, Visual={num_visual}")
         
@@ -715,7 +715,7 @@ def main(cfg):
                 break
 
         # Enforce Top-K fallback per variation category
-        min_keep_per_dim = cfg.prompt_cdc_structured.min_keep_per_dim
+        min_keep_per_dim = cfg.prompt_cousin_structured.min_keep_per_dim
         for dim in ["geometry", "topology", "visual"]:
             if (
                 max_generated_images_per_object is not None

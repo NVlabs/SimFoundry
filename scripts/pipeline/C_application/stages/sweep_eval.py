@@ -65,8 +65,8 @@ Usage (openpi):
     #   server_host: localhost
     #   server_startup_timeout: 180
     #   output_dir: ./sweep_results
-    #   cdc_project_dir: ~/Projects/controllable-digital-cousins
-    #   cdc_venv_cmd: ""
+    #   simfoundry_project_dir: ~/Projects/simfoundry
+    #   simfoundry_venv_cmd: ""
     #   dry_run: false
     #   skip_plots: false
     #   resume: false
@@ -453,16 +453,16 @@ def kill_server(args, proc: subprocess.Popen):
 # ---------------------------------------------------------------------------
 
 def run_eval(
-    cdc_project_dir: str,
+    simfoundry_project_dir: str,
     eval_config: str,
     checkpoint_name: str,
     server_port: int,
     policy_type: str,
-    cdc_venv_cmd: str,
+    simfoundry_venv_cmd: str,
     eval_overrides: Optional[list[str]] = None,
 ) -> int:
     """Run the application eval stage as a blocking subprocess. Returns exit code."""
-    pipeline_dir = cdc_project_dir
+    pipeline_dir = simfoundry_project_dir
 
     overrides = [
         f"s15_eval.checkpoint={checkpoint_name}",
@@ -474,7 +474,7 @@ def run_eval(
 
     override_str = " ".join(overrides)
     cmd = (
-        f"{cdc_venv_cmd} python "
+        f"{simfoundry_venv_cmd} python "
         f"scripts/pipeline/C_application/stages/1_eval_policy_og_scene.py "
         f"--config-name={eval_config} {override_str}"
     )
@@ -490,7 +490,7 @@ def run_eval(
 # Result collection
 # ---------------------------------------------------------------------------
 
-def find_eval_results(cdc_project_dir: str, eval_config: str, checkpoint_name: str) -> Optional[dict]:
+def find_eval_results(simfoundry_project_dir: str, eval_config: str, checkpoint_name: str) -> Optional[dict]:
     """Search for the eval_results.json produced by the eval run.
 
     The eval script writes results into a directory tree like:
@@ -498,22 +498,22 @@ def find_eval_results(cdc_project_dir: str, eval_config: str, checkpoint_name: s
 
     We look for the most recently modified eval_results.json matching the checkpoint name.
     """
-    # Search broadly under the cdc data directory for the result file
-    data_dir = Path(cdc_project_dir) / "Data"
+    # Search broadly under the simfoundry data directory for the result file
+    data_dir = Path(simfoundry_project_dir) / "Data"
     if not data_dir.exists():
-        data_dir = Path(cdc_project_dir) / "scripts" / "Data"
+        data_dir = Path(simfoundry_project_dir) / "scripts" / "Data"
 
     # Recursively find all eval_results.json files
     candidates = []
     search_roots = [data_dir]
 
     # Also check the scripts/pipeline relative Data dir
-    pipeline_data = Path(cdc_project_dir) / "scripts" / "pipeline" / "Data"
+    pipeline_data = Path(simfoundry_project_dir) / "scripts" / "pipeline" / "Data"
     if pipeline_data.exists():
         search_roots.append(pipeline_data)
 
     # Also try ../../Data relative to scripts/pipeline (common Hydra pattern)
-    rel_data = Path(cdc_project_dir) / "scripts" / "Data"
+    rel_data = Path(simfoundry_project_dir) / "scripts" / "Data"
     if rel_data.exists():
         search_roots.append(rel_data)
 
@@ -781,16 +781,16 @@ def parse_args():
     # Project directories
     parser.add_argument("--gr00t-project-dir", default=None,
                         help="[gr00t] Path to the gr00t repository")
-    parser.add_argument("--cdc-project-dir", default=None,
-                        help="Path to the controllable-digital-cousins repository")
+    parser.add_argument("--simfoundry-project-dir", default=None,
+                        help="Path to the SimFoundry repository")
     parser.add_argument("--openpi-project-dir", default=None,
                         help="[openpi] Path to the openpi repository")
 
     # Environment commands
     parser.add_argument("--gr00t-venv-cmd", default=None,
                         help="[gr00t] Command prefix for gr00t env (default: 'uv run')")
-    parser.add_argument("--cdc-venv-cmd", default=None,
-                        help="Command prefix for CDC env (default: '' i.e. current env)")
+    parser.add_argument("--simfoundry-venv-cmd", default=None,
+                        help="Command prefix for SimFoundry env (default: '' i.e. current env)")
     parser.add_argument("--openpi-venv-cmd", default=None,
                         help="[openpi] Command prefix for openpi env (default: 'uv run')")
 
@@ -829,8 +829,8 @@ def parse_args():
         "server_host": "localhost",
         "server_startup_timeout": 180.0,
         "output_dir": "./sweep_results",
-        "cdc_project_dir": os.path.expanduser("~/Projects/controllable-digital-cousins"),
-        "cdc_venv_cmd": "",
+        "simfoundry_project_dir": os.path.expanduser("~/Projects/simfoundry"),
+        "simfoundry_venv_cmd": "",
         "dry_run": False,
         "skip_plots": False,
         "resume": False,
@@ -983,12 +983,12 @@ def main():
 
             # 3. Run evaluation
             exit_code = run_eval(
-                cdc_project_dir=args.cdc_project_dir,
+                simfoundry_project_dir=args.simfoundry_project_dir,
                 eval_config=args.eval_config,
                 checkpoint_name=checkpoint_name,
                 server_port=args.server_port,
                 policy_type=args.policy_type,
-                cdc_venv_cmd=args.cdc_venv_cmd,
+                simfoundry_venv_cmd=args.simfoundry_venv_cmd,
                 eval_overrides=args.eval_overrides,
             )
 
@@ -996,7 +996,7 @@ def main():
                 print(f"  WARNING: Eval script exited with code {exit_code}")
 
             # 4. Collect results
-            result = find_eval_results(args.cdc_project_dir, args.eval_config, checkpoint_name)
+            result = find_eval_results(args.simfoundry_project_dir, args.eval_config, checkpoint_name)
             if result:
                 all_results[step] = result
                 print(f"  Success rate: {result.get('success_rate', 'N/A')}")

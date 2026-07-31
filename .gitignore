@@ -21,7 +21,7 @@ api_keys.txt
 *core*
 
 # auto_bg pipeline: large assets / outputs / logs (not source)
-/cdc-assets
+/simfoundry-assets
 /bg_compare
 /scripts/cfg/outputs
 /scripts/pipeline/A_reconstruction/stages/auto_bg_reconstruction/_2e_logs

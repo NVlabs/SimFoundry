@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Should be run from cdc env
+Should be run from simfoundry env
 
 Generate synthetic demonstrations by replaying object-centric waypoints
 in randomized scenes using CuRobo motion planning.
@@ -36,9 +36,9 @@ import omnigibson.utils.transform_utils as T
 import omnigibson.utils.transform_utils_np as NT
 from omnigibson.controllers.ik_controller import _compute_ik_qpos_numpy
 
-from digital_cousins import import_og_dependencies, REPO_DIR
-from digital_cousins.utils.og_utils import apply_teleop_omnigibson_macros, setup_wrist_camera_viewport
-from digital_cousins.utils.scene_sampling_utils import (
+from simfoundry import import_og_dependencies, REPO_DIR
+from simfoundry.utils.og_utils import apply_teleop_omnigibson_macros, setup_wrist_camera_viewport
+from simfoundry.utils.scene_sampling_utils import (
     get_task_object_names,
     get_fixed_base_names,
     capture_settled_poses,
@@ -57,7 +57,7 @@ gm.ENABLE_CCD = True
 # Needed so custom tasks can be instantiated properly
 import_og_dependencies()
 
-from digital_cousins.utils.data_gen_utils import (
+from simfoundry.utils.data_gen_utils import (
     init_curobo,
     plan_to_pose,
     transform_waypoints_to_robot_frame,
@@ -74,16 +74,22 @@ gm.DEFAULT_VIEWER_WIDTH = 128
 gm.DEFAULT_VIEWER_HEIGHT = 128
 
 DEFAULT_MOTION_PLANNER_ATTACHED_OBJECT_SCALE = 0.8
-from digital_cousins import CFG_DIR
+from simfoundry import CFG_DIR
 
 # At the start of every script, we cd into the scripts/config directory
 scripts_dir = os.path.dirname(os.path.abspath(__file__))
 cfg_dir = CFG_DIR
 os.chdir(cfg_dir)
 
-# Known top-level subdirectories within the CDC repo, used to infer the old repo root
-# from absolute paths baked into serialized configs.
-_CDC_REPO_SUBDIRS = ('assets/', 'Data/', 'checkpoints/', 'scripts/', 'digital_cousins/', 'deps/')
+# Known top-level subdirectories within the SimFoundry repo, used to infer the old repo root
+# from absolute paths baked into serialized configs. _detect_old_repo_root returns on the
+# first entry that matches anywhere in the path, so ordering matters: the package directory
+# is listed last because a checkout is commonly named `simfoundry` too, and matching that
+# first would resolve the repo's PARENT as the old root. 'digital_cousins/' is retained so
+# configs serialized before the package rename can still be rebased.
+_SIMFOUNDRY_REPO_SUBDIRS = (
+    'assets/', 'Data/', 'checkpoints/', 'scripts/', 'deps/', 'digital_cousins/',
+)
 
 
 class NoisyActionHDF5Wrapper(HDF5CollectionWrapper):
@@ -126,7 +132,7 @@ def _detect_old_repo_root(obj):
             if result is not None:
                 return result
     elif isinstance(obj, str) and obj.startswith('/') and obj.lower().endswith('.usd'):
-        for subdir in _CDC_REPO_SUBDIRS:
+        for subdir in _SIMFOUNDRY_REPO_SUBDIRS:
             marker = '/' + subdir
             idx = obj.find(marker)
             if idx >= 0:
@@ -1191,7 +1197,7 @@ def main(cfg):
 
                     print(f"  Target start pose (world): pos={start_pos_world.cpu().numpy()}")
 
-                    from digital_cousins.utils.og_utils import draw_trajectory_gradient
+                    from simfoundry.utils.og_utils import draw_trajectory_gradient
                     eef_pos_world = (th.cat([eef_pos_robot, th.ones(eef_pos_robot.shape[0], 1)], dim=1) @ robot_T_world.T)[:, :3]
                     draw_trajectory_gradient(
                         eef_pos_world.tolist(),

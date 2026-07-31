@@ -32,10 +32,10 @@ import time
 
 import hydra
 
-from digital_cousins.pipeline.orchestrator import TIMING_LOG_ENV_VAR
-from digital_cousins.pipeline.resource_scheduler import SingleGpuMemoryScheduler
-from digital_cousins.pipeline.stage_utils import bootstrap_hydra_workdir
-from digital_cousins.pipeline.stream_subsequence import (
+from simfoundry.pipeline.orchestrator import TIMING_LOG_ENV_VAR
+from simfoundry.pipeline.resource_scheduler import SingleGpuMemoryScheduler
+from simfoundry.pipeline.stage_utils import bootstrap_hydra_workdir
+from simfoundry.pipeline.stream_subsequence import (
     discover_ready_artifact_mtimes,
     per_index_override,
     subsequence_complete,
@@ -43,7 +43,7 @@ from digital_cousins.pipeline.stream_subsequence import (
 )
 
 
-from digital_cousins import CFG_DIR, REPO_DIR
+from simfoundry import CFG_DIR, REPO_DIR
 logger = logging.getLogger(__name__)
 bootstrap_hydra_workdir(__file__)
 REPO_ROOT = REPO_DIR

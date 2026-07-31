@@ -47,7 +47,7 @@ void_mp4_fps: 12                                  # must equal s1_video.mp4_fps 
 # install uses a different name. The orchestrator picks these up via env vars
 # (NERFSTUDIO_ENV_NAME etc) where applicable.
 env:
-  cdc: cdc                                        # main env (most stages)
+  simfoundry: simfoundry                                        # main env (most stages)
   da3: da3                                        # DepthAnything-V3
   void: void                                      # VOID inpainting (CogVideoX-Fun-V1.5-5b-InP)
   nerfstudio: nerfstudio_simfoundry               # ns-train + ns-export (splatfacto-big)
@@ -62,7 +62,7 @@ env:
 # stages void/input from that s1_video (see void_input_dir above) and errors if the
 # canonical outputs are missing/mismatched.
 
-s1_quadmask:                                      # env: cdc — generate_quadmask_for_void.py
+s1_quadmask:                                      # env: simfoundry — generate_quadmask_for_void.py
   rerun: true
   in_dir: "${void_input_dir}"
   keyframe_idx: 0                                 # Which subsampled frame indexes the mask prompt
@@ -75,7 +75,7 @@ s1_quadmask:                                      # env: cdc — generate_quadma
   bg_prompt: null                                 # Optional override prompt for the background category; null = auto
   skip: []                                        # Step labels to skip (debugging convenience)
 
-s2_pass1:                                         # env: cdc — run_void_pass1.py (shells into void env)
+s2_pass1:                                         # env: simfoundry — run_void_pass1.py (shells into void env)
   rerun: true
   in_dir: "${auto_bg_dir}/void"                   # writes pass1/, _chunks/ under here
   video_name: "${scene_name}"
@@ -97,7 +97,7 @@ s2_pass1:                                         # env: cdc — run_void_pass1.
   model_checkpoint: "void_pass1.safetensors"
   skip_if_exists: true                            # Re-using existing per-chunk outputs on resume
 
-s3_pass2:                                         # env: cdc — run_void_pass2.py (shells into void env)
+s3_pass2:                                         # env: simfoundry — run_void_pass2.py (shells into void env)
   rerun: true
   in_dir: "${auto_bg_dir}/void"                   # writes pass2/cleaned_frames/, _chunks/ under here
   video_name: "${scene_name}"
@@ -128,7 +128,7 @@ void_da3:
   out_dir: "${auto_bg_dir}/da3/void"
   out_npz: "${void_da3.out_dir}/da/exports/npz/results.npz"
 
-s4_seed_ply:                                      # env: cdc — build_seed_ply_from_void_da3.py
+s4_seed_ply:                                      # env: simfoundry — build_seed_ply_from_void_da3.py
   rerun: true
   orig_da3_npz: "${orig_da3_npz}"
   void_da3_npz: "${void_da3.out_npz}"
@@ -154,7 +154,7 @@ canonical_run_overrides:
 
 # ===== Splat + assets (steps 5-7) =====
 
-s5_train_bg_splat:                                # env: cdc — train_bg_splat.py (shells into nerfstudio env)
+s5_train_bg_splat:                                # env: simfoundry — train_bg_splat.py (shells into nerfstudio env)
   rerun: true
   out_dirname: splat
   base_dir: "${auto_bg_dir}/${s5_train_bg_splat.out_dirname}"     # ns-train base-dir; outputs/ + export/ land under it
@@ -184,7 +184,7 @@ s5_train_bg_splat:                                # env: cdc — train_bg_splat.
   depth_loss_mult: 0.5                            # NERFSTUDIO_DEPTH_LOSS_MULT — 0.5 is the A/B winner over 1.0
   depth_loss_conf_min: 2.0                        # DA3 confidence floor; pixels below this are masked in the depth loss
 
-s6_bridge:                                        # env: cdc — bridge_bg_splat_to_og.py
+s6_bridge:                                        # env: simfoundry — bridge_bg_splat_to_og.py
   rerun: true
   bridge_mode: single                             # options: auto, single (rigid, same-scene), umeyama (Sim(3), cross-scene)
   target_scene_name: null                         # null -> same as scene_name; set for cross-scene bridging
@@ -193,7 +193,7 @@ s6_bridge:                                        # env: cdc — bridge_bg_splat
   out_ply: "${s6_bridge.in_ply}"                  # Same path -> writes only the .pose.json sidecar, no PLY byte-copy
   src_npz: null                                   # null -> Data/<scene>/s2_da/da/exports/npz/results.npz (canonical DA3)
 
-s7_build_assets:                                  # env: cdc — build_og_scene_assets.py
+s7_build_assets:                                  # env: simfoundry — build_og_scene_assets.py
   rerun: true
   scene_state: "${root_dir}/${scene_name}/s13_og/reconstructed_og_scene.json"
   bg_splat_ply: "${s6_bridge.out_ply}"            # Sidecar auto-discovered at <bg_splat_ply>.pose.json

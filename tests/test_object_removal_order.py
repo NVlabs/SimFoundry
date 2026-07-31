@@ -6,13 +6,13 @@ Test script for the object removal ordering heuristics in stage 5.
 
 Tests the compute_object_removal_order() function using:
   1. Synthetic convex hulls (no GPU/model dependencies)
-  2. Real droid_desk_1 data (requires cdc env + SAM3)
+  2. Real droid_desk_1 data (requires simfoundry env + SAM3)
 
 Usage:
   # Quick synthetic tests only (no GPU needed):
     python tests/test_object_removal_order.py --synthetic-only
 
-  # Full test including real data (needs cdc env):
+  # Full test including real data (needs simfoundry env):
     python tests/test_object_removal_order.py
 """
 import sys
@@ -27,7 +27,7 @@ import trimesh
 # Add project root to path
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
-DATA_ROOT = os.environ.get("CDC_TEST_DATA_ROOT", os.path.join(project_root, "Data"))
+DATA_ROOT = os.environ.get("SIMFOUNDRY_TEST_DATA_ROOT", os.path.join(project_root, "Data"))
 
 # Import compute_object_removal_order from 5_decompose_scene.py (can't use normal
 # import since the filename starts with a digit)
@@ -348,7 +348,7 @@ def test_real_droid_desk_1():
     """
     Test with real droid_desk_1 data: reconstruct the iter_7 scenario
     where toast and plate are both detected. Verify toast is selected first.
-    Requires: cdc environment with SAM3 model.
+    Requires: simfoundry environment with SAM3 model.
     """
     logger.info("=" * 60)
     logger.info("TEST: Real droid_desk_1 data (iter 7: toast vs plate)")
@@ -406,7 +406,7 @@ def test_real_droid_desk_1():
     target_W, target_H = resolution
     target_ratio = target_W / target_H
 
-    from digital_cousins.utils.processing_utils import (
+    from simfoundry.utils.processing_utils import (
         pad_image_to_ratio, unpad_image, erode_mask, compute_point_cloud_from_depth,
         denoise_obj_point_cloud_v2,
     )
@@ -425,7 +425,7 @@ def test_real_droid_desk_1():
 
     # Use SAM3 to segment the two objects of interest
     logger.info("Loading SAM3 model...")
-    from digital_cousins.models.sam_v3 import SAM3
+    from simfoundry.models.sam_v3 import SAM3
 
     sam3 = SAM3(confidence_threshold=0.4, device="cuda", video=False)
     pil_img = Image.fromarray(current_rgb)
@@ -512,11 +512,11 @@ def _build_convex_hulls_from_scene(scene_name, input_iter, target_phrases):
     import cv2
     import open3d as o3d
     from PIL import Image
-    from digital_cousins.utils.processing_utils import (
+    from simfoundry.utils.processing_utils import (
         pad_image_to_ratio, unpad_image, erode_mask, compute_point_cloud_from_depth,
         denoise_obj_point_cloud_v2,
     )
-    from digital_cousins.models.sam_v3 import SAM3
+    from simfoundry.models.sam_v3 import SAM3
 
     s5_dir = os.path.join(data_root, "s5_scene")
     s4_dir = os.path.join(data_root, "s4_frame")
@@ -606,7 +606,7 @@ def test_real_droid_desk_2():
     Test with real droid_desk_2 data: reconstruct the iter_3 scenario
     where croissant and open cardboard box are both detected.
     Verify croissant is selected first (it sits inside the open box).
-    Requires: cdc environment with SAM3 model.
+    Requires: simfoundry environment with SAM3 model.
     """
     logger.info("=" * 60)
     logger.info("TEST: Real droid_desk_2 data (iter 3: croissant vs open box)")

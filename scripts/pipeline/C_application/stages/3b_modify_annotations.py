@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Should be run from cdc env
+Should be run from simfoundry env
 
 Interactively review and modify annotations from step 15.
 
@@ -37,17 +37,17 @@ from omnigibson.macros import gm
 from omnigibson.robots import BaseRobot
 from omnigibson.utils.ui_utils import KeyboardEventHandler
 
-from digital_cousins import import_og_dependencies, REPO_DIR, CFG_DIR as CDC_CFG_DIR
+from simfoundry import import_og_dependencies, REPO_DIR, CFG_DIR as SIMFOUNDRY_CFG_DIR
 from omnigibson.utils.config_utils import parse_config
-from digital_cousins.utils.annotation_utils import (
+from simfoundry.utils.annotation_utils import (
     MinimalPlaybackWrapper,
     PickSignal,
     PlaceSignal,
     OpenSignal,
     CloseSignal,
 )
-from digital_cousins.utils.og_utils import apply_teleop_omnigibson_macros, setup_wrist_camera_viewport
-from digital_cousins.utils.processing_utils import make_json_serializable
+from simfoundry.utils.og_utils import apply_teleop_omnigibson_macros, setup_wrist_camera_viewport
+from simfoundry.utils.processing_utils import make_json_serializable
 
 import_og_dependencies()
 
@@ -85,7 +85,7 @@ gm.RENDER_VIEWER_CAMERA = True
 gm.DEFAULT_VIEWER_WIDTH = 960
 gm.DEFAULT_VIEWER_HEIGHT = 540
 
-from digital_cousins import CFG_DIR
+from simfoundry import CFG_DIR
 
 scripts_dir = os.path.dirname(os.path.abspath(__file__))
 cfg_dir = CFG_DIR
@@ -442,9 +442,9 @@ def main(cfg):
     # Task name for loading YAML (same resolution as 14_teleop: scene-specific then fallback)
     task_name = cfg.task.task_name
     scene_name = cfg.get("scene_name", "")
-    og_task_cfg_path = os.path.join(CDC_CFG_DIR, "task", scene_name, f"{task_name}.yaml") if scene_name else ""
+    og_task_cfg_path = os.path.join(SIMFOUNDRY_CFG_DIR, "task", scene_name, f"{task_name}.yaml") if scene_name else ""
     if not (og_task_cfg_path and os.path.exists(og_task_cfg_path)):
-        og_task_cfg_path = os.path.join(CDC_CFG_DIR, "task", f"{task_name}.yaml")
+        og_task_cfg_path = os.path.join(SIMFOUNDRY_CFG_DIR, "task", f"{task_name}.yaml")
     task_cfg = parse_config(og_task_cfg_path)["og_task_config"]
     print(f"Loaded task config from: {og_task_cfg_path}")
 

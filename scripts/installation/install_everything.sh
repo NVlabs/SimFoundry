@@ -3,12 +3,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 #
-# install_everything.sh — build EVERY conda env the CDC real2sim + auto-BG pipeline needs,
-# end to end, with the RTX 5090 / sm_120 fixes baked in. Builds all 7 envs (cdc, hunyuan,
+# install_everything.sh — build EVERY conda env the SimFoundry real2sim + auto-BG pipeline needs,
+# end to end, with the RTX 5090 / sm_120 fixes baked in. Builds all 7 envs (simfoundry, hunyuan,
 # any6d, da3, void, nerfstudio_simfoundry, 3dgrut); use --only for a subset.
 #
 # Envs built (in order):
-#   1. cdc                    (install_cdc.sh)         — main pipeline env + digital_cousins pkg
+#   1. simfoundry             (install_simfoundry.sh)  — main pipeline env + simfoundry pkg
 #   2. hunyuan                (install_hunyuan.sh)     — stage 7 mesh generation
 #   3. any6d                  (install_any6d.sh)       — stage 8 pose
 #   4. da3                    (install_da3.sh)         — DepthAnything-3
@@ -28,7 +28,7 @@
 #                         1) install_everything.sh          (build envs, no checkpoints)
 #                         2) login_services.sh              (huggingface-cli login, etc.)
 #                         3) download_checkpoints.sh        (or rerun this with --checkpoints)
-#   --only "names..."   Space-separated subset of: cdc hunyuan any6d da3 void nerfstudio 3dgrut
+#   --only "names..."   Space-separated subset of: simfoundry hunyuan any6d da3 void nerfstudio 3dgrut
 #
 # Prereqs: mamba (Miniforge) and `uv` (for 3dgrut) on PATH. The void + nerfstudio installers
 # need internet for the cu128 torch wheels; download_checkpoints needs `huggingface-cli login`
@@ -63,7 +63,7 @@ PROJECT_ROOT="$(cd "$project_root" && pwd)"
 
 # Map short name -> "installer_script env_name"
 declare -A INSTALLER=(
-  [cdc]="install_cdc.sh cdc"
+  [simfoundry]="install_simfoundry.sh simfoundry"
   [hunyuan]="install_hunyuan.sh hunyuan"
   [any6d]="install_any6d.sh any6d"
   [da3]="install_da3.sh da3"
@@ -71,7 +71,7 @@ declare -A INSTALLER=(
   [nerfstudio]="install_nerfstudio.sh nerfstudio_simfoundry"
   [3dgrut]="install_3dgrut.sh 3dgrut"
 )
-ORDER=(cdc hunyuan any6d da3 void nerfstudio 3dgrut)
+ORDER=(simfoundry hunyuan any6d da3 void nerfstudio 3dgrut)
 if [[ -n "${ONLY}" ]]; then
   read -r -a ORDER <<< "${ONLY}"
 fi

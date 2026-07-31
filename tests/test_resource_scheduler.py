@@ -4,7 +4,7 @@
 from threading import Thread
 import time
 
-from digital_cousins.pipeline.resource_scheduler import SingleGpuMemoryScheduler
+from simfoundry.pipeline.resource_scheduler import SingleGpuMemoryScheduler
 
 
 def test_scheduler_blocks_until_reserved_memory_is_released():

@@ -1,0 +1,60 @@
+task_name: droid_desk_stack_dishware_subtask
+og_task_config:
+  type: PickPlaceTask
+  activity_name: ${task_name}
+  semantic_group_mapping:
+    robot: [agent]
+    cup: [cream_mug]
+    bowl: [blue_bowl]
+    plate: [green_plate]
+  # Start with bowl already on plate (PlaceOnTop uses direct AABB placement, much faster than OnTop)
+  init_predicates_all:
+    - state: PlaceOnTop
+      state_kwargs: null
+      value: true
+      group: bowl
+      other_group: plate
+  init_predicates_any: null
+  init_predicates_specific: null
+  # Only need to place cup on bowl (bowl is already on plate)
+  goal_predicates_all:
+    - state: OnTop
+      state_kwargs: null
+      value: true
+      group: cup
+      other_group: bowl
+  goal_predicates_any:
+    - state: Touching
+      state_kwargs: null
+      value: false
+      group: robot
+      other_group: cup
+  goal_predicates_specific: null
+  # Milestone predicates - only cup-related milestones needed
+  milestone_predicates:
+    - name: picked_cup
+      state: IsGrasping
+      state_kwargs: null
+      value: true
+      group: robot
+      other_group: cup
+      requires: []
+    - name: placed_cup_on_bowl
+      state: OnTop
+      state_kwargs: null
+      value: true
+      group: cup
+      other_group: bowl
+      requires: []
+  robot_pose: null
+  robot_xyz_randomization: null
+  robot_z_rot_randomization: null
+  robot_joint_randomization: 0.174    # pi / 18
+  camera_look_at_point: null  # auto-inferred from camera ray-ground plane intersection
+  camera_randomization: null
+  termination_config:
+    max_steps: 1000
+  reward_config:
+    r_potential: 1.0
+  include_obs: false
+  # hdr_background_name: small_empty_room_3_4k

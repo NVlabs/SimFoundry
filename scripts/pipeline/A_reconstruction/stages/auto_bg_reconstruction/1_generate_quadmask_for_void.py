@@ -17,8 +17,8 @@ the 4-value scheme {0, 63, 127, 255}. Binary {0, 255} → {0_obj, 255_bg}, which
 is what we want for static-scene object removal (no causally-affected zones).
 
 Reads config from scripts/cfg/auto_bg.yaml (Hydra), section `s1_quadmask`.
-Run from cdc env (Hydra override syntax):
-  mamba run -n cdc python \\
+Run from simfoundry env (Hydra override syntax):
+  mamba run -n simfoundry python \\
       scripts/pipeline/A_reconstruction/stages/auto_bg_reconstruction/1_generate_quadmask_for_void.py \\
       scene_name=quillen_table floor_category="desk, table, or counter"
 Per-stage values can be overridden directly, e.g. `s1_quadmask.gcloud_project=...`.
@@ -38,13 +38,13 @@ import numpy as np
 import torch
 from PIL import Image
 
-from digital_cousins.pipeline.stage_utils import bootstrap_hydra_workdir
+from simfoundry.pipeline.stage_utils import bootstrap_hydra_workdir
 
 # cd to scripts/cfg so the cfg's `${root_dir}` (= ../../Data) resolves to repo/Data,
 # matching the sibling A_reconstruction stages.
 bootstrap_hydra_workdir(__file__)
 
-from digital_cousins import CFG_DIR  # noqa: E402
+from simfoundry import CFG_DIR  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
 sys.path.insert(0, str(REPO_ROOT))
@@ -56,8 +56,8 @@ logger = logging.getLogger("generate_quadmask_for_void")
 
 def _gemini_propose(keyframe_path: Path, gcloud_project: str, floor_category: str,
                     model_name: str):
-    from digital_cousins.models.vlm import Gemini
-    from digital_cousins.utils.prompt_utils import (
+    from simfoundry.models.vlm import Gemini
+    from simfoundry.utils.prompt_utils import (
         prompt_object_setlist_specific_floorplane_v3,
         parse_json_response,
     )
@@ -112,7 +112,7 @@ def _sam3_keyframe_masks(keyframe_pil: Image.Image, primary_names, detections, s
     """For each primary_name, try SAM3 text-prompt; if empty, fall back to bbox-center
     point-prompt using the matching Gemini detection. Mirrors stage 5's pattern.
     """
-    from digital_cousins.models.sam_v3_gmask import SAM3
+    from simfoundry.models.sam_v3_gmask import SAM3
     sam3 = SAM3(confidence_threshold=sam_conf, device="cuda", video=False)
     W, H = keyframe_pil.size
     # Map primary name -> bbox center (if Gemini provided one)

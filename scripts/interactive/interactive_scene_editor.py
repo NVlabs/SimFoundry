@@ -68,8 +68,8 @@ import shutil
 import numpy as np
 import math
 from datetime import datetime
-from digital_cousins import ASSET_DIR
-from digital_cousins.utils.scene_utils import load_json_with_absolute_usd_paths
+from simfoundry import ASSET_DIR
+from simfoundry.utils.scene_utils import load_json_with_absolute_usd_paths
 
 
 def resolve_prim(stage, path, lazy):

@@ -108,7 +108,7 @@ fi
 # Step 2: create the conda env (+ CUDA toolkit + persisted build vars)
 #
 # NOTE: on machines where conda is rooted inside another env (so `conda info --base`
-# is NOT <miniforge>, e.g. it returns <miniforge>/envs/cdc here), a name-based
+# is NOT <miniforge>, e.g. it returns <miniforge>/envs/simfoundry here), a name-based
 # `conda create` lands the env under that root's `envs/`. Deactivate to the real base
 # first, then verify the env is resolvable by `mamba run -n`.
 # ------------------------------------------------------------------------------

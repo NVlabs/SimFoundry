@@ -1,4 +1,4 @@
-# CDC API Keys Configuration
+# SimFoundry API Keys Configuration
 # Copy this file to api_keys.txt and fill in your keys.
 # Used by login_services.sh when run with --default flag.
 #

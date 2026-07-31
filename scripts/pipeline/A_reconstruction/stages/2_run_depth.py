@@ -20,11 +20,11 @@ except ImportError:
 
 import hydra
 
-from digital_cousins.pipeline.depth_backends import create_backend
-from digital_cousins.pipeline.stage_utils import StageResult, bootstrap_hydra_workdir, finalize_stage
+from simfoundry.pipeline.depth_backends import create_backend
+from simfoundry.pipeline.stage_utils import StageResult, bootstrap_hydra_workdir, finalize_stage
 
 
-from digital_cousins import CFG_DIR
+from simfoundry import CFG_DIR
 bootstrap_hydra_workdir(__file__)
 
 

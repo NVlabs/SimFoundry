@@ -31,7 +31,7 @@ s1_zed:     # env: zed
   n_sec_between_images: 3
   use_pygame_countdown: false   # Set to true for visual pygame countdown, false for terminal countdown
   show_video_stream: true       # Set to true to show live camera feed during capture, false to disable
-s1_video:     # env: cdc
+s1_video:     # env: simfoundry
   rerun: true  # Set to true to rerun the step, false to skip
   single_image_input: false
   out_dirname: s1_video
@@ -79,7 +79,7 @@ s2_da:      # env: da3
   heavy_exports: false  # mesh/gs/colmap exports (not consumed downstream)
 s2_depth:    # unified stage-2 backend selector (used by 2_run_depth.py)
   backend: da3   # options: da3, fs
-s2c_gs:  # env: cdc (nerfstudio); process video with ns-process-data and train splatfacto-big
+s2c_gs:  # env: simfoundry (nerfstudio); process video with ns-process-data and train splatfacto-big
   out_dirname: s2c_gs
   out_dir: "${root_dir}/${scene_name}/${s2c_gs.out_dirname}"
   # Inherit the same source video as stage 1b so a single --video-fpath (which sets
@@ -94,7 +94,7 @@ s2c_gs:  # env: cdc (nerfstudio); process video with ns-process-data and train s
   max_num_iterations: 50000 # default is 30000
   # method: splatfacto-big # change to splatfacto if overload
   method: splatfacto
-s3_ground:    # env: cdc
+s3_ground:    # env: simfoundry
   rerun: true
   out_dirname: s3_ground
   out_dir: "${root_dir}/${scene_name}/${s3_ground.out_dirname}"
@@ -104,14 +104,14 @@ s3_ground:    # env: cdc
   img_idx: 0
   use_fs: false  # Set to true to use FoundationStereo output (s2_fs) instead of Depth Anything (s2_da)
   detection_model: gemini-2.5-pro   # options: gemini-2.5-pro, gemini-2.5-flash, gemini-3-pro-preview, gemini-3.1-pro-preview, gemini-3-flash-preview
-s4_frame:     # env: cdc
+s4_frame:     # env: simfoundry
   rerun: true
   out_dirname: s4_frame
   out_dir: "${root_dir}/${scene_name}/${s4_frame.out_dirname}"
   z_far: 5.0
   denoise_nb_points: 30
   denoise_radius: 0.03
-s5_scene:     # env: cdc
+s5_scene:     # env: simfoundry
   rerun: true
   out_dirname: s5_scene
   out_dir: "${root_dir}/${scene_name}/${s5_scene.out_dirname}"
@@ -138,7 +138,7 @@ s5_scene:     # env: cdc
   min_detection_iterations: 3
   obj_removal_prompt_order: ["mask", "outline", "bbox"]   # options: mask, outline, bbox
   pda_K: 5
-s5_scene_gmask:     # env: cdc
+s5_scene_gmask:     # env: simfoundry
   rerun: true
   out_dirname: s5_scene
   out_dir: "${root_dir}/${scene_name}/${s5_scene_gmask.out_dirname}"
@@ -167,7 +167,7 @@ s5_scene_gmask:     # env: cdc
   pda_K: 5
   pda_geometric_backend: da3    # options: depth_pro, da3  (geometric depth source for PriorDepthAnything)
   pda_da3_resolution: 504             # DA3 processing resolution (must be multiple of 14, only used when pda_geometric_backend=da3)
-s6_upsample:      # env: cdc
+s6_upsample:      # env: simfoundry
   rerun: true
   out_dirname: s6_upsample
   out_dir: "${root_dir}/${scene_name}/${s6_upsample.out_dirname}"
@@ -211,7 +211,7 @@ stream_subseq:
   s6_cmd: "python scripts/pipeline/A_reconstruction/stages/6_upsample_object_images.py"
   s7_cmd: "python scripts/pipeline/A_reconstruction/stages/7_generate_object_meshes.py"
   s8_cmd: "python scripts/pipeline/A_reconstruction/stages/8_match_object_poses.py"
-s8_pose:          # env: cdc
+s8_pose:          # env: simfoundry
   only_indices: # Can be a single int, a list of ints, or None (process all)
   rerun: true
   out_dirname: s8_pose
@@ -250,7 +250,7 @@ s8b_articulate_objects:
   interactive_review: false          # If true, prompt user to review/modify VLM classification
   force_articulated: []               # List of object names to force as articulated (overrides VLM)
   force_non_articulated: ["white robotic arm", 'white and black robotic arm', 'small black electronic component', 'blue cup', 'small metallic sensor', 'purple cable']           # List of object names to force as non-articulated (overrides VLM)
-s9_compile:      # env: cdc
+s9_compile:      # env: simfoundry
   rerun: true
   out_dirname: s9_compile
   out_dir: "${root_dir}/${scene_name}/${s9_compile.out_dirname}"
@@ -265,7 +265,7 @@ s9_compile:      # env: cdc
   #   "_2" -> Use info_interactive_2/ (third interactive session), etc.
   # Must match the suffix used when saving poses in 8b_match_object_poses_interactive.py
   interactive_suffix: "_2"
-s10_sim:          # env: cdc
+s10_sim:          # env: simfoundry
   rerun: true
   out_dirname: s10_sim
   out_dir: "${root_dir}/${scene_name}/${s10_sim.out_dirname}"
@@ -275,7 +275,7 @@ s10_sim:          # env: cdc
   collision_method: coacd
   hull_count: 32
   n_submesh: 10
-s11_physics:      # env: cdc
+s11_physics:      # env: simfoundry
   rerun: true
   out_dirname: s11_physics
   out_dir: "${root_dir}/${scene_name}/${s11_physics.out_dirname}"
@@ -293,7 +293,7 @@ s13_og:
   robot_config:
     type: FrankaPanda
     # Public OmniGibson robot assets include the stock Panda gripper. Robotiq
-    # remains supported via Hydra override when CDC-specific robot assets are installed.
+    # remains supported via Hydra override when SimFoundry-specific robot assets are installed.
     end_effector: gripper
     name: robot0
     self_collisions: false
@@ -322,7 +322,7 @@ s13_og:
 s14_teleop:
   rerun: true
   task_name: ${task.task_name}                  # Task YAML name (use task=load_scene then task.task_name=serve_the_orange for scene-specific task)
-  scene_json_name: null                            # Name of scene JSON to load (located in CDC_ASSET_DIR/scenes, without json extension) (null = use s13_og output)
+  scene_json_name: null                            # Name of scene JSON to load (located in SIMFOUNDRY_ASSET_DIR/scenes, without json extension) (null = use s13_og output)
   # Scene source options:
   # - reconstructed: use the reconstructed scene from s13_og
   # - load_sampling: load sampled scene(s) from sampling_scene/auto_generation and collect success_demo_per_sampling successful demos per scene into one HDF5
@@ -487,7 +487,7 @@ s18_replay:          # env: b1k
   include_mimicgen_data: true                     # Either include mimicgen data generated in step 17 or not
   external_sensors_cfg: nv_franka_droid    # Located in <CFG_DIR>/external_sensors
   filter: null                                     # If set, processes ALL generated demo HDF5s from s17 (or s14) matching this substring (spawns subprocesses)
-  modality_json: ../../digital_cousins/configs/modality/droid_modality.json   # If set, path to a modality.json that replaces the auto-generated one in each output dataset
+  modality_json: ../../simfoundry/configs/modality/droid_modality.json   # If set, path to a modality.json that replaces the auto-generated one in each output dataset
   depth_as_rgb: false                            # Whether depth should be saved in encoded RGB or not
   use_pointbridge: false                         # Whether to use LeRobotPointbridgePlaybackWrapper for point cloud generation
   pointbridge_kwargs:                            # Kwargs for LeRobotPointbridgePlaybackWrapper (only used if use_pointbridge=true)
@@ -561,17 +561,17 @@ s18_replay:          # env: b1k
       enabled: false                             # Enable camera pose randomization
       position_noise_std: 0.05                  # Std dev of Gaussian noise added to camera position (meters)
       orientation_noise_std: 10.0               # Std dev of Gaussian noise added to camera orientation (degrees)
-s19_cdc_generation:          # env: hunyuan
-  out_dirname: s16_cdc_generation
+s19_cousin_generation:          # env: hunyuan
+  out_dirname: s16_cousin_generation
   source_dir: "${root_dir}/${scene_name}/cousin_images"
-  out_dir: "${root_dir}/${scene_name}/${s19_cdc_generation.out_dirname}"
+  out_dir: "${root_dir}/${scene_name}/${s19_cousin_generation.out_dirname}"
   generate_shape: false
   generate_texture: true
   shape_model: hunyuan #direct3d
   texture_model: hunyuan
-s15_prompt_cdc_structured:      # env: cdc
-  out_dirname: s15_prompt_cdc_structured
-  out_dir: "${root_dir}/${scene_name}/${s15_prompt_cdc_structured.out_dirname}"
+s15_prompt_cousin_structured:      # env: simfoundry
+  out_dirname: s15_prompt_cousin_structured
+  out_dir: "${root_dir}/${scene_name}/${s15_prompt_cousin_structured.out_dirname}"
   num_geometry_variation: 3
   num_topology_variation: 3
   num_visual_variation: 3
@@ -579,9 +579,9 @@ s15_prompt_cdc_structured:      # env: cdc
 # ==========================
 # cousins generation cfg
 # ==========================
-prompt_cdc_structured:      # env: cdc
-  out_dirname: prompt_cdc_structured
-  out_dir: "${root_dir}/${scene_name}/${prompt_cdc_structured.out_dirname}"
+prompt_cousin_structured:      # env: simfoundry
+  out_dirname: prompt_cousin_structured
+  out_dir: "${root_dir}/${scene_name}/${prompt_cousin_structured.out_dirname}"
   num_geometry_variation: 2
   num_topology_variation: 2
   num_visual_variation: 2
@@ -596,22 +596,22 @@ prompt_cdc_structured:      # env: cdc
   check_reasonableness: true
   max_reasonableness_attempts: 3
   # sam_conf_threshold: 0.1
-generate_cousins_combination: # env: cdc
+generate_cousins_combination: # env: simfoundry
   out_dirname: cousins_combination
   out_dir: "${root_dir}/${scene_name}/${generate_cousins_combination.out_dirname}"
   seed: 42
   num_obj_to_swap: 9
   num_variations_used_per_object: 2
   max_combinations: 4
-cdc_generation:    # env: hunyuan
-  source_dir: "${root_dir}/${scene_name}/cdc_generation/source_img"
-  out_dir: "${root_dir}/${scene_name}/cdc_generation"
+cousin_generation:    # env: hunyuan
+  source_dir: "${root_dir}/${scene_name}/cousin_generation/source_img"
+  out_dir: "${root_dir}/${scene_name}/cousin_generation"
   generate_shape: true
   generate_texture: true
   shape_model: hunyuan #direct3d
   texture_model: hunyuan
   keep_original_mass_friction: true  # If true, copy mass/friction from original source object instead of querying VLM
-sim:          # env: cdc
+sim:          # env: simfoundry
   rerun: true
   out_dirname: sim_cousins
   out_dir: "${root_dir}/${scene_name}/${sim.out_dirname}"
@@ -622,10 +622,10 @@ usd: #env b1k
   out_dirname: usd_cousins
   out_dir: "${root_dir}/${scene_name}/${usd.out_dirname}"
   dataset_name: real2sim-assets
-cdc_p2p_match:
+cousin_p2p_match:
   rerun: true
-  out_dirname: cdc_p2p_match
-  out_dir: "${root_dir}/${scene_name}/${cdc_p2p_match.out_dirname}"
+  out_dirname: cousin_p2p_match
+  out_dir: "${root_dir}/${scene_name}/${cousin_p2p_match.out_dirname}"
 augmentation:
   max_vram_gb: 30
   cpu_workers: 2
@@ -635,7 +635,7 @@ application_smoke:
   out_dirname: application_smoke
   out_dir: "${root_dir}/${scene_name}/${application_smoke.out_dirname}"
 
-# s2c_gs:  # env: cdc (nerfstudio); process video with ns-process-data and train splatfacto-big
+# s2c_gs:  # env: simfoundry (nerfstudio); process video with ns-process-data and train splatfacto-big
 #   out_dirname: s2c_gs
 #   out_dir: "${root_dir}/${scene_name}/${s2c_gs.out_dirname}"
 #   video_fpath: "${root_dir}/Scene_Video/${scene_name}.MOV"
@@ -646,7 +646,7 @@ application_smoke:
 #   max_num_iterations: 50000
 #   method: splatfacto-big
 
-scene_sampling:  # env: cdc -- Sample pose variants from a pre-built asset scene JSON (feeds into step 14 load_sampling)
+scene_sampling:  # env: simfoundry -- Sample pose variants from a pre-built asset scene JSON (feeds into step 14 load_sampling)
   input_scene_json: null        # Required: path to source scene JSON (absolute or relative to repo root)
                                 # Output is always saved to <scene_asset_dir>/sampling_scene/ (derived from input path)
                                 # Step 14: set scene_json_name=<name> + s14_teleop.scene_source=load_sampling
@@ -658,7 +658,7 @@ scene_sampling:  # env: cdc -- Sample pose variants from a pre-built asset scene
   camera_pos: [-0.0466, -0.7612, 0.5355]         # Viewer camera position for scene images
   camera_ori: [0.5219, -0.0213, -0.0347, 0.8521] # Viewer camera orientation (xyzw quaternion)
 
-propose_scene_task:   # env: cdc -- Propose tasks for a scene using VLM
+propose_scene_task:   # env: simfoundry -- Propose tasks for a scene using VLM
   rerun: true
   num_tasks: 5                                    # Number of tasks to propose
   vlm_model: gemini-2.5-pro                       # VLM model to use

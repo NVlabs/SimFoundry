@@ -1,6 +1,6 @@
 # Installation
 
-This guide covers the standard CDC setup: environments, checkpoints, service logins, and optional components.
+This guide covers the standard SimFoundry setup: environments, checkpoints, service logins, and optional components.
 
 ## Requirements
 
@@ -38,7 +38,7 @@ This installs:
 
 | Env | Purpose | Script |
 |---|---|---|
-| `cdc` | Main pipeline, VLM calls, image processing, OmniGibson tools. | `install_cdc.sh` |
+| `simfoundry` | Main pipeline, VLM calls, image processing, OmniGibson tools. | `install_simfoundry.sh` |
 | `hunyuan` | Hunyuan3D mesh generation. | `install_hunyuan.sh` |
 | `any6d` | Pose estimation dependencies. | `install_any6d.sh` |
 | `da3` | Depth Anything 3 inference. | `install_da3.sh` |
@@ -49,14 +49,14 @@ This installs:
 Build a subset with `--only`, e.g. just the core reconstruction envs:
 
 ```bash
-bash scripts/installation/install_everything.sh --only "cdc hunyuan any6d da3"
+bash scripts/installation/install_everything.sh --only "simfoundry hunyuan any6d da3"
 ```
 
 Or install individually when debugging or customizing names:
 
 ```bash
 cd scripts/installation
-bash install_cdc.sh --project-root ../.. --env-name cdc --default
+bash install_simfoundry.sh --project-root ../.. --env-name simfoundry --default
 bash install_hunyuan.sh --project-root ../.. --env-name hunyuan --default
 bash install_any6d.sh --project-root ../.. --env-name any6d --default
 bash install_da3.sh --project-root ../.. --env-name da3 --default
@@ -67,12 +67,12 @@ Optional environments:
 | Env | Purpose | Script |
 |---|---|---|
 | `3dgrut` | Convert Gaussian splats to USDZ for auto-background scenes. | `install_3dgrut.sh` |
-| `articulate` | Articulation generation dependencies. | `install_articulate.sh` |
+| `articulate` | Articulation generation dependencies. *Not shipped in this release.* | `install_articulate.sh` |
 | `openpi` | OpenPI policy evaluation. | `install_openpi.sh` |
 
 ## 3. Log In To Services
 
-The pipeline's VLM stages (reconstruction 3/5/6/10, articulation 8b, and B augmentation) run on
+The pipeline's VLM stages (reconstruction 3/5/6/10 and B augmentation) run on
 **Google Cloud Vertex AI (Gemini)**. Authenticate and set your project:
 
 ```bash
@@ -130,7 +130,7 @@ bash scripts/installation/download_checkpoints.sh \
 Basic environment checks:
 
 ```bash
-mamba run -n cdc python -c "import torch, hydra, digital_cousins; print('cdc ok')"
+mamba run -n simfoundry python -c "import torch, hydra, simfoundry; print('simfoundry ok')"
 mamba run -n da3 python -c "import torch; print('da3 ok')"
 mamba run -n hunyuan python -c "import torch; print('hunyuan ok')"
 ```
@@ -175,6 +175,11 @@ The auto-background flow adds a 3D Gaussian Splat background to an existing reco
 See [scripts/pipeline/A_reconstruction/stages/auto_bg_reconstruction/README.md](scripts/pipeline/A_reconstruction/stages/auto_bg_reconstruction/README.md).
 
 ## Articulation Dependencies
+
+> **Not shipped in this release.** Stage 8b and `install_articulate.sh` are not included yet.
+> `--detect-articulation` is still accepted but is ignored with a warning, and the rest of the
+> reconstruction pipeline runs normally. The notes below describe the component for when it
+> is published; they do not apply to this checkout.
 
 Articulation (stage 8b, `--detect-articulation`) is an optional component installed by:
 
@@ -233,10 +238,10 @@ installing; if you do not accept them, do not run these scripts.
 
 | Accepted by | Flag / variable | What it accepts |
 |---|---|---|
-| `install_cdc.sh:306`, `install_openpi.sh:78` | `--accept-nvidia-eula` | [NVIDIA Omniverse License Agreement](https://docs.isaacsim.omniverse.nvidia.com/latest/common/NVIDIA_Omniverse_License_Agreement.html) — covers Isaac Sim, the Omniverse Kit runtime, the Kit USD libraries (`pxr`), and NuRec |
-| `install_cdc.sh:306`, `install_openpi.sh:78` | `--accept-dataset-tos` | BEHAVIOR-1K / OmniGibson dataset terms |
-| `install_cdc.sh:306`, `install_openpi.sh:78` | `--accept-conda-tos` | Anaconda / conda channel Terms of Service |
-| `install_cdc.sh:509`, `reparent_usd_joints.py:21` | `OMNI_KIT_ACCEPT_EULA=YES` | NVIDIA Omniverse Kit EULA, set so Kit can start headless |
+| `install_simfoundry.sh:306`, `install_openpi.sh:78` | `--accept-nvidia-eula` | [NVIDIA Omniverse License Agreement](https://docs.isaacsim.omniverse.nvidia.com/latest/common/NVIDIA_Omniverse_License_Agreement.html) — covers Isaac Sim, the Omniverse Kit runtime, the Kit USD libraries (`pxr`), and NuRec |
+| `install_simfoundry.sh:306`, `install_openpi.sh:78` | `--accept-dataset-tos` | BEHAVIOR-1K / OmniGibson dataset terms |
+| `install_simfoundry.sh:306`, `install_openpi.sh:78` | `--accept-conda-tos` | Anaconda / conda channel Terms of Service |
+| `install_simfoundry.sh:509`, `reparent_usd_joints.py:21` | `OMNI_KIT_ACCEPT_EULA=YES` | NVIDIA Omniverse Kit EULA, set so Kit can start headless |
 
 SimFoundry's own Apache 2.0 licence does **not** cover any of the above. The NVIDIA
 platform components are listed in
@@ -270,4 +275,4 @@ license, copyright holder, and license link.
 
 - `api_keys.txt`, `Data/`, `deps/`, `reports/`, and local caches are ignored by git.
 - Most scripts infer the repo root automatically; avoid hard-coding absolute paths in config unless the data really lives outside the repo.
-- Use `--env-b1k cdc` on pipeline commands if OmniGibson is installed in the `cdc` environment rather than a separate `b1k` environment.
+- Use `--env-b1k simfoundry` on pipeline commands if OmniGibson is installed in the `simfoundry` environment rather than a separate `b1k` environment.

@@ -18,9 +18,9 @@ eval "$(mamba shell hook --shell bash)"
 
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 repo_dir="$(cd "$SCRIPT_DIR/../.." && pwd)"
-env_name="cdc"
+env_name="simfoundry"
 DEFAULT=false
-CHECKPOINT_FALLBACK_ROOT="${CDC_CHECKPOINT_FALLBACK_ROOT:-}"
+CHECKPOINT_FALLBACK_ROOT="${SIMFOUNDRY_CHECKPOINT_FALLBACK_ROOT:-}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in

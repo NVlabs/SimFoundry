@@ -16,7 +16,7 @@ non-commercial terms. See [PATCH_PROVENANCE.md](PATCH_PROVENANCE.md).
 
 Scope and method:
 - The lists cover components **SimFoundry uses directly** — either its own code
-  (`digital_cousins/`, `scripts/`) imports/invokes them, they are fetched into
+  (`simfoundry/`, `scripts/`) imports/invokes them, they are fetched into
   `deps/` by an installation script, or they are declared in the project's own
   `requirements*.txt` / installation scripts.
 - Licenses were reconciled against the authoritative upstream repository for each
@@ -31,7 +31,7 @@ Scope and method:
 
 ## 0. Upstream project SimFoundry is derived from
 
-Portions of SimFoundry's `digital_cousins/` package are derived from the ACDC /
+Portions of SimFoundry's `simfoundry/` package are derived from the ACDC /
 digital-cousins project and are present in this repository as modified NVIDIA code.
 Derived files carry an attribution note in their header.
 
@@ -46,9 +46,9 @@ header. Upstream copyright is reproduced where the upstream declares one.
 
 | No. | Component | Adapted into | License | Copyright | License Link |
 |-----|-----------|--------------|---------|-----------|--------------|
-| 0a | urdfpy | `digital_cousins/utils/urdfpy_utils.py` | **MIT** | Copyright (c) 2019 Matthew Matl | https://github.com/mmatl/urdfpy/blob/5466842899b33bd549e8f9e2a9a987bd5e37373b/LICENSE |
-| 0b | MolmoSpaces | `digital_cousins/utils/data_gen_utils.py` | Apache-2.0 | Copyright 2026 Allen Institute for AI | https://github.com/allenai/molmospaces/blob/c2f1b583f087e1d3994e1377574843b759d9d0f8/LICENSE |
-| 0d | OmniGibson (BEHAVIOR-1K) | `digital_cousins/utils/asset_conversion_utils.py` | **MIT** | Copyright (c) 2023 Stanford Vision and Learning Group | https://github.com/StanfordVL/BEHAVIOR-1K/blob/d89aae4e0e9a1de3cf8285cb9669c11d8c8bb864/OmniGibson/LICENSE |
+| 0a | urdfpy | `simfoundry/utils/urdfpy_utils.py` | **MIT** | Copyright (c) 2019 Matthew Matl | https://github.com/mmatl/urdfpy/blob/5466842899b33bd549e8f9e2a9a987bd5e37373b/LICENSE |
+| 0b | MolmoSpaces | `simfoundry/utils/data_gen_utils.py` | Apache-2.0 | Copyright 2026 Allen Institute for AI | https://github.com/allenai/molmospaces/blob/c2f1b583f087e1d3994e1377574843b759d9d0f8/LICENSE |
+| 0d | OmniGibson (BEHAVIOR-1K) | `simfoundry/utils/asset_conversion_utils.py` | **MIT** | Copyright (c) 2023 Stanford Vision and Learning Group | https://github.com/StanfordVL/BEHAVIOR-1K/blob/d89aae4e0e9a1de3cf8285cb9669c11d8c8bb864/OmniGibson/LICENSE |
 
 ## 1. Third-party projects fetched into `deps/` at install time (not distributed)
 
@@ -174,7 +174,7 @@ under which SimFoundry itself is released.
 | 79 | FoundationPose | NVIDIA Source Code License (**non-commercial**) | Copyright (c) 2022–Present, NVIDIA Corporation & affiliates | https://github.com/NVlabs/FoundationPose/blob/e3d597b8c6b851d053094ebd6fa240191c5238f8/LICENSE |
 | 80 | FoundationStereo | NVIDIA Source Code License (**non-commercial**) | Copyright (c) 2024–Present, NVIDIA Corporation & affiliates | https://github.com/NVlabs/FoundationStereo/blob/6e8806816b533e4d13ddbb95ffa907b797060a62/LICENSE |
 | 81 | nvdiffrast | NVIDIA Source Code License (1-Way Commercial, **non-commercial** for third parties) | Copyright (c) 2020, NVIDIA Corporation | https://github.com/NVlabs/nvdiffrast/blob/253ac4fcea7de5f396371124af597e6cc957bfae/LICENSE.txt |
-| 82 | cuRobo (reached through OmniGibson; invoked directly by `digital_cousins/utils/data_gen_utils.py`) | Apache-2.0 | Copyright (c) NVIDIA CORPORATION & AFFILIATES | https://github.com/NVlabs/curobo/blob/main/LICENSE |
+| 82 | cuRobo (reached through OmniGibson; invoked directly by `simfoundry/utils/data_gen_utils.py`) | Apache-2.0 | Copyright (c) NVIDIA CORPORATION & AFFILIATES | https://github.com/NVlabs/curobo/blob/main/LICENSE |
 
 ### 5a. NVIDIA proprietary platform software
 
@@ -185,8 +185,8 @@ SimFoundry's code calls it directly.
 
 | No. | Component | Used by SimFoundry for | License terms | Link |
 |-----|-----------|------------------------|---------------|------|
-| 82 | Isaac Sim | Physics materials, debug draw, USD stage access — `lazy.isaacsim.*` in `digital_cousins/utils/og_utils.py`, `scripts/pipeline/C_application/stages/1_eval_policy_og_scene.py`, `scripts/interactive/interactive_scene_editor.py` | NVIDIA Omniverse License Agreement | https://docs.isaacsim.omniverse.nvidia.com/latest/common/NVIDIA_Omniverse_License_Agreement.html |
-| 83 | Omniverse Kit runtime | In-viewport overlay UI — `lazy.omni.ui`, `lazy.omni.appwindow` in `digital_cousins/utils/og_utils.py` | NVIDIA Omniverse License Agreement | https://docs.omniverse.nvidia.com/platform/latest/common/NVIDIA_Omniverse_License_Agreement.html |
+| 82 | Isaac Sim | Physics materials, debug draw, USD stage access — `lazy.isaacsim.*` in `simfoundry/utils/og_utils.py`, `scripts/pipeline/C_application/stages/1_eval_policy_og_scene.py`, `scripts/interactive/interactive_scene_editor.py` | NVIDIA Omniverse License Agreement | https://docs.isaacsim.omniverse.nvidia.com/latest/common/NVIDIA_Omniverse_License_Agreement.html |
+| 83 | Omniverse Kit runtime | In-viewport overlay UI — `lazy.omni.ui`, `lazy.omni.appwindow` in `simfoundry/utils/og_utils.py` | NVIDIA Omniverse License Agreement | https://docs.omniverse.nvidia.com/platform/latest/common/NVIDIA_Omniverse_License_Agreement.html |
 | 84 | Omniverse Kit USD libraries (`pxr`) | USD authoring and joint reparenting — see item 69 | NVIDIA Omniverse License Agreement | https://docs.omniverse.nvidia.com/platform/latest/common/NVIDIA_Omniverse_License_Agreement.html |
 | 85 | NuRec (Omniverse neural reconstruction / GS compositor) | Rendering Gaussian-splat backgrounds as USDZ volumes in Isaac Sim — `scripts/interactive/interactive_scene_editor.py` | NVIDIA Omniverse License Agreement | https://docs.omniverse.nvidia.com/platform/latest/common/NVIDIA_Omniverse_License_Agreement.html |
 | 86 | NGC container registry (`nvcr.io`) | Optional `docker login` for NGC-hosted images — `scripts/installation/login_services.sh`, key supplied via `api_keys.template.txt` | NVIDIA NGC Terms of Use | https://ngc.nvidia.com/legal/terms |
@@ -205,26 +205,26 @@ SimFoundry: no source archive, release artifact, container, cache, model bundle,
 NVIDIA mirror. Each is fetched from its own upstream, by the user, at install time.
 
 **The Apache 2.0 boundary.** SimFoundry's license covers only NVIDIA-authored code —
-`digital_cousins/`, `scripts/`, `tests/`, and the repo's own config and docs. It does
+`simfoundry/`, `scripts/`, `tests/`, and the repo's own config and docs. It does
 not extend to any component below, their model weights, or any dataset or SDK required.
 
 | Component | Required? | Acquisition | Exact version | Source terms | Weights terms | Key restriction |
 |---|---|---|---|---|---|---|
-| SAM 3 | Required (`cdc`) | `git clone` — `install_cdc.sh` | `46957e47…` | SAM License (Meta) | Gated Hugging Face download | **Non-OSS**, source-available; HF login required |
+| SAM 3 | Required (`simfoundry`) | `git clone` — `install_simfoundry.sh` | `46957e47…` | SAM License (Meta) | Gated Hugging Face download | **Non-OSS**, source-available; HF login required |
 | Any6D | Required (`any6d`) | `git clone` — `install_any6d.sh` | `80eb4866…` | Custom academic-only | n/a | **Non-commercial / academic use only** |
 | Hunyuan3D-2.1 | Required (`hunyuan`) | `git clone` — `install_hunyuan.sh` | `82920d64…` | Tencent Hunyuan 3D 2.1 Community License | Same, plus Real-ESRGAN weight (BSD-3-Clause) | **Non-OSS** community license |
 | Hunyuan3D-Part (P3-SAM, X-Part) | Optional (`articulate`) | Fetched by articulate-anything | Tencent Hunyuan 3D-Part Community License | P3-SAM weights auto-download on first use | **Non-OSS** community license |
 | PartField | Optional (`articulate`) | Fetched by articulate-anything | NVIDIA License | Checkpoint via install script | **Non-commercial for third parties** |
-| FoundationPose | Required (`cdc`) | `git clone` — `install_cdc.sh` | `e3d597b8…` | NVIDIA Source Code License | Google Drive folders, **unversioned** | **Non-commercial** |
-| FoundationStereo | Required (`cdc`) | `git clone` — `install_cdc.sh` | `6e880681…` | NVIDIA Source Code License | Google Drive folder, **unversioned** | **Non-commercial** |
-| nvdiffrast | Required (`cdc`) | `git clone` tag `v0.4.0` | `253ac4fc…` | NVIDIA Source Code License (1-Way Commercial) | n/a | **Non-commercial for third parties** |
+| FoundationPose | Required (`simfoundry`) | `git clone` — `install_simfoundry.sh` | `e3d597b8…` | NVIDIA Source Code License | Google Drive folders, **unversioned** | **Non-commercial** |
+| FoundationStereo | Required (`simfoundry`) | `git clone` — `install_simfoundry.sh` | `6e880681…` | NVIDIA Source Code License | Google Drive folder, **unversioned** | **Non-commercial** |
+| nvdiffrast | Required (`simfoundry`) | `git clone` tag `v0.4.0` | `253ac4fc…` | NVIDIA Source Code License (1-Way Commercial) | n/a | **Non-commercial for third parties** |
 | cuRobo | Required (via OmniGibson) | Transitive — BEHAVIOR-1K install  | Apache-2.0 | n/a | None |
-| Depth Pro | Required (`cdc`) | `git clone` — `install_cdc.sh` | `9efe5c1d…` | Apple Sample Code License | `depth_pro.pt` from Apple CDN | Apple sample-code terms |
+| Depth Pro | Required (`simfoundry`) | `git clone` — `install_simfoundry.sh` | `9efe5c1d…` | Apple Sample Code License | `depth_pro.pt` from Apple CDN | Apple sample-code terms |
 | VOID / CogVideoX weights | Required (`void`) | `git fetch` — `install_void.sh` | `e3914f8f…` | Apache-2.0 (code) | **CogVideoX License**, gated HF | Weights are **not** Apache-2.0; HF login required |
 | OpenPI / Gemma weights | Optional (`openpi`) | `git clone` — `install_openpi.sh` | `15a9616a…` | Apache-2.0 (client) | **Gemma Terms of Use** | Weights governed by Gemma Terms |
 | CoTracker | Optional (`articulate`) | Fetched by articulate-anything | **CC-BY-NC-4.0** | Same | **Non-commercial** |
 | TeleMoMa | **User-supplied** | Not installed by SimFoundry | User's choice (`0.3.0` known-good) | **No license file — all rights reserved** | n/a | **No rights granted by upstream.** Not installed, distributed, or mirrored |
-| TRELLIS.2 | Optional (`--trellis`) | `git clone` — `install_cdc.sh` | `75fbf018…` | MIT | n/a | None |
+| TRELLIS.2 | Optional (`--trellis`) | `git clone` — `install_simfoundry.sh` | `75fbf018…` | MIT | n/a | None |
 | pyzed / ZED SDK | Optional (`--zed`) | User installs the ZED SDK | User's SDK version | MIT (bindings) | n/a | **Proprietary ZED SDK** required at runtime, under Stereolabs terms |
 
 ### GPL components and process boundaries
@@ -232,7 +232,7 @@ not extend to any component below, their model weights, or any dataset or SDK re
 No SimFoundry module imports a GPL library and the Omniverse Kit USD bindings (`pxr`)
 together. Positions as of 2026-07-28:
 
-- **pymeshlab (GPL-3.0-only)** — imported by `digital_cousins/utils/asset_conversion_utils.py`,
+- **pymeshlab (GPL-3.0-only)** — imported by `simfoundry/utils/asset_conversion_utils.py`,
   which contains no `pxr` reference. USD editing runs in a separate process
   (`12_import_usd.py` → `reparent_usd_joints.py`), which imports no GPL library.
   **OmniGibson does import pymeshlab inside the Isaac Sim process**

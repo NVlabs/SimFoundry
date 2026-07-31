@@ -33,7 +33,7 @@ def test_run_all_resolves_relative_model_cache_dir_from_repo_root(tmp_path):
     probe = tmp_path / "probe_python"
     probe.write_text(
         "#!/usr/bin/env bash\n"
-        "echo \"CDC_MODEL_CACHE_DIR=${CDC_MODEL_CACHE_DIR}\"\n",
+        "echo \"SIMFOUNDRY_MODEL_CACHE_DIR=${SIMFOUNDRY_MODEL_CACHE_DIR}\"\n",
         encoding="utf-8",
     )
     probe.chmod(0o755)
@@ -49,7 +49,7 @@ def test_run_all_resolves_relative_model_cache_dir_from_repo_root(tmp_path):
             "1b",
             "--cache-mode",
             "--model-cache-dir",
-            ".cache/cdc/model_calls",
+            ".cache/simfoundry/model_calls",
         ],
         cwd=repo_root / "scripts" / "cfg",
         check=True,
@@ -57,5 +57,5 @@ def test_run_all_resolves_relative_model_cache_dir_from_repo_root(tmp_path):
         text=True,
     )
 
-    expected_cache_dir = repo_root / ".cache" / "cdc" / "model_calls"
-    assert f"CDC_MODEL_CACHE_DIR={expected_cache_dir}" in result.stdout
+    expected_cache_dir = repo_root / ".cache" / "simfoundry" / "model_calls"
+    assert f"SIMFOUNDRY_MODEL_CACHE_DIR={expected_cache_dir}" in result.stdout

@@ -23,14 +23,14 @@ metric scale and disable any auto-reorientation (`auto_scale_poses=False,
 center_method=none, orientation_method=none, scale_factor=1.0`), then
 `ns-export gaussian-splat`.
 
-Phase 1 runs in `cdc` (just numpy / cv2 / plyfile). Phase 2 is shelled out
+Phase 1 runs in `simfoundry` (just numpy / cv2 / plyfile). Phase 2 is shelled out
 via `mamba run -n nerfstudio_simfoundry ns-{train,export,viewer}` — the env
 must already exist on `mamba env list` (see auto_bg_pipeline_setup_README.md
 §4). The subprocess env is curated in `_ns_env()` for CUDA toolchain
 correctness.
 
 Canonical invocation (see auto_bg_pipeline_README.md step 3):
-  mamba run -n cdc python \\
+  mamba run -n simfoundry python \\
       scripts/pipeline/A_reconstruction/stages/auto_bg_reconstruction/5_train_bg_splat.py \\
       scene_name=<scene> \\
       s5_train_bg_splat.no_masks=True s5_train_bg_splat.max_num_iterations=80000 \\
@@ -51,11 +51,11 @@ import hydra
 import numpy as np
 from plyfile import PlyData, PlyElement
 
-from digital_cousins.pipeline.stage_utils import bootstrap_hydra_workdir
+from simfoundry.pipeline.stage_utils import bootstrap_hydra_workdir
 
 bootstrap_hydra_workdir(__file__)
 
-from digital_cousins import CFG_DIR  # noqa: E402
+from simfoundry import CFG_DIR  # noqa: E402
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -339,9 +339,9 @@ def build_transforms(
 def _ns_env(env: dict) -> dict:
     """Curate the environment for the ns-train / ns-export subprocess.
 
-    Why this function exists: invoking ns-train from `cdc` leaks several env
-    vars set by cdc's `cuda-nvcc` activate script (TORCH_CUDA_ARCH_LIST,
-    NVCC_PREPEND_FLAGS, CC/CXX, GCC*, CFLAGS, ...). They point at cdc's gcc-13
+    Why this function exists: invoking ns-train from `simfoundry` leaks several env
+    vars set by simfoundry's `cuda-nvcc` activate script (TORCH_CUDA_ARCH_LIST,
+    NVCC_PREPEND_FLAGS, CC/CXX, GCC*, CFLAGS, ...). They point at simfoundry's gcc-13
     toolchain and arch list 10.0/10.1/12.0. The fixes below are empirically
     necessary for nerfstudio_simfoundry + torch 2.7.1+cu128 + gsplat 1.5.3:
 
@@ -352,7 +352,7 @@ def _ns_env(env: dict) -> dict:
          compiler can't find cuda_runtime_api.h without this path.
       3. TORCH_CUDA_ARCH_LIST=7.0..9.0;12.0 — include sm_120 (RTX 5090 /
          Blackwell) which gsplat 1.5.3 supports with torch 2.7.1+cu128.
-      4. Strip every cdc-side compiler/toolchain var so gsplat's JIT picks
+      4. Strip every simfoundry-side compiler/toolchain var so gsplat's JIT picks
          up the nerfstudio env's own x86_64-conda-linux-gnu-cc toolchain.
     """
     import shutil as _shutil
@@ -369,7 +369,7 @@ def _ns_env(env: dict) -> dict:
         env["CPLUS_INCLUDE_PATH"] = f"{ns_cuda_include}:{env.get('CPLUS_INCLUDE_PATH', '')}"
     # torch 2.7.1+cu128 + gsplat 1.5.3 supports sm_120 (RTX 5090 / Blackwell).
     env["TORCH_CUDA_ARCH_LIST"] = "7.0;7.5;8.0;8.6;8.9;9.0;12.0"
-    # Strip cdc-side compiler/toolchain vars and any stale CUDA_HOME so gsplat's
+    # Strip simfoundry-side compiler/toolchain vars and any stale CUDA_HOME so gsplat's
     # JIT uses the nerfstudio env's own nvcc and x86_64-conda-linux-gnu-cc.
     for k in ("NVCC_PREPEND_FLAGS", "NVCC_APPEND_FLAGS",
               "CFLAGS", "CXXFLAGS", "CPPFLAGS", "LDFLAGS",

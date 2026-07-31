@@ -16,8 +16,8 @@ import numpy as np
 import torch as th
 from PIL import Image
 
-from digital_cousins import CFG_DIR, REPO_DIR, configure_omnigibson_data_path, import_og_dependencies
-from digital_cousins.utils.scene_utils import load_json_with_absolute_usd_paths
+from simfoundry import CFG_DIR, REPO_DIR, configure_omnigibson_data_path, import_og_dependencies
+from simfoundry.utils.scene_utils import load_json_with_absolute_usd_paths
 
 configure_omnigibson_data_path(force=True)
 import_og_dependencies()

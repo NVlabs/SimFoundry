@@ -41,7 +41,7 @@ SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 project_root="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # Defaults
-env_name="cdc"
+env_name="simfoundry"
 DEFAULT=false
 GCLOUD_LOGIN=false
 KEYS_FILE="${SCRIPT_DIR}/api_keys.txt"
@@ -61,7 +61,7 @@ while [[ $# -gt 0 ]]; do
             echo "VLM calls)."
             echo ""
             echo "Options:"
-            echo "  --env-name NAME     Mamba environment to activate (default: cdc)"
+            echo "  --env-name NAME     Mamba environment to activate (default: simfoundry)"
             echo "  --default           Read API keys from a file instead of prompting"
             echo "  --gcloud            Also log into Google Cloud (Vertex AI backs the"
             echo "                      pipeline's VLM stages)"
@@ -80,7 +80,7 @@ done
 # ACTIVATE MAMBA ENVIRONMENT
 # ==============================================================================
 
-echo "=== CDC Service Login ==="
+echo "=== SimFoundry Service Login ==="
 
 if [[ ! ${DEFAULT} == true ]]; then
     read -p "Enter mamba environment name to use (default: ${env_name}): " ENV_NAME

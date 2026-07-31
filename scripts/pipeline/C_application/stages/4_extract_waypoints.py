@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Should be run from cdc env
+Should be run from simfoundry env
 
 Extract object-centric waypoints from source demonstrations.
 
@@ -23,9 +23,9 @@ import numpy as np
 import omnigibson as og
 from omnigibson.macros import gm
 
-from digital_cousins import import_og_dependencies
-from digital_cousins.utils.annotation_utils import MinimalPlaybackWrapper, WaypointExtractor
-from digital_cousins.utils.og_utils import apply_teleop_omnigibson_macros, setup_wrist_camera_viewport
+from simfoundry import import_og_dependencies
+from simfoundry.utils.annotation_utils import MinimalPlaybackWrapper, WaypointExtractor
+from simfoundry.utils.og_utils import apply_teleop_omnigibson_macros, setup_wrist_camera_viewport
 
 # Needed so custom tasks can be instantiated properly
 import_og_dependencies()
@@ -35,7 +35,7 @@ gm.RENDER_VIEWER_CAMERA = False
 gm.DEFAULT_VIEWER_WIDTH = 128
 gm.DEFAULT_VIEWER_HEIGHT = 128
 
-from digital_cousins import CFG_DIR
+from simfoundry import CFG_DIR
 
 # Expected action sequences for each task
 TASK_EXPECTED_SEQUENCES = {

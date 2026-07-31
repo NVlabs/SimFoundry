@@ -52,7 +52,7 @@ base commit.
 ## Upstream project SimFoundry is derived from
 
 - ACDC / digital-cousins (Apache-2.0) — Copyright (c) 2024 the ACDC authors
-  (Stanford Vision and Learning Lab). Portions of `digital_cousins/` are derived
+  (Stanford Vision and Learning Lab). Portions of `simfoundry/` are derived
   from this project; derived files carry an attribution note in their header.
 
 

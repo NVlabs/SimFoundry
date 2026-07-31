@@ -30,7 +30,7 @@ loggers:
     propagate: false
   # Add other specific loggers here if needed
   # For example, if you want to see info from a specific library:
-  digital_cousins:
+  simfoundry:
     level: INFO
     handlers: [console, file]
     propagate: false

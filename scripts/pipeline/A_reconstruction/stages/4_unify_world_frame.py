@@ -2,11 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Should be run from `cdc` env
+Should be run from `simfoundry` env
 
 Requires installing:
 
-- digital_cousins, see the main README
+- simfoundry, see the main README
 """
 import os.path
 
@@ -22,8 +22,8 @@ from scipy.spatial.transform import Rotation as R
 import json
 from pathlib import Path
 import hydra
-from digital_cousins.utils.processing_utils import compute_point_cloud_from_depth
-from digital_cousins.pipeline.stage_utils import StageResult, bootstrap_hydra_workdir, finalize_stage
+from simfoundry.utils.processing_utils import compute_point_cloud_from_depth
+from simfoundry.pipeline.stage_utils import StageResult, bootstrap_hydra_workdir, finalize_stage
 import logging
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 if hydra.core.global_hydra.GlobalHydra.instance().is_initialized():
         hydra.core.global_hydra.GlobalHydra.instance().clear()
 
-from digital_cousins import CFG_DIR
+from simfoundry import CFG_DIR
 
 bootstrap_hydra_workdir(__file__)
 

@@ -44,8 +44,8 @@ Outputs:
   <out_ply>.pose.json  {pos, ori_xyzw, scale, M_src_to_og} for build_og_scene_assets.py
 
 Reads config from scripts/cfg/auto_bg.yaml (Hydra), section `s6_bridge`.
-Run from the cdc env (Hydra override syntax):
-  mamba run -n cdc python \\
+Run from the simfoundry env (Hydra override syntax):
+  mamba run -n simfoundry python \\
       scripts/pipeline/A_reconstruction/stages/auto_bg_reconstruction/6_bridge_bg_splat_to_og.py \\
       scene_name=quillen_table
 Per-stage values can be overridden directly, e.g. `s6_bridge.bridge_mode=umeyama`.
@@ -60,14 +60,14 @@ import hydra
 import numpy as np
 from scipy.spatial.transform import Rotation
 
-from digital_cousins.pipeline.stage_utils import bootstrap_hydra_workdir
-from digital_cousins.utils.transform_utils import camera_centers_from_world2cam, umeyama_alignment
+from simfoundry.pipeline.stage_utils import bootstrap_hydra_workdir
+from simfoundry.utils.transform_utils import camera_centers_from_world2cam, umeyama_alignment
 
 # cd to scripts/cfg so the cfg's `${root_dir}` (= ../../Data) resolves to repo/Data,
 # matching the sibling A_reconstruction stages.
 bootstrap_hydra_workdir(__file__)
 
-from digital_cousins import CFG_DIR  # noqa: E402
+from simfoundry import CFG_DIR  # noqa: E402
 
 
 REPO_ROOT = Path(__file__).resolve().parents[5]

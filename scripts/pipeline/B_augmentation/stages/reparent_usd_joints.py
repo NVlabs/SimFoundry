@@ -20,7 +20,7 @@ from pathlib import Path
 os.environ["OMNIGIBSON_HEADLESS"] = "1"
 os.environ.setdefault("OMNI_KIT_ACCEPT_EULA", "YES")
 
-_PXR_BOOTSTRAP_ENV = "CDC_PXR_BOOTSTRAPPED"
+_PXR_BOOTSTRAP_ENV = "SIMFOUNDRY_PXR_BOOTSTRAPPED"
 
 
 def _prepend_env_path(env: dict[str, str], key: str, value: str) -> None:

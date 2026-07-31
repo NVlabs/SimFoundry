@@ -18,8 +18,8 @@ from pathlib import Path
 import omnigibson as og
 from omnigibson.utils.config_utils import parse_config
 
-from digital_cousins import ASSET_DIR, CFG_DIR, import_og_dependencies
-from digital_cousins.utils.scene_utils import load_json_with_absolute_usd_paths
+from simfoundry import ASSET_DIR, CFG_DIR, import_og_dependencies
+from simfoundry.utils.scene_utils import load_json_with_absolute_usd_paths
 
 
 def parse_args():

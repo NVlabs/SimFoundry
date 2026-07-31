@@ -12,8 +12,8 @@ metric depth means no scale gap) and exports the clean-table cloud in orig-DA3
 world coordinates so splatfacto can use it as the seed.
 
 Reads config from scripts/cfg/auto_bg.yaml (Hydra), section `s4_seed_ply`.
-Run from cdc env (Hydra override syntax):
-  mamba run -n cdc python \
+Run from simfoundry env (Hydra override syntax):
+  mamba run -n simfoundry python \
       scripts/pipeline/A_reconstruction/stages/auto_bg_reconstruction/4_build_seed_ply_from_void_da3.py \
       scene_name=<scene>
 Per-stage values can be overridden directly, e.g.
@@ -26,12 +26,12 @@ import hydra
 import numpy as np
 from plyfile import PlyData, PlyElement
 
-from digital_cousins.pipeline.stage_utils import bootstrap_hydra_workdir
+from simfoundry.pipeline.stage_utils import bootstrap_hydra_workdir
 
 bootstrap_hydra_workdir(__file__)
 
-from digital_cousins import CFG_DIR  # noqa: E402
-from digital_cousins.utils.transform_utils import camera_centers_from_world2cam, umeyama_alignment
+from simfoundry import CFG_DIR  # noqa: E402
+from simfoundry.utils.transform_utils import camera_centers_from_world2cam, umeyama_alignment
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")

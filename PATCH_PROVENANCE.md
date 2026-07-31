@@ -28,10 +28,10 @@ each patch is recorded against the source it is actually applied to.
 |---|---|---|---|---|---|---|
 | `3dgrut.patch` | [nv-tlabs/3dgrut](https://github.com/nv-tlabs/3dgrut) | `a37ef721012dea0f29c0fcfff2d525023b4e854a` | Apache-2.0 | SimFoundry team | `install_3dgrut.sh` | ✅ clean |
 | `Any6D.patch` | [taeyeopl/Any6D](https://github.com/taeyeopl/Any6D) | `80eb4866a1c96ecb18be18836aba4f4bd6e80e9e` | **Non-commercial / academic-only** | SimFoundry team | `install_any6d.sh` | ✅ clean |
-| `FoundationPose.patch` | [NVlabs/FoundationPose](https://github.com/NVlabs/FoundationPose) | `e3d597b8c6b851d053094ebd6fa240191c5238f8` | **NVIDIA Source Code License (non-commercial)** | SimFoundry team | `install_cdc.sh` | ✅ clean |
+| `FoundationPose.patch` | [NVlabs/FoundationPose](https://github.com/NVlabs/FoundationPose) | `e3d597b8c6b851d053094ebd6fa240191c5238f8` | **NVIDIA Source Code License (non-commercial)** | SimFoundry team | `install_simfoundry.sh` | ✅ clean |
 | `Hunyuan3D-2.1.patch` | [Tencent-Hunyuan/Hunyuan3D-2.1](https://github.com/Tencent-Hunyuan/Hunyuan3D-2.1) | `82920d643c0dc2f7bfd7255f45f62d386edfe60c` | **Tencent Hunyuan 3D 2.1 Community License (non-OSS)** | SimFoundry team | `install_hunyuan.sh` | ✅ clean |
-| `ml-depth-pro.patch` | [apple/ml-depth-pro](https://github.com/apple/ml-depth-pro) | `9efe5c1def37a26c5367a71df664b18e1306c708` | Apple Sample Code License | SimFoundry team | `install_cdc.sh` | ✅ clean |
-| `PriorDepthAnything.patch` | [SpatialVision/Prior-Depth-Anything](https://github.com/SpatialVision/Prior-Depth-Anything) | `8c029cbca669443fe0bbf8dcefb5f91ad531084d` | Apache-2.0 | SimFoundry team | `install_cdc.sh` | ✅ clean |
+| `ml-depth-pro.patch` | [apple/ml-depth-pro](https://github.com/apple/ml-depth-pro) | `9efe5c1def37a26c5367a71df664b18e1306c708` | Apple Sample Code License | SimFoundry team | `install_simfoundry.sh` | ✅ clean |
+| `PriorDepthAnything.patch` | [SpatialVision/Prior-Depth-Anything](https://github.com/SpatialVision/Prior-Depth-Anything) | `8c029cbca669443fe0bbf8dcefb5f91ad531084d` | Apache-2.0 | SimFoundry team | `install_simfoundry.sh` | ✅ clean |
 | `splatfacto_depth_loss.patch` | [nerfstudio-project/nerfstudio](https://github.com/nerfstudio-project/nerfstudio) | `6b60855003011b2ca23c2fe3f8e2ca6314c69924` (tag `v1.1.5`) | Apache-2.0 | SimFoundry team | `install_nerfstudio.sh` | ✅ clean |
 | `void-model.patch` | [netflix/void-model](https://github.com/netflix/void-model) | `e3914f8f551dd4b880661991fd6b28cd1699a97a` | Apache-2.0 | SimFoundry team | `install_void.sh` | ✅ clean |
 
@@ -100,7 +100,7 @@ present in the patch file. "Added" lines are NVIDIA-authored.
 ### `ml-depth-pro.patch`
 - **Target**: `pyproject.toml`
 - **Purpose**: Sets the Python target to 3.10 (`pythonVersion`, `target-version`) to
-  match the `cdc` environment.
+  match the `simfoundry` environment.
 - **Upstream NOTICE**: none at base commit.
 
 ### `PriorDepthAnything.patch`

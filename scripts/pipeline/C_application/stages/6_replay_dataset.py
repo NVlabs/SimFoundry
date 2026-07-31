@@ -19,11 +19,11 @@ import numpy as np
 import hydra
 from omegaconf import OmegaConf
 from tqdm import tqdm
-from digital_cousins import import_og_dependencies, CFG_DIR as CDC_CFG_DIR
-from digital_cousins.utils.processing_utils import dump_json
-from digital_cousins.utils.og_utils import apply_teleop_omnigibson_macros
+from simfoundry import import_og_dependencies, CFG_DIR as SIMFOUNDRY_CFG_DIR
+from simfoundry.utils.processing_utils import dump_json
+from simfoundry.utils.og_utils import apply_teleop_omnigibson_macros
 from omnigibson.envs.data_wrapper import LeRobotPlaybackWrapper
-from digital_cousins.envs.omnigibson.lerobot_pointbridge_playback_wrapper import (
+from simfoundry.envs.omnigibson.lerobot_pointbridge_playback_wrapper import (
     LeRobotPointbridgePlaybackWrapper,
     LeRobotPlaybackWrapperWithTransforms,
 )
@@ -39,7 +39,7 @@ av.logging.set_level(av.logging.ERROR)
 # Needed so custom tasks can be instantiated properly
 import_og_dependencies()
 
-from digital_cousins import CFG_DIR
+from simfoundry import CFG_DIR
 
 
 ### At the start of every script, we cd into the scripts/config directory
@@ -57,7 +57,7 @@ def build_domain_randomization_manager(dr_cfg):
     Returns:
         DomainRandomizationManager instance (may be disabled if dr_cfg.enabled is False).
     """
-    from digital_cousins.domain_randomization import (
+    from simfoundry.domain_randomization import (
         DomainRandomizationCfg,
         MaterialRandomizationCfg,
         LightingRandomizationCfg,
@@ -337,7 +337,7 @@ def main(cfg):
     OU.USE_DEPTH_RGB_ENCODING = cfg.s18_replay.depth_as_rgb
 
     # Grab external sensors config
-    external_sensors_cfg_path = f"{CDC_CFG_DIR}/external_sensors/{cfg.s18_replay.external_sensors_cfg}.yaml"
+    external_sensors_cfg_path = f"{SIMFOUNDRY_CFG_DIR}/external_sensors/{cfg.s18_replay.external_sensors_cfg}.yaml"
     external_sensors_cfg = parse_config(external_sensors_cfg_path)["external_sensors"]
     cfg.s18_replay.playback_kwargs.external_sensors_config = external_sensors_cfg
 

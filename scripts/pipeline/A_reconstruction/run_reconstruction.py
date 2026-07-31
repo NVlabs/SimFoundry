@@ -9,8 +9,8 @@ import argparse
 import os
 import time
 
-from digital_cousins import REPO_DIR
-from digital_cousins.pipeline.orchestrator import format_duration, run_pipeline
+from simfoundry import REPO_DIR
+from simfoundry.pipeline.orchestrator import format_duration, run_pipeline
 
 
 def main():
@@ -20,7 +20,7 @@ def main():
     parser.add_argument("--exclude", default=None, help="Comma-separated stage ids to exclude")
     parser.add_argument("--exec-mode", choices=["mamba", "direct"], default="mamba")
     parser.add_argument("--python-bin", default="python")
-    parser.add_argument("--env-cdc", default="cdc")
+    parser.add_argument("--env-simfoundry", default="simfoundry")
     parser.add_argument("--env-da3", default="da3")
     parser.add_argument("--env-hunyuan", default="hunyuan")
     parser.add_argument("--env-b1k", default="b1k")
@@ -28,7 +28,7 @@ def main():
     parser.add_argument("--stream-5-8", action="store_true", help="Enable streaming for a contiguous subsequence in stages 5-8")
     parser.add_argument("--stream-start-stage", type=int, default=5, help="Streaming subsequence start stage (5-8)")
     parser.add_argument("--stream-end-stage", type=int, default=8, help="Streaming subsequence end stage (5-8)")
-    parser.add_argument("--detect-articulation", action="store_true", help="Run stage 8b after pose matching to decompose articulated objects")
+    parser.add_argument("--detect-articulation", action="store_true", help="Run stage 8b after pose matching to decompose articulated objects (not shipped in this release; ignored with a warning)")
     parser.add_argument("overrides", nargs="*", help="Additional Hydra overrides forwarded to each stage")
     args = parser.parse_args()
 
@@ -45,7 +45,7 @@ def main():
         exclude_ids_csv=args.exclude,
         exec_mode=args.exec_mode,
         python_bin=args.python_bin,
-        env_map={"cdc": args.env_cdc, "da3": args.env_da3, "hunyuan": args.env_hunyuan, "b1k": args.env_b1k},
+        env_map={"simfoundry": args.env_simfoundry, "da3": args.env_da3, "hunyuan": args.env_hunyuan, "b1k": args.env_b1k},
         dry_run=args.dry_run,
         stream_subseq_enabled=stream_enabled,
         stream_start_stage=stream_start,

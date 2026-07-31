@@ -24,10 +24,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
 
-from digital_cousins.pipeline.stage_utils import bootstrap_hydra_workdir, list_object_iteration_indices
+from simfoundry.pipeline.stage_utils import bootstrap_hydra_workdir, list_object_iteration_indices
 
 
-from digital_cousins import CFG_DIR
+from simfoundry import CFG_DIR
 logger = logging.getLogger(__name__)
 bootstrap_hydra_workdir(__file__)
 

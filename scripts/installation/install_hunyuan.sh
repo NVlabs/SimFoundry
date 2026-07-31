@@ -185,7 +185,7 @@ cd hy3dpaint/DifferentiableRenderer
 bash compile_mesh_painter.sh
 cd ../..
 
-# Step 3.8: Install digital cousins requirements
+# Step 3.8: Install SimFoundry requirements
 cd ../.. # back in root
 pip install -r requirements_hunyuan.txt
 pip install -e .

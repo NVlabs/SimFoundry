@@ -14,7 +14,7 @@ import os
 # default. Interactive users can override this before launching the script.
 os.environ.setdefault("OMNIGIBSON_HEADLESS", "1")
 
-from digital_cousins import CFG_DIR as CDC_CFG_DIR, configure_omnigibson_data_path
+from simfoundry import CFG_DIR as SIMFOUNDRY_CFG_DIR, configure_omnigibson_data_path
 
 configure_omnigibson_data_path(force=True)
 
@@ -28,12 +28,12 @@ import torch as th
 import json
 import hydra
 from omegaconf import OmegaConf
-from digital_cousins.pipeline.stage_utils import StageResult, bootstrap_hydra_workdir, finalize_stage
-from digital_cousins.utils.og_utils import set_obj_materials
+from simfoundry.pipeline.stage_utils import StageResult, bootstrap_hydra_workdir, finalize_stage
+from simfoundry.utils.og_utils import set_obj_materials
 import numpy as np
 import sys
 
-from digital_cousins import CFG_DIR
+from simfoundry import CFG_DIR
 
 
 bootstrap_hydra_workdir(__file__)
@@ -144,7 +144,7 @@ def validate_robot_assets(robot_cfg):
         f"  - end_effector: {end_effector}\n"
         f"  - expected USD: {usd_path}\n"
         "The default 'gripper' end effector is included in the public OmniGibson robot assets. "
-        "Robotiq configs require the CDC-specific robot asset bundle; install it with "
+        "Robotiq configs require the SimFoundry-specific robot asset bundle; install it with "
         "./install.sh --robot-asset-fallback-root <repo-with-assets> or override "
         "s13_og.robot_config.end_effector=gripper."
     )
@@ -221,7 +221,7 @@ def main(cfg):
             }
         robots_cfg.append(robot_cfg)
 
-    external_sensors_cfg_path = f"{CDC_CFG_DIR}/external_sensors/{cfg.s13_og.external_sensors_cfg}.yaml"
+    external_sensors_cfg_path = f"{SIMFOUNDRY_CFG_DIR}/external_sensors/{cfg.s13_og.external_sensors_cfg}.yaml"
     env_cfg = {
         "external_sensors": parse_config(external_sensors_cfg_path)["external_sensors"]
     }

@@ -1,6 +1,6 @@
 # SimFoundry
 
-SimFoundry (previously Controllable Digital Cousins) builds simulation-ready OmniGibson scenes from real video or ZED captures. The pipeline can reconstruct a scene, generate object-level "digital cousin" variations, and run evaluation or data-collection workflows on the resulting scene.
+SimFoundry builds simulation-ready OmniGibson scenes from real video or ZED captures. The pipeline can reconstruct a scene, generate object-level "digital cousin" variations, and run evaluation or data-collection workflows on the resulting scene.
 
 ## Quick Start
 
@@ -27,7 +27,7 @@ bash scripts/installation/download_checkpoints.sh --default
 > Already logged in to Hugging Face? You can fold step 3 into step 1 with
 > `bash scripts/installation/install_everything.sh --checkpoints`.
 
-All VLM stages — reconstruction (stages 3, 5, 6, 10), articulation (`--detect-articulation` / stage 8b), and the B augmentation pipeline — run on **Google Vertex AI (Gemini)**. Set `gcloud_project` in `scripts/cfg/real2sim_cfg.yaml` (or `export GCLOUD_PROJECT`) and authenticate with `login_services.sh --gcloud` or `gcloud auth application-default login`. Make sure the Gemini model IDs referenced in the configs are enabled in your GCP project and region.
+All VLM stages — reconstruction (stages 3, 5, 6, 10) and the B augmentation pipeline — run on **Google Vertex AI (Gemini)**. Set `gcloud_project` in `scripts/cfg/real2sim_cfg.yaml` (or `export GCLOUD_PROJECT`) and authenticate with `login_services.sh --gcloud` or `gcloud auth application-default login`. Make sure the Gemini model IDs referenced in the configs are enabled in your GCP project and region.
 
 More installation detail: [INSTALL.md](INSTALL.md)
 
@@ -53,17 +53,18 @@ Pipeline reference: [scripts/pipeline/README.md](scripts/pipeline/README.md)
 
 ## Common Examples
 
-Reconstruct a scene from video with a 24 GiB VRAM budget and automatic articulation:
+Reconstruct a scene from video with a 24 GiB VRAM budget:
 
 ```bash
 bash scripts/pipeline/A_reconstruction/run.sh \
   --scene-name pull_scene_2 \
   --video-fpath /path/to/video.mov \
-  --max-vram-gb 24 \
-  --detect-articulation
+  --max-vram-gb 24
 ```
 
-Note: all VLM stages run on Google Cloud (Vertex AI Gemini), so `gcloud_project` must be set — including for `--detect-articulation` (stage 8b) and the B augmentation pipeline below.
+Note: all VLM stages run on Google Cloud (Vertex AI Gemini), so `gcloud_project` must be set — including for the B augmentation pipeline below.
+
+Automatic articulation (`--detect-articulation` / stage 8b) is not shipped in this release. The flag is still accepted, but it is ignored with a warning.
 
 Generate bounded digital cousins, scene variants, and task proposals:
 
@@ -71,8 +72,8 @@ Generate bounded digital cousins, scene variants, and task proposals:
 bash scripts/pipeline/B_augmentation/run.sh \
   --scene-name pull_scene_2 \
   --max-vram-gb 24 \
-  -- prompt_cdc_structured.max_objects=2 \
-       prompt_cdc_structured.max_generated_images_per_object=1
+  -- prompt_cousin_structured.max_objects=2 \
+       prompt_cousin_structured.max_generated_images_per_object=1
 ```
 
 Smoke-test the reconstructed scene in OmniGibson:
@@ -104,7 +105,7 @@ Important outputs include:
 
 - `s13_og/reconstructed_og_scene.json`: final OmniGibson scene
 - `s13_og/reconstructed_scene.png`: scene preview
-- `prompt_cdc_structured/`: cousin image proposals
+- `prompt_cousin_structured/`: cousin image proposals
 - `sim_cousins/` and `usd_cousins/`: simulation-ready cousin assets
 - `proposed_tasks/`: generated task YAMLs
 - `application_smoke/`: C pipeline smoke-test videos

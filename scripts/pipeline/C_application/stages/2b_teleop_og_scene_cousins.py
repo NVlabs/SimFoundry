@@ -26,10 +26,10 @@ import json
 import subprocess
 import hydra
 from omegaconf import OmegaConf
-from digital_cousins import import_og_dependencies, CFG_DIR as CDC_CFG_DIR
-from digital_cousins.utils.processing_utils import dump_json
+from simfoundry import import_og_dependencies, CFG_DIR as SIMFOUNDRY_CFG_DIR
+from simfoundry.utils.processing_utils import dump_json
 from omnigibson.examples.objects.import_custom_object import import_custom_object
-from digital_cousins.utils.og_utils import (
+from simfoundry.utils.og_utils import (
     apply_teleop_omnigibson_macros,
     set_obj_materials,
     setup_task_status_ui,
@@ -46,7 +46,7 @@ import signal
 # Needed so custom tasks can be instantiated properly
 import_og_dependencies()
 
-from digital_cousins import CFG_DIR
+from simfoundry import CFG_DIR
 
 
 ### At the start of every script, we cd into the scripts/config directory
@@ -149,11 +149,11 @@ def main(cfg):
     #         "mode": "smooth",
     #     }
     task_name = cfg.s14_teleop.task_name
-    og_task_cfg_path = f"{CDC_CFG_DIR}/task/{task_name}.yaml"
+    og_task_cfg_path = f"{SIMFOUNDRY_CFG_DIR}/task/{task_name}.yaml"
     task_cfg = parse_config(og_task_cfg_path)["og_task_config"]
     task_cfg["termination_config"]["max_steps"] = cfg.s14_teleop.max_steps
 
-    external_sensors_cfg_path = f"{CDC_CFG_DIR}/external_sensors/{cfg.s14_teleop.external_sensors_cfg}.yaml"
+    external_sensors_cfg_path = f"{SIMFOUNDRY_CFG_DIR}/external_sensors/{cfg.s14_teleop.external_sensors_cfg}.yaml"
     action_freq = cfg.s14_teleop.action_freq
     env_cfg = {
         "external_sensors": parse_config(external_sensors_cfg_path)["external_sensors"],

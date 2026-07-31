@@ -19,7 +19,7 @@ from omnigibson.controllers import InverseKinematicsController, OperationalSpace
 import omnigibson.utils.transform_utils as T
 from omnigibson.utils.ui_utils import choose_from_options, KeyboardEventHandler
 from omnigibson.utils.config_utils import parse_config
-from digital_cousins.utils.scene_utils import load_json_with_absolute_usd_paths
+from simfoundry.utils.scene_utils import load_json_with_absolute_usd_paths
 from omnigibson.envs import HDF5CollectionWrapper
 from pathlib import Path
 import torch as th
@@ -28,9 +28,9 @@ import subprocess
 import time
 import hydra
 from omegaconf import OmegaConf
-from digital_cousins import import_og_dependencies, CFG_DIR as CDC_CFG_DIR, ASSET_DIR as CDC_ASSET_DIR
-from digital_cousins.utils.processing_utils import dump_json
-from digital_cousins.utils.og_utils import (
+from simfoundry import import_og_dependencies, CFG_DIR as SIMFOUNDRY_CFG_DIR, ASSET_DIR as SIMFOUNDRY_ASSET_DIR
+from simfoundry.utils.processing_utils import dump_json
+from simfoundry.utils.og_utils import (
     apply_teleop_omnigibson_macros,
     set_obj_materials,
     setup_task_status_ui,
@@ -41,8 +41,8 @@ from digital_cousins.utils.og_utils import (
     update_in_hand_status,
     update_grasp_status,
 )
-from digital_cousins.utils.scene_utils import load_json_with_absolute_usd_paths
-from digital_cousins.utils.object_swap_utils import (
+from simfoundry.utils.scene_utils import load_json_with_absolute_usd_paths
+from simfoundry.utils.object_swap_utils import (
     apply_object_swaps,
     adjust_swapped_objects_z,
 )
@@ -53,7 +53,7 @@ import signal
 # Needed so custom tasks can be instantiated properly
 import_og_dependencies()
 
-CFG_DIR = CDC_CFG_DIR
+CFG_DIR = SIMFOUNDRY_CFG_DIR
 
 
 ### At the start of every script, we cd into the scripts/config directory
@@ -144,7 +144,7 @@ def main(cfg):
     valid_sampling_scene_paths = []  # When scene_source == "load_sampling", list of paths to valid scene JSONs
 
     if scene_json_name is not None:
-        scene_asset_dir = os.path.join(CDC_ASSET_DIR, "scenes", scene_json_name)
+        scene_asset_dir = os.path.join(SIMFOUNDRY_ASSET_DIR, "scenes", scene_json_name)
         og_scene_json_path = os.path.join(scene_asset_dir, f"{scene_json_name}_scene_state_latest.json")
         if scene_source == "load_sampling":
             sampling_dir = os.path.join(scene_asset_dir, "sampling_scene/auto_generation")
@@ -194,7 +194,7 @@ def main(cfg):
     swap_json_path = cfg.s14_teleop.get("object_swap_json", None)
     if swap_json_path is not None:
         if not os.path.isabs(swap_json_path):
-            swap_json_path = os.path.join(CDC_ASSET_DIR, swap_json_path)
+            swap_json_path = os.path.join(SIMFOUNDRY_ASSET_DIR, swap_json_path)
         if os.path.exists(swap_json_path):
             swap_info = apply_object_swaps(og_scene_json, swap_json_path)
             print(f"[ObjectSwap] Applied {len(swap_info)} object swap(s) from {swap_json_path}")
@@ -233,9 +233,9 @@ def main(cfg):
     task_name = cfg.task.task_name
     scene_name = cfg.get("scene_name", "")
     # Prefer scene-specific task config if present: task/<scene_name>/<task_name>.yaml
-    og_task_cfg_path = os.path.join(CDC_CFG_DIR, "task", scene_name, f"{task_name}.yaml") if scene_name else ""
+    og_task_cfg_path = os.path.join(SIMFOUNDRY_CFG_DIR, "task", scene_name, f"{task_name}.yaml") if scene_name else ""
     if not (og_task_cfg_path and os.path.exists(og_task_cfg_path)):
-        og_task_cfg_path = os.path.join(CDC_CFG_DIR, "task", f"{task_name}.yaml")
+        og_task_cfg_path = os.path.join(SIMFOUNDRY_CFG_DIR, "task", f"{task_name}.yaml")
     task_cfg = parse_config(og_task_cfg_path)["og_task_config"]
     task_cfg["termination_config"]["max_steps"] = cfg.s14_teleop.max_steps
 
@@ -270,7 +270,7 @@ def main(cfg):
             config_str = ", ".join(f"{g}: {v:.4f} rad" for g, v in config.items())
             print(f"  Config {i+1}: {config_str}")
 
-    external_sensors_cfg_path = f"{CDC_CFG_DIR}/external_sensors/{cfg.s14_teleop.external_sensors_cfg}.yaml"
+    external_sensors_cfg_path = f"{SIMFOUNDRY_CFG_DIR}/external_sensors/{cfg.s14_teleop.external_sensors_cfg}.yaml"
     action_freq = cfg.s14_teleop.action_freq
     env_cfg = {
         "external_sensors": parse_config(external_sensors_cfg_path)["external_sensors"],

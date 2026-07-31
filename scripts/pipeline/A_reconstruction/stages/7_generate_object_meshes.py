@@ -14,7 +14,7 @@ from pathlib import Path
 
 import hydra
 
-from digital_cousins.models.mesh_generator import (
+from simfoundry.models.mesh_generator import (
     Direct3D,
     Hunyuan,
     MeshGenerator,
@@ -23,20 +23,20 @@ from digital_cousins.models.mesh_generator import (
     Trellis,
     Trellis2,
 )
-from digital_cousins.pipeline.stage_utils import (
+from simfoundry.pipeline.stage_utils import (
     StageResult,
     bootstrap_hydra_workdir,
     finalize_stage,
     parse_iter_index,
 )
-from digital_cousins.utils.python_utils import assert_valid_key
+from simfoundry.utils.python_utils import assert_valid_key
 import torch
 
 # see https://github.com/facebookresearch/hydra/issues/2949#issue-2516892001
 if hydra.core.global_hydra.GlobalHydra.instance().is_initialized():
         hydra.core.global_hydra.GlobalHydra.instance().clear()
 
-from digital_cousins import CFG_DIR
+from simfoundry import CFG_DIR
 
 logger = logging.getLogger(__name__)
 bootstrap_hydra_workdir(__file__)

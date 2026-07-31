@@ -7,8 +7,11 @@ import shlex
 import sys
 from pathlib import Path
 
-from digital_cousins.pipeline.orchestrator import (
+import pytest
+
+from simfoundry.pipeline.orchestrator import (
     StageSpec,
+    articulation_available,
     build_cmd,
     get_stage_plan,
     run_pipeline,
@@ -42,7 +45,7 @@ with open(Path(out) / 'ran_stages.jsonl', 'a', encoding='utf-8') as f:
 
 def test_build_cmd_modes():
     spec = StageSpec("2", "scripts/pipeline/A_reconstruction/stages/2_run_depth.py", "s2_depth", "da3", "Run depth")
-    cmd = build_cmd(spec, env_map={"da3": "da3", "cdc": "cdc", "hunyuan": "hunyuan", "b1k": "b1k"}, exec_mode="mamba", python_bin="python", extra_overrides=["scene_name=x"])
+    cmd = build_cmd(spec, env_map={"da3": "da3", "simfoundry": "simfoundry", "hunyuan": "hunyuan", "b1k": "b1k"}, exec_mode="mamba", python_bin="python", extra_overrides=["scene_name=x"])
     assert cmd[:4] == ["mamba", "run", "-n", "da3"]
     assert cmd[-2:] == ["scripts/pipeline/A_reconstruction/stages/2_run_depth.py", "scene_name=x"]
 
@@ -53,11 +56,15 @@ def test_named_stage_plans_use_new_subdirectories():
     application = get_stage_plan("video", pipeline_name="application")
 
     assert reconstruction[0].script == "scripts/pipeline/A_reconstruction/stages/1b_process_raw_video.py"
-    assert any(spec.script.endswith("B_augmentation/stages/8_match_cdc_p2p.py") for spec in augmentation)
+    assert any(spec.script.endswith("B_augmentation/stages/8_match_cousin_p2p.py") for spec in augmentation)
     assert application[0].stage_id == "smoke"
     assert application[1].script.endswith("C_application/stages/1_eval_policy_og_scene.py")
 
 
+@pytest.mark.skipif(
+    not articulation_available(),
+    reason="articulation stage 8b is not available in this release",
+)
 def test_reconstruction_stage_plan_can_insert_articulation():
     default_ids = [spec.stage_id for spec in get_stage_plan("video", pipeline_name="reconstruction")]
     articulation_ids = [spec.stage_id for spec in get_stage_plan("video", pipeline_name="reconstruction", detect_articulation=True)]
@@ -81,12 +88,12 @@ def test_run_pipeline_partial_multi_step(tmp_path, monkeypatch):
     def fake_plan(input_mode: str, **_kwargs):
         del input_mode
         return [
-            StageSpec("1", os.path.relpath(s1, cwd), "s1", "cdc", "one"),
-            StageSpec("2", os.path.relpath(s2, cwd), "s2", "cdc", "two"),
-            StageSpec("3", os.path.relpath(s3, cwd), "s3", "cdc", "three"),
+            StageSpec("1", os.path.relpath(s1, cwd), "s1", "simfoundry", "one"),
+            StageSpec("2", os.path.relpath(s2, cwd), "s2", "simfoundry", "two"),
+            StageSpec("3", os.path.relpath(s3, cwd), "s3", "simfoundry", "three"),
         ]
 
-    import digital_cousins.pipeline.orchestrator as orch
+    import simfoundry.pipeline.orchestrator as orch
 
     monkeypatch.setattr(orch, "get_stage_plan", fake_plan)
 
@@ -97,7 +104,7 @@ def test_run_pipeline_partial_multi_step(tmp_path, monkeypatch):
         exclude_ids_csv=None,
         exec_mode="direct",
         python_bin=sys.executable,
-        env_map={"cdc": "cdc", "da3": "da3", "hunyuan": "hunyuan", "b1k": "b1k"},
+        env_map={"simfoundry": "simfoundry", "da3": "da3", "hunyuan": "hunyuan", "b1k": "b1k"},
         dry_run=False,
         stream_subseq_enabled=False,
         stream_start_stage=5,
@@ -118,14 +125,14 @@ def test_run_pipeline_partial_multi_step(tmp_path, monkeypatch):
 def test_run_pipeline_stream_collapse(monkeypatch):
     calls = {"stream": 0, "single": []}
 
-    import digital_cousins.pipeline.orchestrator as orch
+    import simfoundry.pipeline.orchestrator as orch
 
     def fake_plan(input_mode: str, **_kwargs):
         del input_mode
         return [
-            StageSpec("6", "scripts/pipeline/A_reconstruction/stages/6_upsample_object_images.py", "s6", "cdc", "six"),
+            StageSpec("6", "scripts/pipeline/A_reconstruction/stages/6_upsample_object_images.py", "s6", "simfoundry", "six"),
             StageSpec("7", "scripts/pipeline/A_reconstruction/stages/7_generate_object_meshes.py", "s7", "hunyuan", "seven"),
-            StageSpec("8", "scripts/pipeline/A_reconstruction/stages/8_match_object_poses.py", "s8", "cdc", "eight"),
+            StageSpec("8", "scripts/pipeline/A_reconstruction/stages/8_match_object_poses.py", "s8", "simfoundry", "eight"),
         ]
 
     def fake_stream(**_kwargs):
@@ -147,7 +154,7 @@ def test_run_pipeline_stream_collapse(monkeypatch):
         exclude_ids_csv=None,
         exec_mode="direct",
         python_bin="python",
-        env_map={"cdc": "cdc", "da3": "da3", "hunyuan": "hunyuan", "b1k": "b1k"},
+        env_map={"simfoundry": "simfoundry", "da3": "da3", "hunyuan": "hunyuan", "b1k": "b1k"},
         dry_run=False,
         stream_subseq_enabled=True,
         stream_start_stage=6,
@@ -168,14 +175,14 @@ def test_streaming_stage_cmds_forward_overrides(monkeypatch):
         captured["check"] = check
         captured["env"] = env
 
-    import digital_cousins.pipeline.orchestrator as orch
+    import simfoundry.pipeline.orchestrator as orch
 
     monkeypatch.setattr(orch.subprocess, "run", fake_subprocess_run)
 
     run_stage_subsequence_streaming(
         stream_start_stage=5,
         stream_end_stage=6,
-        env_map={"cdc": "cdc", "da3": "da3", "hunyuan": "hunyuan", "b1k": "b1k"},
+        env_map={"simfoundry": "simfoundry", "da3": "da3", "hunyuan": "hunyuan", "b1k": "b1k"},
         exec_mode="direct",
         python_bin="python",
         cwd=".",

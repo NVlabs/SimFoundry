@@ -2,11 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Should be run from cdc
+Should be run from simfoundry
 
 Requires installing:
 
-- digital_cousins, see the main README
+- simfoundry, see the main README
 """
 import numpy as np
 import os
@@ -16,9 +16,9 @@ import time
 import pybullet as p
 import pybullet_data
 from scipy.spatial.transform import Rotation as R
-from digital_cousins.utils.asset_conversion_utils import import_custom_object
+from simfoundry.utils.asset_conversion_utils import import_custom_object
 import hydra
-from digital_cousins.pipeline.stage_utils import StageResult, bootstrap_hydra_workdir, finalize_stage
+from simfoundry.pipeline.stage_utils import StageResult, bootstrap_hydra_workdir, finalize_stage
 import logging
 import os
 
@@ -26,7 +26,7 @@ import os
 if hydra.core.global_hydra.GlobalHydra.instance().is_initialized():
         hydra.core.global_hydra.GlobalHydra.instance().clear()
 
-from digital_cousins import CFG_DIR
+from simfoundry import CFG_DIR
 
 logger = logging.getLogger(__name__)
 bootstrap_hydra_workdir(__file__)

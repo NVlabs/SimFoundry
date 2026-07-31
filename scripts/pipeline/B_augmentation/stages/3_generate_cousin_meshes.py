@@ -9,7 +9,7 @@ Requires installing (depending on generator used):
 - Hunyuan2.1, see https://github.com/Tencent-Hunyuan/Hunyuan3D-2.1
 - TRELLIS, see https://github.com/microsoft/TRELLIS
 """
-from digital_cousins.models.mesh_generator import ShapeGenerator, MeshGenerator, TextureGenerator, Hunyuan, Direct3D, Trellis
+from simfoundry.models.mesh_generator import ShapeGenerator, MeshGenerator, TextureGenerator, Hunyuan, Direct3D, Trellis
 from pathlib import Path
 import os
 import inspect
@@ -17,9 +17,9 @@ from enum import IntEnum
 import hydra
 from omegaconf import OmegaConf
 
-from digital_cousins.utils.python_utils import assert_valid_key
-from digital_cousins import CFG_DIR, REPO_DIR
-from digital_cousins.pipeline.stage_utils import bootstrap_hydra_workdir
+from simfoundry.utils.python_utils import assert_valid_key
+from simfoundry import CFG_DIR, REPO_DIR
+from simfoundry.pipeline.stage_utils import bootstrap_hydra_workdir
 
 import torch
 import trimesh
@@ -84,8 +84,8 @@ def make_generator(generator_cls, *, low_vram, **kwargs):
 
 @hydra.main(config_name="real2sim_cfg", config_path=CFG_DIR, version_base="1.3")
 def main(cfg):
-    img_dir = cfg.prompt_cdc_structured.out_dir
-    out_dir = cfg.cdc_generation.out_dir
+    img_dir = cfg.prompt_cousin_structured.out_dir
+    out_dir = cfg.cousin_generation.out_dir
     comb_dir = cfg.generate_cousins_combination.out_dir
     Path(out_dir).mkdir(parents=True, exist_ok=True)
 
@@ -103,17 +103,17 @@ def main(cfg):
     # print(img_dir)
 
     # Create model
-    generate_shape, generate_texture = cfg.cdc_generation.generate_shape, cfg.cdc_generation.generate_texture
+    generate_shape, generate_texture = cfg.cousin_generation.generate_shape, cfg.cousin_generation.generate_texture
     shape_generator_cls, texture_generator_cls, mesh_generator_cls = None, None, None
     shape_generator, texture_generator, mesh_generator = None, None, None
-    shape_generator_name = cfg.cdc_generation.shape_model
+    shape_generator_name = cfg.cousin_generation.shape_model
     assert_valid_key(key=shape_generator_name, valid_keys=MESH_GENERATORS, name="shape_generator")
     shape_dir = f"{out_dir}/shape/{shape_generator_name}"
     Path(shape_dir).mkdir(parents=True, exist_ok=True)
     if generate_shape:
         shape_generator_cls = MESH_GENERATORS[shape_generator_name]
         assert issubclass(shape_generator_cls, ShapeGenerator)
-    texture_generator_name = cfg.cdc_generation.texture_model
+    texture_generator_name = cfg.cousin_generation.texture_model
     assert_valid_key(key=texture_generator_name, valid_keys=MESH_GENERATORS, name="texture_generator")
     texture_dir = f"{out_dir}/textured_mesh/{texture_generator_name}"
     Path(texture_dir).mkdir(parents=True, exist_ok=True)
@@ -148,7 +148,7 @@ def main(cfg):
     assert generation_mode is not None
 
     # Create generators
-    low_vram = bool(cfg.get("low_vram", False) or cfg.cdc_generation.get("low_vram", False))
+    low_vram = bool(cfg.get("low_vram", False) or cfg.cousin_generation.get("low_vram", False))
     if generation_mode == GenerationMode.SHAPE_TEXTURE_SINGLE_MODEL:
         # Both shape + texture and shared class, so only create once
         assert issubclass(shape_generator_cls, MeshGenerator)

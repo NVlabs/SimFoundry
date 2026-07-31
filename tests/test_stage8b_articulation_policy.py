@@ -5,7 +5,20 @@ import importlib.util
 import os
 from pathlib import Path
 
+import pytest
 from omegaconf import OmegaConf
+
+_STAGE8B_SCRIPT = (
+    Path(__file__).resolve().parents[1]
+    / "scripts/pipeline/A_reconstruction/stages/8b_articulate_objects.py"
+)
+
+# Stage 8b (articulation) is not shipped in this release; these tests come back
+# automatically when the stage script is restored.
+pytestmark = pytest.mark.skipif(
+    not _STAGE8B_SCRIPT.is_file(),
+    reason="articulation stage 8b is not available in this release",
+)
 
 
 def _load_stage8b_module():

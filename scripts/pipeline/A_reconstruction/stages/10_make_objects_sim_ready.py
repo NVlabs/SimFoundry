@@ -2,28 +2,28 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Should be run from cdc
+Should be run from simfoundry
 
 Requires installing:
 
-- digital_cousins, see the main README
+- simfoundry, see the main README
 """
 import numpy as np
 import os
 from pathlib import Path
 import json
-from digital_cousins.utils.asset_conversion_utils import import_custom_object, import_articulated_object
-from digital_cousins.models.vlm import Gemini
+from simfoundry.utils.asset_conversion_utils import import_custom_object, import_articulated_object
+from simfoundry.models.vlm import Gemini
 import hydra
 import trimesh
 import random
 import string
 import logging
 import re
-from digital_cousins import CFG_DIR
-from digital_cousins.utils.processing_utils import extract_numbers_from_str
-from digital_cousins.utils.prompt_utils import prompt_object_mass_friction, prompt_articulated_object_parts_properties, parse_json_response
-from digital_cousins.pipeline.stage_utils import StageResult, bootstrap_hydra_workdir, finalize_stage
+from simfoundry import CFG_DIR
+from simfoundry.utils.processing_utils import extract_numbers_from_str
+from simfoundry.utils.prompt_utils import prompt_object_mass_friction, prompt_articulated_object_parts_properties, parse_json_response
+from simfoundry.pipeline.stage_utils import StageResult, bootstrap_hydra_workdir, finalize_stage
 
 # see https://github.com/facebookresearch/hydra/issues/2949#issue-2516892001
 if hydra.core.global_hydra.GlobalHydra.instance().is_initialized():

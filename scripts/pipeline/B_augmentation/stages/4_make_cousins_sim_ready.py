@@ -2,22 +2,22 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Should be run from cdc
+Should be run from simfoundry
 
 Requires installing:
 
-- digital_cousins, see the main README
+- simfoundry, see the main README
 """
 import numpy as np
 import os
 from pathlib import Path
 import json
-from digital_cousins.utils.asset_conversion_utils import import_custom_object
-from digital_cousins.models.vlm import Gemini
+from simfoundry.utils.asset_conversion_utils import import_custom_object
+from simfoundry.models.vlm import Gemini
 import hydra
-from digital_cousins import CFG_DIR
+from simfoundry import CFG_DIR
 from omegaconf import OmegaConf
-from digital_cousins.utils.processing_utils import dump_json
+from simfoundry.utils.processing_utils import dump_json
 import trimesh
 import random
 import string
@@ -25,8 +25,8 @@ import logging
 import os
 import re
 
-from digital_cousins.utils.processing_utils import extract_numbers_from_str
-from digital_cousins.utils.prompt_utils import parse_json_response, prompt_object_mass_friction
+from simfoundry.utils.processing_utils import extract_numbers_from_str
+from simfoundry.utils.prompt_utils import parse_json_response, prompt_object_mass_friction
 
 # see https://github.com/facebookresearch/hydra/issues/2949#issue-2516892001
 if hydra.core.global_hydra.GlobalHydra.instance().is_initialized():
@@ -69,9 +69,9 @@ def generate_seeded_random_letters(seed_value, length=6):
 @hydra.main(config_name="real2sim_cfg", config_path=CFG_DIR, version_base="1.3")
 def main(cfg):
     scene_dir = cfg_path(cfg.s5_scene.out_dir)
-    img_dir = cfg_path(cfg.prompt_cdc_structured.out_dir)
+    img_dir = cfg_path(cfg.prompt_cousin_structured.out_dir)
     pose_dir = cfg_path(cfg.s8_pose.out_dir)
-    mesh_dir = cfg_path(cfg.cdc_generation.out_dir, "textured_mesh", "hunyuan")
+    mesh_dir = cfg_path(cfg.cousin_generation.out_dir, "textured_mesh", "hunyuan")
     out_dir = cfg_path(cfg.sim.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 

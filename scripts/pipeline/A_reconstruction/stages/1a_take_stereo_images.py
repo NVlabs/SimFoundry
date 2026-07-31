@@ -17,9 +17,9 @@ import cv2
 import time
 from pathlib import Path
 import hydra
-from digital_cousins.pipeline.stage_utils import StageResult, bootstrap_hydra_workdir, finalize_stage
+from simfoundry.pipeline.stage_utils import StageResult, bootstrap_hydra_workdir, finalize_stage
 
-from digital_cousins import CFG_DIR
+from simfoundry import CFG_DIR
 
 bootstrap_hydra_workdir(__file__)
 

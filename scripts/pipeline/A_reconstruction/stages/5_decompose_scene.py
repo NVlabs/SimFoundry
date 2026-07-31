@@ -2,11 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Should be run from `cdc` env
+Should be run from `simfoundry` env
 
 Requires installing:
 
-- digital_cousins, see the main README
+- simfoundry, see the main README
 """
 from copy import deepcopy
 from pathlib import Path
@@ -21,16 +21,16 @@ from PIL import Image
 from supervision import draw_rectangle
 import shutil
 
-from digital_cousins.models.vlm import Gemini, Imagen3, FLUX1
-from digital_cousins.models.sam_v3_gmask import SAM3
-from digital_cousins.models.clip import CLIPEncoder
-from digital_cousins.models.sbert import SBERTEncoder
-from digital_cousins.utils.prompt_utils import prompt_object_setlist, prompt_object_removal_selection, \
+from simfoundry.models.vlm import Gemini, Imagen3, FLUX1
+from simfoundry.models.sam_v3_gmask import SAM3
+from simfoundry.models.clip import CLIPEncoder
+from simfoundry.models.sbert import SBERTEncoder
+from simfoundry.utils.prompt_utils import prompt_object_setlist, prompt_object_removal_selection, \
     prompt_remove_object, prompt_classify_annotated_object, prompt_classify_outlined_object, \
     prompt_classify_number_in_circle, prompt_object_setlist_specific_tabletop, prompt_object_setlist_specific_floorplane, prompt_object_setlist_specific_floorplane_v3, \
     prompt_check_phrase_removed, prompt_flux_object_removal_bbox, prompt_flux_object_removal_outline, \
     prompt_flux_object_removal_mask, parse_json_response
-from digital_cousins.utils.processing_utils import draw_numbered_circle, erode_mask, get_largest_island, \
+from simfoundry.utils.processing_utils import draw_numbered_circle, erode_mask, get_largest_island, \
     geometric_median_mask, draw_mask_boundary, select_best_generated_background_infill_image, pad_image_to_ratio, \
     get_num_pixels_with_color, compute_point_cloud_from_depth, annotate, transform_point_cloud, denoise_obj_point_cloud, \
     draw_bounding_box, unpad_image, dilate_mask, vis_disparity, crop_image_with_mask, denoise_obj_point_cloud_v2
@@ -44,8 +44,8 @@ import open3d as o3d
 from scipy.spatial.transform import Rotation as R
 from prior_depth_anything import PriorDepthAnything, Arguments
 from sentence_transformers import SentenceTransformer
-from digital_cousins.utils.python_utils import assert_valid_key
-from digital_cousins.pipeline.stage_utils import StageResult, bootstrap_hydra_workdir, finalize_stage
+from simfoundry.utils.python_utils import assert_valid_key
+from simfoundry.pipeline.stage_utils import StageResult, bootstrap_hydra_workdir, finalize_stage
 import hydra
 import logging
 import os
@@ -762,7 +762,7 @@ def process_feedback_requests(rerun_requests: dict, out_dir: str) -> tuple:
 #################
 
 
-from digital_cousins import CFG_DIR
+from simfoundry import CFG_DIR
 
 
 @hydra.main(config_name="real2sim_cfg", config_path=CFG_DIR, version_base="1.3")
@@ -862,7 +862,7 @@ def main(cfg):
         dp, dp_transform = depth_pro.create_model_and_transforms()
         dp.eval()
     elif pda_geometric_backend == "da3":
-        from digital_cousins.models.depth_anything_v3 import DepthAnythingV3
+        from simfoundry.models.depth_anything_v3 import DepthAnythingV3
         da3_geometric_model = DepthAnythingV3(model_name="DA3NESTED-GIANT-LARGE-1.1", device="cuda")
     else:
         raise ValueError(f"Unknown pda_geometric_backend: {pda_geometric_backend}")

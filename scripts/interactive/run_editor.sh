@@ -4,7 +4,7 @@
 
 eval "$(mamba shell hook --shell bash)"
 
-mamba activate cdc_teleop
+mamba activate simfoundry_teleop
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 DATA_PATH="${REPO_ROOT}/Data"

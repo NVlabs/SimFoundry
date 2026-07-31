@@ -24,13 +24,13 @@ Options:
   --exec-mode mamba|direct        Process execution mode. Default: mamba
   --no-env-switch                 Alias for --exec-mode direct.
   --python-bin PATH               Python executable inside each target env. Default: python
-  --env-cdc NAME                  Mamba env for CDC stages. Default: cdc
+  --env-simfoundry NAME           Mamba env for SimFoundry stages. Default: simfoundry
   --env-hunyuan NAME              Mamba env for mesh generation. Default: hunyuan
-  --env-b1k NAME                  Mamba env for OmniGibson stages. Default: cdc
+  --env-b1k NAME                  Mamba env for OmniGibson stages. Default: simfoundry
   --max-vram-gb N                 Single-GPU VRAM budget. Default: 30
   --cache-mode                    Cache raw remote model responses.
   --test-mode                     Replay remote model responses from cache.
-  --model-cache-dir DIR           Cache root. Default: .cache/cdc/model_calls
+  --model-cache-dir DIR           Cache root. Default: .cache/simfoundry/model_calls
   --dry-run                       Print commands without running stages.
   -h, --help                      Show this help.
 
@@ -42,13 +42,13 @@ SCENE_NAME="${SCENE_NAME:-home_coffee_4}"
 ROOT_DIR="${ROOT_DIR:-${REPO_DIR}/Data}"
 EXEC_MODE="${EXEC_MODE:-mamba}"
 PYTHON_BIN="${PYTHON_BIN:-python}"
-ENV_CDC="${ENV_CDC:-cdc}"
+ENV_SIMFOUNDRY="${ENV_SIMFOUNDRY:-simfoundry}"
 ENV_HUNYUAN="${ENV_HUNYUAN:-hunyuan}"
-ENV_B1K="${ENV_B1K:-cdc}"
+ENV_B1K="${ENV_B1K:-simfoundry}"
 MAX_VRAM_GB="${MAX_VRAM_GB:-30}"
 CACHE_MODE_ENABLED=0
 TEST_MODE_ENABLED=0
-MODEL_CACHE_DIR="${CDC_MODEL_CACHE_DIR:-}"
+MODEL_CACHE_DIR="${SIMFOUNDRY_MODEL_CACHE_DIR:-}"
 DRY_RUN=0
 INCLUDE_IDS=""
 EXCLUDE_IDS=""
@@ -67,7 +67,7 @@ while [[ $# -gt 0 ]]; do
     --exec-mode) EXEC_MODE="$2"; shift 2 ;;
     --no-env-switch) EXEC_MODE="direct"; shift ;;
     --python-bin) PYTHON_BIN="$2"; shift 2 ;;
-    --env-cdc) ENV_CDC="$2"; shift 2 ;;
+    --env-simfoundry) ENV_SIMFOUNDRY="$2"; shift 2 ;;
     --env-hunyuan) ENV_HUNYUAN="$2"; shift 2 ;;
     --env-b1k) ENV_B1K="$2"; shift 2 ;;
     --max-vram-gb) MAX_VRAM_GB="$2"; shift 2 ;;
@@ -95,18 +95,18 @@ elif [[ "${TEST_MODE_ENABLED}" == "1" ]]; then
 fi
 
 if [[ "${CACHE_MODE_ENABLED}" == "1" || "${TEST_MODE_ENABLED}" == "1" ]]; then
-  MODEL_CACHE_DIR="${MODEL_CACHE_DIR:-${REPO_DIR}/.cache/cdc/model_calls}"
+  MODEL_CACHE_DIR="${MODEL_CACHE_DIR:-${REPO_DIR}/.cache/simfoundry/model_calls}"
 fi
 if [[ -n "${MODEL_CACHE_DIR}" ]]; then
   if [[ "${MODEL_CACHE_DIR}" != /* ]]; then
     MODEL_CACHE_DIR="${REPO_DIR}/${MODEL_CACHE_DIR}"
   fi
-  export CDC_MODEL_CACHE_DIR="${MODEL_CACHE_DIR}"
+  export SIMFOUNDRY_MODEL_CACHE_DIR="${MODEL_CACHE_DIR}"
 fi
 
 RUNNER_CMD=("${PYTHON_BIN}")
 if [[ "${EXEC_MODE}" == "mamba" ]]; then
-  RUNNER_CMD=(mamba run -n "${ENV_CDC}" "${PYTHON_BIN}")
+  RUNNER_CMD=(mamba run -n "${ENV_SIMFOUNDRY}" "${PYTHON_BIN}")
 fi
 
 CMD=(
@@ -114,7 +114,7 @@ CMD=(
   "scripts/pipeline/B_augmentation/run_augmentation.py"
   "--exec-mode" "${EXEC_MODE}"
   "--python-bin" "${PYTHON_BIN}"
-  "--env-cdc" "${ENV_CDC}"
+  "--env-simfoundry" "${ENV_SIMFOUNDRY}"
   "--env-hunyuan" "${ENV_HUNYUAN}"
   "--env-b1k" "${ENV_B1K}"
 )
@@ -138,14 +138,14 @@ fi
 CMD+=(
   "root_dir=${ROOT_DIR}"
   "scene_name=${SCENE_NAME}"
-  "prompt_cdc_structured.num_geometry_variation=2"
-  "prompt_cdc_structured.num_topology_variation=2"
-  "prompt_cdc_structured.num_visual_variation=2"
-  "prompt_cdc_structured.min_keep_per_dim=1"
-  "prompt_cdc_structured.max_objects=2"
-  "prompt_cdc_structured.max_components=2"
-  "prompt_cdc_structured.max_generated_images_per_object=2"
-  "prompt_cdc_structured.text_model=gemini-2.5-flash"
+  "prompt_cousin_structured.num_geometry_variation=2"
+  "prompt_cousin_structured.num_topology_variation=2"
+  "prompt_cousin_structured.num_visual_variation=2"
+  "prompt_cousin_structured.min_keep_per_dim=1"
+  "prompt_cousin_structured.max_objects=2"
+  "prompt_cousin_structured.max_components=2"
+  "prompt_cousin_structured.max_generated_images_per_object=2"
+  "prompt_cousin_structured.text_model=gemini-2.5-flash"
   "generate_cousins_combination.num_variations_used_per_object=2"
   "generate_cousins_combination.num_obj_to_swap=2"
   "generate_cousins_combination.max_combinations=2"

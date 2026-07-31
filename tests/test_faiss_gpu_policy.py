@@ -4,7 +4,7 @@
 import numpy as np
 import pytest
 
-from digital_cousins.utils import faiss_utils
+from simfoundry.utils import faiss_utils
 
 
 class _FakeIndex:

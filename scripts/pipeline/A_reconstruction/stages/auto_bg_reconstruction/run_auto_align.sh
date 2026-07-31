@@ -61,7 +61,7 @@ LOG_DIR="${DATA_DIR}/_logs"
 
 # Mamba env names — flip if your install uses different names. (Foreground-stage envs
 # hunyuan/any6d are not needed: stages 3-13 belong to the canonical reconstruction.)
-CDC_ENV="cdc"
+SIMFOUNDRY_ENV="simfoundry"
 DA3_ENV="da3"
 
 # VIDEO is used only for the precondition guidance message; it need not still exist.
@@ -100,17 +100,17 @@ run() {
 }
 
 # run_gpu_locked "<label>" "<env>" -- <cmd...>
-# Same as run(), but when CDC_GPU_LOCK_FILE is set, wraps the command with
+# Same as run(), but when SIMFOUNDRY_GPU_LOCK_FILE is set, wraps the command with
 # `flock` against that file so only one parallel orchestrator process can
 # enter the stage at a time. Used for the GPU-heavy splat training (step 5) to
 # prevent OOMs when running multiple scenes concurrently on one GPU.
-# No-op (identical to run()) when CDC_GPU_LOCK_FILE is unset.
+# No-op (identical to run()) when SIMFOUNDRY_GPU_LOCK_FILE is unset.
 run_gpu_locked() {
     local label="$1"; shift
     local env="$1"; shift
     [[ "${1:-}" == "--" ]] && shift
-    if [[ -n "${CDC_GPU_LOCK_FILE:-}" ]]; then
-        run "$label" "$env" -- flock "${CDC_GPU_LOCK_FILE}" "$@"
+    if [[ -n "${SIMFOUNDRY_GPU_LOCK_FILE:-}" ]]; then
+        run "$label" "$env" -- flock "${SIMFOUNDRY_GPU_LOCK_FILE}" "$@"
     else
         run "$label" "$env" -- "$@"
     fi
@@ -176,7 +176,7 @@ ls "${S4_FRAME_DIR}"/image_*_cam2world.npy >/dev/null 2>&1 \
 # Validate the orig-DA3 npz (DA3 schema + exactly NUM_FRAMES frames) and that the
 # canonical frames are NUM_FRAMES PNGs @ 672x384 — the invariants the splat trainer
 # and seed-PLY builder hard-assert.
-mamba run -n "$CDC_ENV" python - "$S2_DA_NPZ" "$S1_FRAMES_DIR" "$NUM_FRAMES" <<'PY' \
+mamba run -n "$SIMFOUNDRY_ENV" python - "$S2_DA_NPZ" "$S1_FRAMES_DIR" "$NUM_FRAMES" <<'PY' \
     || precondition_fail "canonical orig-DA3 / frames check failed (see message above)"
 import glob, sys
 import numpy as np
@@ -216,16 +216,16 @@ export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 # and take overrides as key=val (e.g. scene_name=..., floor_category=...).
 # floor_category contains commas ("desk, table, or counter"); Hydra treats an unquoted
 # comma value as a list, so wrap it in LITERAL single quotes that Hydra strips to a string.
-run_or_skip "1 quadmask" "$CDC_ENV" "${VOID_INPUT_DIR}/quadmask_0.mp4" -- \
+run_or_skip "1 quadmask" "$SIMFOUNDRY_ENV" "${VOID_INPUT_DIR}/quadmask_0.mp4" -- \
     python scripts/pipeline/A_reconstruction/stages/auto_bg_reconstruction/1_generate_quadmask_for_void.py \
         scene_name="${SCENE}" \
         floor_category="'${FLOOR_CATEGORY}'"
 
-run_or_skip "2 pass1" "$CDC_ENV" "${PASS1_STITCHED}" -- \
+run_or_skip "2 pass1" "$SIMFOUNDRY_ENV" "${PASS1_STITCHED}" -- \
     python scripts/pipeline/A_reconstruction/stages/auto_bg_reconstruction/2_run_void_pass1.py \
         scene_name="${SCENE}"
 
-run_or_skip "3 pass2" "$CDC_ENV" "${PASS2_STITCHED}" -- \
+run_or_skip "3 pass2" "$SIMFOUNDRY_ENV" "${PASS2_STITCHED}" -- \
     python scripts/pipeline/A_reconstruction/stages/auto_bg_reconstruction/3_run_void_pass2.py \
         scene_name="${SCENE}"
 
@@ -239,7 +239,7 @@ run_or_skip "da3_void (canonical 2b)" "$DA3_ENV" \
         s2_da.frames_dir="${DATA_DIR}/auto_bg/void/pass2/cleaned_frames" \
         s2_da.out_dir="${DATA_DIR}/auto_bg/da3/void"
 
-run_or_skip "4 build_seed_ply" "$CDC_ENV" \
+run_or_skip "4 build_seed_ply" "$SIMFOUNDRY_ENV" \
     "${DATA_DIR}/auto_bg/seed.ply" -- \
     python scripts/pipeline/A_reconstruction/stages/auto_bg_reconstruction/4_build_seed_ply_from_void_da3.py \
         scene_name="${SCENE}"
@@ -258,7 +258,7 @@ ln -sfn "void/pass2/cleaned_frames" "${AUTO_BG_DIR}/clean_frames"
 # rendered depth via L1, suppressing floaters that vanilla splatfacto parks
 # above flat surfaces. See README §3 for the full rationale. Requires the
 # env-var-gated patch in nerfstudio's splatfacto.py.
-run_gpu_locked "5 train_bg_splat" "$CDC_ENV" -- \
+run_gpu_locked "5 train_bg_splat" "$SIMFOUNDRY_ENV" -- \
     python scripts/pipeline/A_reconstruction/stages/auto_bg_reconstruction/5_train_bg_splat.py \
         scene_name="${SCENE}"
 
@@ -267,11 +267,11 @@ run_gpu_locked "5 train_bg_splat" "$CDC_ENV" -- \
 # and verified by the precondition. YAML defaults point --in-ply == --out-ply at
 # <scene>_bg.ply so the bridge only writes the <scene>_bg.ply.pose.json sidecar.
 BG_PLY="${DATA_DIR}/auto_bg/splat/export/${SCENE}_bg.ply"
-run "6 bridge_to_og" "$CDC_ENV" -- \
+run "6 bridge_to_og" "$SIMFOUNDRY_ENV" -- \
     python scripts/pipeline/A_reconstruction/stages/auto_bg_reconstruction/6_bridge_bg_splat_to_og.py \
         scene_name="${SCENE}"
 
-run "7 build_assets" "$CDC_ENV" -- \
+run "7 build_assets" "$SIMFOUNDRY_ENV" -- \
     python scripts/pipeline/A_reconstruction/stages/auto_bg_reconstruction/7_build_og_scene_assets.py \
         scene_name="${SCENE}"
 

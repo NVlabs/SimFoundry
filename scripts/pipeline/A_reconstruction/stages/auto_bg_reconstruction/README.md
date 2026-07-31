@@ -74,7 +74,7 @@ assets/scenes/<scene>/
 
 ## Setup Notes
 
-Auto-background needs the standard CDC setup plus:
+Auto-background needs the standard SimFoundry setup plus:
 
 - `void` environment for video inpainting
 - `3dgrut` environment for PLY to USDZ conversion

@@ -4,7 +4,7 @@
 """
 Evaluate a Gr00t Nx pretrained checkpoint on a simulated OmniGibson environment.
 
-Should be run from cdc
+Should be run from simfoundry
 
 NOTES FROM JOSIAH on tuning sim:
 
@@ -35,23 +35,23 @@ import torch as th
 import json
 import hydra
 from omegaconf import OmegaConf
-from digital_cousins import import_og_dependencies, CFG_DIR as CDC_CFG_DIR, ASSET_DIR as CDC_ASSET_DIR
-from digital_cousins.utils.processing_utils import dump_json, resize_with_pad
-from digital_cousins.utils.og_utils import (
+from simfoundry import import_og_dependencies, CFG_DIR as SIMFOUNDRY_CFG_DIR, ASSET_DIR as SIMFOUNDRY_ASSET_DIR
+from simfoundry.utils.processing_utils import dump_json, resize_with_pad
+from simfoundry.utils.og_utils import (
     apply_teleop_omnigibson_macros,
     set_obj_materials,
     setup_task_status_ui,
     update_task_status,
     update_reward_ui,
 )
-from digital_cousins.utils.scene_utils import load_json_with_absolute_usd_paths
-from digital_cousins.utils.object_swap_utils import (
+from simfoundry.utils.scene_utils import load_json_with_absolute_usd_paths
+from simfoundry.utils.object_swap_utils import (
     apply_object_swaps,
     adjust_swapped_objects_z,
 )
-from digital_cousins.policies.gr00t import Gr00tClient
-from digital_cousins.policies.openpi import OpenPIClient
-from digital_cousins.policies.dreamzero import DreamZeroClient
+from simfoundry.policies.gr00t import Gr00tClient
+from simfoundry.policies.openpi import OpenPIClient
+from simfoundry.policies.dreamzero import DreamZeroClient
 import os
 from datetime import datetime
 import signal
@@ -72,7 +72,7 @@ import_og_dependencies()
 
 # DROID Franka EEF convention: rotate panda_link8 frame so the canonical
 # DROID/Pinocchio EEF frame (used by N1.7 oxe_droid_relative_eef policies)
-# is recovered. Matches digital_cousins.policies.gr00t.DROID_EEF_ROTATION_CORRECT.
+# is recovered. Matches simfoundry.policies.gr00t.DROID_EEF_ROTATION_CORRECT.
 _DROID_EEF_ROTATION_CORRECT = np.array(
     [[0, 0, -1], [-1, 0, 0], [0, 1, 0]],
     dtype=np.float64,
@@ -116,7 +116,7 @@ class PolicyRolloutHDF5CollectionWrapper(HDF5CollectionWrapper):
         return step_data
 
 
-CFG_DIR = CDC_CFG_DIR
+CFG_DIR = SIMFOUNDRY_CFG_DIR
 
 ### At the start of every script, we cd into the scripts/config directory
 scripts_dir = os.path.dirname(os.path.abspath(__file__))
@@ -150,8 +150,8 @@ def main(cfg):
     # Resolve the scene JSON path. ``s15_eval.scene_json`` may be:
     #   - ``null``  -> use the s13_og output ``reconstructed_og_scene.json``.
     #   - a bare scene name (no separators, no .json) -> the canonical layout
-    #     ``<CDC_ASSET_DIR>/scenes/<name>/<name>_scene_state_latest.json``.
-    #   - a path ending in ``.json`` (abs path, or relative to ``CDC_ASSET_DIR`` /
+    #     ``<SIMFOUNDRY_ASSET_DIR>/scenes/<name>/<name>_scene_state_latest.json``.
+    #   - a path ending in ``.json`` (abs path, or relative to ``SIMFOUNDRY_ASSET_DIR`` /
     #     cwd) -> used verbatim. Useful for tuned cousin variants saved as
     #     ``<scene>/<scene>_scene_state_<suffix>_latest.json``.
     scene_json_name = cfg.s15_eval.scene_json
@@ -161,25 +161,25 @@ def main(cfg):
         candidate = str(scene_json_name)
         if os.path.isabs(candidate) and os.path.exists(candidate):
             og_scene_json_path = candidate
-        elif os.path.exists(os.path.join(CDC_ASSET_DIR, candidate)):
-            og_scene_json_path = os.path.join(CDC_ASSET_DIR, candidate)
+        elif os.path.exists(os.path.join(SIMFOUNDRY_ASSET_DIR, candidate)):
+            og_scene_json_path = os.path.join(SIMFOUNDRY_ASSET_DIR, candidate)
         else:
             og_scene_json_path = candidate  # let load fail with a clear message
     else:
-        og_scene_json_path = f"{CDC_ASSET_DIR}/scenes/{scene_json_name}/{scene_json_name}_scene_state_latest.json"
+        og_scene_json_path = f"{SIMFOUNDRY_ASSET_DIR}/scenes/{scene_json_name}/{scene_json_name}_scene_state_latest.json"
 
     print(f"[s15_eval] Loading scene JSON from: {og_scene_json_path}")
     og_scene_json = load_json_with_absolute_usd_paths(og_scene_json_path)
 
     # Optionally swap scene objects with alternative USDs (e.g., cousin assets).
     # See assets/cousins/<Task>/swaps/cousin_combo_*.json for examples. Paths
-    # may be absolute or relative to CDC_ASSET_DIR.
+    # may be absolute or relative to SIMFOUNDRY_ASSET_DIR.
     swap_info = {}
     swap_stem = None
     swap_json_path = cfg.s15_eval.get("object_swap_json", None)
     if swap_json_path is not None:
         if not os.path.isabs(swap_json_path):
-            swap_json_path = os.path.join(CDC_ASSET_DIR, swap_json_path)
+            swap_json_path = os.path.join(SIMFOUNDRY_ASSET_DIR, swap_json_path)
         if os.path.exists(swap_json_path):
             swap_info = apply_object_swaps(og_scene_json, swap_json_path)
             swap_stem = Path(swap_json_path).stem
@@ -229,14 +229,14 @@ def main(cfg):
 
     # Load task configuration
     task_name = cfg.task.task_name
-    og_task_cfg_path = f"{CDC_CFG_DIR}/task/{task_name}.yaml"
+    og_task_cfg_path = f"{SIMFOUNDRY_CFG_DIR}/task/{task_name}.yaml"
     task_cfg = parse_config(og_task_cfg_path)["og_task_config"]
     action_freq = cfg.s15_eval.action_freq
     n_steps = int(cfg.s15_eval.timeout_s * action_freq)
     task_cfg["termination_config"]["max_steps"] = n_steps
 
     # Load external sensors configuration
-    external_sensors_cfg_path = f"{CDC_CFG_DIR}/external_sensors/{cfg.s15_eval.external_sensors_cfg}.yaml"
+    external_sensors_cfg_path = f"{SIMFOUNDRY_CFG_DIR}/external_sensors/{cfg.s15_eval.external_sensors_cfg}.yaml"
     external_sensors_cfg = parse_config(external_sensors_cfg_path)["external_sensors"]
     
     # Set image resolution to 224x224 as expected by DROID/OpenPI models

@@ -4,12 +4,12 @@
 policy_type: openpi
 
 # Checkpoint selection
-checkpoint_dir: path/to/openpi_checkpoints/pi05_droid_jointpos_finetune_low_lr/stack_dishware_low_lr_0214
+checkpoint_dir: path/to/openpi_checkpoints/your_checkpoint_dir
 checkpoint_interval: 1000
 # checkpoint_range: "1000:10000"  # optional: only evaluate steps in this range
 
 # Evaluation
-eval_config: stack_dishware
+eval_config: your_eval_config
 # eval_overrides:
 #   - "s15_eval.n_episodes=10"
 #   - "s15_eval.timeout_s=90"
@@ -23,12 +23,12 @@ server_startup_timeout: 180
 
 # Project paths
 openpi_project_dir: ~/Projects/openpi
-cdc_project_dir: ~/Projects/controllable-digital-cousins
+simfoundry_project_dir: ~/Projects/simfoundry
 openpi_venv_cmd: "uv run"
-cdc_venv_cmd: ""
+simfoundry_venv_cmd: ""
 
 # Output
-output_dir: ./sweep_results/openpi_stack_dishware
+output_dir: ./sweep_results/your_output_dir
 
 # Options
 dry_run: false

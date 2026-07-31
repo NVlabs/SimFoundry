@@ -2,11 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Should be run from cdc
+Should be run from simfoundry
 
 Requires installing:
 
-- digital_cousins, see the main README
+- simfoundry, see the main README
 """
 
 import hydra
@@ -17,8 +17,8 @@ from pathlib import Path
 from itertools import product
 from hydra.utils import to_absolute_path
 
-from digital_cousins import CFG_DIR
-from digital_cousins.pipeline.stage_utils import bootstrap_hydra_workdir
+from simfoundry import CFG_DIR
+from simfoundry.pipeline.stage_utils import bootstrap_hydra_workdir
 
 bootstrap_hydra_workdir(__file__)
 
@@ -73,7 +73,7 @@ def main(cfg):
     # --------------------------------------------------
     # Resolve paths (Hydra-safe)
     # --------------------------------------------------
-    source_dir = Path(to_absolute_path(cfg.prompt_cdc_structured.out_dir))
+    source_dir = Path(to_absolute_path(cfg.prompt_cousin_structured.out_dir))
     out_dir = Path(to_absolute_path(cfg.generate_cousins_combination.out_dir))
 
     K = cfg.generate_cousins_combination.num_variations_used_per_object

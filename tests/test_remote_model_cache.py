@@ -13,12 +13,12 @@ from types import SimpleNamespace
 import pytest
 from PIL import Image
 
-from digital_cousins.models.remote_cache import RemoteCacheMissError, RemoteModelCache, image_digests
+from simfoundry.models.remote_cache import RemoteCacheMissError, RemoteModelCache, image_digests
 
 
 @pytest.fixture(autouse=True)
 def clear_cache_env(monkeypatch):
-    for name in ("CACHE_MODE", "TEST_MODE", "CDC_MODEL_CACHE_DIR"):
+    for name in ("CACHE_MODE", "TEST_MODE", "SIMFOUNDRY_MODEL_CACHE_DIR"):
         monkeypatch.delenv(name, raising=False)
 
 
@@ -84,13 +84,13 @@ def test_cache_key_uses_image_content_not_absolute_path(tmp_path):
 
 
 def test_gemini_cache_mode_writes_and_test_mode_replays(monkeypatch, tmp_path):
-    from digital_cousins.models import vlm
+    from simfoundry.models import vlm
 
     image_path = write_image(tmp_path / "input.png")
     image_base64 = png_base64()
     FakeClient = make_fake_gemini_client(text="hello cache", image_base64=image_base64)
     monkeypatch.setattr(vlm.genai, "Client", FakeClient)
-    monkeypatch.setenv("CDC_MODEL_CACHE_DIR", str(tmp_path / "cache"))
+    monkeypatch.setenv("SIMFOUNDRY_MODEL_CACHE_DIR", str(tmp_path / "cache"))
     monkeypatch.setenv("CACHE_MODE", "1")
 
     gemini = vlm.Gemini(project="test-project", model="gemini-2.5-flash")
@@ -117,12 +117,12 @@ def test_gemini_cache_mode_writes_and_test_mode_replays(monkeypatch, tmp_path):
 
 
 def test_cache_mode_reuses_existing_entry_without_remote_call(monkeypatch, tmp_path):
-    from digital_cousins.models import vlm
+    from simfoundry.models import vlm
 
     image_path = write_image(tmp_path / "input.png")
     FakeClient = make_fake_gemini_client(text="first")
     monkeypatch.setattr(vlm.genai, "Client", FakeClient)
-    monkeypatch.setenv("CDC_MODEL_CACHE_DIR", str(tmp_path / "cache"))
+    monkeypatch.setenv("SIMFOUNDRY_MODEL_CACHE_DIR", str(tmp_path / "cache"))
     monkeypatch.setenv("CACHE_MODE", "1")
 
     gemini = vlm.Gemini(project="test-project", model="gemini-2.5-flash")
@@ -141,10 +141,10 @@ def test_cache_mode_reuses_existing_entry_without_remote_call(monkeypatch, tmp_p
 
 
 def test_test_mode_cache_miss_fails_before_remote_call(monkeypatch, tmp_path):
-    from digital_cousins.models import vlm
+    from simfoundry.models import vlm
 
     image_path = write_image(tmp_path / "input.png")
-    monkeypatch.setenv("CDC_MODEL_CACHE_DIR", str(tmp_path / "cache"))
+    monkeypatch.setenv("SIMFOUNDRY_MODEL_CACHE_DIR", str(tmp_path / "cache"))
     monkeypatch.setenv("TEST_MODE", "1")
     monkeypatch.setattr(
         vlm.genai,
@@ -158,7 +158,7 @@ def test_test_mode_cache_miss_fails_before_remote_call(monkeypatch, tmp_path):
 
 
 def test_gpt_image_cache_write_and_replay(monkeypatch, tmp_path):
-    from digital_cousins.models import vlm
+    from simfoundry.models import vlm
 
     image_path = write_image(tmp_path / "input.png")
     output_base64 = png_base64(color=(1, 2, 3, 255))
@@ -174,7 +174,7 @@ def test_gpt_image_cache_write_and_replay(monkeypatch, tmp_path):
             return SimpleNamespace(data=[SimpleNamespace(b64_json=output_base64)])
 
     monkeypatch.setattr(vlm, "OpenAI", FakeOpenAI)
-    monkeypatch.setenv("CDC_MODEL_CACHE_DIR", str(tmp_path / "cache"))
+    monkeypatch.setenv("SIMFOUNDRY_MODEL_CACHE_DIR", str(tmp_path / "cache"))
     monkeypatch.setenv("CACHE_MODE", "1")
 
     gpt = vlm.GPT(api_key="test")
@@ -212,7 +212,7 @@ def test_orchestrator_fast_stage_cache_and_test_modes(monkeypatch, tmp_path):
         import os
         from pathlib import Path
         from types import SimpleNamespace
-        from digital_cousins.models import vlm
+        from simfoundry.models import vlm
 
         class InlineData:
             data = b""
@@ -228,17 +228,17 @@ def test_orchestrator_fast_stage_cache_and_test_modes(monkeypatch, tmp_path):
             def __init__(self, *args, **kwargs):
                 self.models = self
             def generate_content_stream(self, *args, **kwargs):
-                if os.environ.get("CDC_REMOTE_SHOULD_FAIL") == "1":
+                if os.environ.get("SIMFOUNDRY_REMOTE_SHOULD_FAIL") == "1":
                     raise RuntimeError("remote blocked")
                 return [FakeChunk()]
 
         if os.environ.get("TEST_MODE") != "1":
             vlm.genai.Client = FakeClient
 
-        out_dir = Path(os.environ["CDC_TEST_OUTPUT_DIR"])
+        out_dir = Path(os.environ["SIMFOUNDRY_TEST_OUTPUT_DIR"])
         out_dir.mkdir(parents=True, exist_ok=True)
         model = vlm.Gemini(project="test-project", model="gemini-2.5-flash")
-        result = model(prompt="stage prompt", image_paths=os.environ["CDC_TEST_IMAGE"])
+        result = model(prompt="stage prompt", image_paths=os.environ["SIMFOUNDRY_TEST_IMAGE"])
         (out_dir / "gemini.txt").write_text(model.get_result_text(result), encoding="utf-8")
         """
     ), encoding="utf-8")
@@ -251,7 +251,7 @@ def test_orchestrator_fast_stage_cache_and_test_modes(monkeypatch, tmp_path):
         from pathlib import Path
         from types import SimpleNamespace
         from PIL import Image
-        from digital_cousins.models import vlm
+        from simfoundry.models import vlm
 
         def image_b64():
             buffer = BytesIO()
@@ -262,35 +262,35 @@ def test_orchestrator_fast_stage_cache_and_test_modes(monkeypatch, tmp_path):
             def __init__(self, *args, **kwargs):
                 self.images = self
             def edit(self, *args, **kwargs):
-                if os.environ.get("CDC_REMOTE_SHOULD_FAIL") == "1":
+                if os.environ.get("SIMFOUNDRY_REMOTE_SHOULD_FAIL") == "1":
                     raise RuntimeError("remote blocked")
                 return SimpleNamespace(data=[SimpleNamespace(b64_json=image_b64())])
 
         if os.environ.get("TEST_MODE") != "1":
             vlm.OpenAI = FakeOpenAI
 
-        out_dir = Path(os.environ["CDC_TEST_OUTPUT_DIR"])
+        out_dir = Path(os.environ["SIMFOUNDRY_TEST_OUTPUT_DIR"])
         out_dir.mkdir(parents=True, exist_ok=True)
         model = vlm.GPT(api_key="test")
-        result = model(prompt="stage edit", image_path=os.environ["CDC_TEST_IMAGE"], image_shape="square")
+        result = model(prompt="stage edit", image_path=os.environ["SIMFOUNDRY_TEST_IMAGE"], image_shape="square")
         model.get_result_images(result)[0].save(out_dir / "gpt.png")
         """
     ), encoding="utf-8")
 
-    import digital_cousins.pipeline.orchestrator as orch
-    from digital_cousins.pipeline.orchestrator import StageSpec, run_pipeline
+    import simfoundry.pipeline.orchestrator as orch
+    from simfoundry.pipeline.orchestrator import StageSpec, run_pipeline
 
     def fake_plan(input_mode: str, **_kwargs):
         assert input_mode == "video"
         return [
-            StageSpec("gemini", os.path.relpath(stage_dir / "stage_gemini.py", repo_dir), "fake", "cdc", "Fake Gemini stage"),
-            StageSpec("gpt", os.path.relpath(stage_dir / "stage_gpt.py", repo_dir), "fake", "cdc", "Fake GPT stage"),
+            StageSpec("gemini", os.path.relpath(stage_dir / "stage_gemini.py", repo_dir), "fake", "simfoundry", "Fake Gemini stage"),
+            StageSpec("gpt", os.path.relpath(stage_dir / "stage_gpt.py", repo_dir), "fake", "simfoundry", "Fake GPT stage"),
         ]
 
     monkeypatch.setattr(orch, "get_stage_plan", fake_plan)
     monkeypatch.setenv("PYTHONPATH", str(repo_dir))
-    monkeypatch.setenv("CDC_TEST_IMAGE", str(image_path))
-    monkeypatch.setenv("CDC_MODEL_CACHE_DIR", str(cache_dir))
+    monkeypatch.setenv("SIMFOUNDRY_TEST_IMAGE", str(image_path))
+    monkeypatch.setenv("SIMFOUNDRY_MODEL_CACHE_DIR", str(cache_dir))
 
     def run_fake_pipeline(scene_name: str):
         return run_pipeline(
@@ -300,7 +300,7 @@ def test_orchestrator_fast_stage_cache_and_test_modes(monkeypatch, tmp_path):
             exclude_ids_csv=None,
             exec_mode="direct",
             python_bin=sys.executable,
-            env_map={"cdc": "cdc", "da3": "da3", "hunyuan": "hunyuan", "b1k": "b1k"},
+            env_map={"simfoundry": "simfoundry", "da3": "da3", "hunyuan": "hunyuan", "b1k": "b1k"},
             dry_run=False,
             stream_subseq_enabled=False,
             stream_start_stage=5,
@@ -309,24 +309,24 @@ def test_orchestrator_fast_stage_cache_and_test_modes(monkeypatch, tmp_path):
         )
 
     run1 = tmp_path / "run1"
-    monkeypatch.setenv("CDC_TEST_OUTPUT_DIR", str(run1))
+    monkeypatch.setenv("SIMFOUNDRY_TEST_OUTPUT_DIR", str(run1))
     monkeypatch.setenv("CACHE_MODE", "1")
     monkeypatch.delenv("TEST_MODE", raising=False)
-    monkeypatch.delenv("CDC_REMOTE_SHOULD_FAIL", raising=False)
+    monkeypatch.delenv("SIMFOUNDRY_REMOTE_SHOULD_FAIL", raising=False)
     run_fake_pipeline("cache_seed")
 
     run2 = tmp_path / "run2"
-    monkeypatch.setenv("CDC_TEST_OUTPUT_DIR", str(run2))
+    monkeypatch.setenv("SIMFOUNDRY_TEST_OUTPUT_DIR", str(run2))
     monkeypatch.delenv("CACHE_MODE", raising=False)
     monkeypatch.setenv("TEST_MODE", "1")
-    monkeypatch.setenv("CDC_REMOTE_SHOULD_FAIL", "1")
+    monkeypatch.setenv("SIMFOUNDRY_REMOTE_SHOULD_FAIL", "1")
     run_fake_pipeline("test_replay")
 
     run3 = tmp_path / "run3"
-    monkeypatch.setenv("CDC_TEST_OUTPUT_DIR", str(run3))
+    monkeypatch.setenv("SIMFOUNDRY_TEST_OUTPUT_DIR", str(run3))
     monkeypatch.setenv("CACHE_MODE", "1")
     monkeypatch.delenv("TEST_MODE", raising=False)
-    monkeypatch.setenv("CDC_REMOTE_SHOULD_FAIL", "1")
+    monkeypatch.setenv("SIMFOUNDRY_REMOTE_SHOULD_FAIL", "1")
     run_fake_pipeline("cache_reuse")
 
     assert file_manifest(run1) == file_manifest(run2) == file_manifest(run3)

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Should be run from cdc env
+Should be run from simfoundry env
 
 Sample randomized pose variants from a pre-built asset scene JSON.
 
@@ -46,10 +46,10 @@ import omnigibson as og
 from omnigibson.macros import gm
 from omnigibson.robots import BaseRobot
 
-from digital_cousins import import_og_dependencies, REPO_DIR
-from digital_cousins.utils.og_utils import apply_teleop_omnigibson_macros
-from digital_cousins.utils.scene_utils import load_json_with_absolute_usd_paths
-from digital_cousins.utils.scene_sampling_utils import (
+from simfoundry import import_og_dependencies, REPO_DIR
+from simfoundry.utils.og_utils import apply_teleop_omnigibson_macros
+from simfoundry.utils.scene_utils import load_json_with_absolute_usd_paths
+from simfoundry.utils.scene_sampling_utils import (
     get_task_object_names,
     get_fixed_base_names,
     capture_settled_poses,
@@ -65,7 +65,7 @@ import_og_dependencies()
 gm.DEFAULT_VIEWER_WIDTH = 128
 gm.DEFAULT_VIEWER_HEIGHT = 128
 
-from digital_cousins import CFG_DIR
+from simfoundry import CFG_DIR
 
 scripts_dir = os.path.dirname(os.path.abspath(__file__))
 cfg_dir = CFG_DIR

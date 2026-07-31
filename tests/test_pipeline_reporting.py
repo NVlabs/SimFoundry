@@ -4,7 +4,7 @@
 import json
 from pathlib import Path
 
-from digital_cousins.pipeline.reporting import build_scene_manifest, write_pipeline_report
+from simfoundry.pipeline.reporting import build_scene_manifest, write_pipeline_report
 
 
 def test_scene_manifest_records_stable_stage_invariants(tmp_path):

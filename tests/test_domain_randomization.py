@@ -21,19 +21,19 @@ from dataclasses import fields
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJECT_ROOT)
 
-from digital_cousins.domain_randomization.configs import (
+from simfoundry.domain_randomization.configs import (
     DomainRandomizationCfg,
     MaterialRandomizationCfg,
     LightingRandomizationCfg,
     PerObjectMaterialCfg,
 )
-from digital_cousins.domain_randomization.materials import (
+from simfoundry.domain_randomization.materials import (
     VMATERIAL_CATEGORIES,
     MATERIAL_PRESETS,
     MaterialLibraryDiscovery,
     VMaterialsDiscovery,
 )
-from digital_cousins.domain_randomization.lighting import (
+from simfoundry.domain_randomization.lighting import (
     color_temperature_to_rgb,
     list_hdri_files,
 )

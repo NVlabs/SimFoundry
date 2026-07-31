@@ -5,40 +5,40 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
-PROJECT_ROOT="${CDC_PROJECT_ROOT:-${SCRIPT_DIR}}"
-ENV_SUFFIX="${CDC_ENV_SUFFIX:-}"
-CUDA_VERSION="${CDC_CUDA_VERSION:-12.8}"
-CUDA_ARCH_LIST="${CDC_CUDA_ARCH_LIST:-}"
+PROJECT_ROOT="${SIMFOUNDRY_PROJECT_ROOT:-${SCRIPT_DIR}}"
+ENV_SUFFIX="${SIMFOUNDRY_ENV_SUFFIX:-}"
+CUDA_VERSION="${SIMFOUNDRY_CUDA_VERSION:-12.8}"
+CUDA_ARCH_LIST="${SIMFOUNDRY_CUDA_ARCH_LIST:-}"
 
-ENV_CDC="${CDC_ENV_CDC:-cdc${ENV_SUFFIX}}"
-ENV_HUNYUAN="${CDC_ENV_HUNYUAN:-hunyuan${ENV_SUFFIX}}"
-ENV_DA3="${CDC_ENV_DA3:-da3${ENV_SUFFIX}}"
-RECREATE_ENVS="${CDC_RECREATE_ENVS:-0}"
-CHECKPOINT_FALLBACK_ROOT="${CDC_CHECKPOINT_FALLBACK_ROOT:-}"
-ROBOT_ASSET_FALLBACK_ROOT="${CDC_ROBOT_ASSET_FALLBACK_ROOT:-}"
+ENV_SIMFOUNDRY="${SIMFOUNDRY_ENV_SIMFOUNDRY:-simfoundry${ENV_SUFFIX}}"
+ENV_HUNYUAN="${SIMFOUNDRY_ENV_HUNYUAN:-hunyuan${ENV_SUFFIX}}"
+ENV_DA3="${SIMFOUNDRY_ENV_DA3:-da3${ENV_SUFFIX}}"
+RECREATE_ENVS="${SIMFOUNDRY_RECREATE_ENVS:-0}"
+CHECKPOINT_FALLBACK_ROOT="${SIMFOUNDRY_CHECKPOINT_FALLBACK_ROOT:-}"
+ROBOT_ASSET_FALLBACK_ROOT="${SIMFOUNDRY_ROBOT_ASSET_FALLBACK_ROOT:-}"
 
 usage() {
   cat <<'EOF'
 Usage: ./install.sh [options]
 
-Installs the environments and checkpoints needed to run CDC A/B/C pipelines.
+Installs the environments and checkpoints needed to run SimFoundry A/B/C pipelines.
 
 Environment variables:
-  CDC_ENV_SUFFIX=-test              Suffix default env names, e.g. cdc-test.
-  CDC_ENV_CDC=NAME                  Override CDC/OmniGibson env name.
-  CDC_ENV_HUNYUAN=NAME              Override Hunyuan env name.
-  CDC_ENV_DA3=NAME                  Override Depth Anything 3 env name.
-  CDC_CUDA_VERSION=12.8             CUDA toolkit version to install/use.
-  CDC_CUDA_ARCH_LIST=12.0           Optional TORCH_CUDA_ARCH_LIST override.
-  CDC_RECREATE_ENVS=1               Remove target envs before installation.
-  CDC_CHECKPOINT_FALLBACK_ROOT=DIR   Optional local repo root to copy checkpoints from
-                                    if Google Drive downloads fail.
-  CDC_ROBOT_ASSET_FALLBACK_ROOT=DIR  Optional local repo root to copy CDC-specific
-                                    OmniGibson robot assets from.
+  SIMFOUNDRY_ENV_SUFFIX=-test               Suffix default env names, e.g. simfoundry-test.
+  SIMFOUNDRY_ENV_SIMFOUNDRY=NAME            Override SimFoundry/OmniGibson env name.
+  SIMFOUNDRY_ENV_HUNYUAN=NAME               Override Hunyuan env name.
+  SIMFOUNDRY_ENV_DA3=NAME                   Override Depth Anything 3 env name.
+  SIMFOUNDRY_CUDA_VERSION=12.8              CUDA toolkit version to install/use.
+  SIMFOUNDRY_CUDA_ARCH_LIST=12.0            Optional TORCH_CUDA_ARCH_LIST override.
+  SIMFOUNDRY_RECREATE_ENVS=1                Remove target envs before installation.
+  SIMFOUNDRY_CHECKPOINT_FALLBACK_ROOT=DIR   Optional local repo root to copy checkpoints from
+                                           if Google Drive downloads fail.
+  SIMFOUNDRY_ROBOT_ASSET_FALLBACK_ROOT=DIR  Optional local repo root to copy SimFoundry-specific
+                                           OmniGibson robot assets from.
 
 Options mirror the environment variables above:
   --env-suffix SUFFIX
-  --env-cdc NAME
+  --env-simfoundry NAME
   --env-hunyuan NAME
   --env-da3 NAME
   --cuda-version VERSION
@@ -53,7 +53,7 @@ EOF
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --env-suffix) ENV_SUFFIX="$2"; shift 2 ;;
-    --env-cdc) ENV_CDC="$2"; shift 2 ;;
+    --env-simfoundry) ENV_SIMFOUNDRY="$2"; shift 2 ;;
     --env-hunyuan) ENV_HUNYUAN="$2"; shift 2 ;;
     --env-da3) ENV_DA3="$2"; shift 2 ;;
     --cuda-version) CUDA_VERSION="$2"; shift 2 ;;
@@ -67,13 +67,13 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Recompute defaults if --env-suffix was provided without explicit env names.
-if [[ -z "${CDC_ENV_CDC:-}" && "${ENV_CDC}" == "cdc${CDC_ENV_SUFFIX:-}" ]]; then
-  ENV_CDC="cdc${ENV_SUFFIX}"
+if [[ -z "${SIMFOUNDRY_ENV_SIMFOUNDRY:-}" && "${ENV_SIMFOUNDRY}" == "simfoundry${SIMFOUNDRY_ENV_SUFFIX:-}" ]]; then
+  ENV_SIMFOUNDRY="simfoundry${ENV_SUFFIX}"
 fi
-if [[ -z "${CDC_ENV_HUNYUAN:-}" && "${ENV_HUNYUAN}" == "hunyuan${CDC_ENV_SUFFIX:-}" ]]; then
+if [[ -z "${SIMFOUNDRY_ENV_HUNYUAN:-}" && "${ENV_HUNYUAN}" == "hunyuan${SIMFOUNDRY_ENV_SUFFIX:-}" ]]; then
   ENV_HUNYUAN="hunyuan${ENV_SUFFIX}"
 fi
-if [[ -z "${CDC_ENV_DA3:-}" && "${ENV_DA3}" == "da3${CDC_ENV_SUFFIX:-}" ]]; then
+if [[ -z "${SIMFOUNDRY_ENV_DA3:-}" && "${ENV_DA3}" == "da3${SIMFOUNDRY_ENV_SUFFIX:-}" ]]; then
   ENV_DA3="da3${ENV_SUFFIX}"
 fi
 
@@ -96,14 +96,14 @@ remove_env_if_needed() {
       mamba env remove -y -n "$env_name"
     else
       echo "ERROR: Mamba env already exists: ${env_name}" >&2
-      echo "Set CDC_RECREATE_ENVS=1 or pass --recreate-envs to remove it first." >&2
+      echo "Set SIMFOUNDRY_RECREATE_ENVS=1 or pass --recreate-envs to remove it first." >&2
       exit 1
     fi
   fi
 }
 
 echo "[install] Project root: ${PROJECT_ROOT}"
-echo "[install] Environments: CDC=${ENV_CDC}, Hunyuan=${ENV_HUNYUAN}, DA3=${ENV_DA3}"
+echo "[install] Environments: SimFoundry=${ENV_SIMFOUNDRY}, Hunyuan=${ENV_HUNYUAN}, DA3=${ENV_DA3}"
 echo "[install] CUDA version: ${CUDA_VERSION}"
 if [[ -n "${CUDA_ARCH_LIST}" ]]; then
   echo "[install] TORCH_CUDA_ARCH_LIST override: ${CUDA_ARCH_LIST}"
@@ -121,7 +121,7 @@ fi
 available_gb="$(df -Pk "${PROJECT_ROOT}" | awk 'NR==2 {printf "%.1f", $4 / 1024 / 1024}')"
 echo "[install] Available disk at project root: ${available_gb} GiB"
 
-remove_env_if_needed "${ENV_CDC}"
+remove_env_if_needed "${ENV_SIMFOUNDRY}"
 remove_env_if_needed "${ENV_HUNYUAN}"
 remove_env_if_needed "${ENV_DA3}"
 
@@ -130,13 +130,13 @@ if [[ -n "${CUDA_ARCH_LIST}" ]]; then
   INSTALL_ARGS+=(--cuda-arch-list "${CUDA_ARCH_LIST}")
 fi
 
-echo "[install] Installing CDC / OmniGibson env: ${ENV_CDC}"
-CDC_INSTALL_ARGS=("${INSTALL_ARGS[@]}" --env-name "${ENV_CDC}" --cuda-version "${CUDA_VERSION}")
+echo "[install] Installing SimFoundry / OmniGibson env: ${ENV_SIMFOUNDRY}"
+SIMFOUNDRY_INSTALL_ARGS=("${INSTALL_ARGS[@]}" --env-name "${ENV_SIMFOUNDRY}" --cuda-version "${CUDA_VERSION}")
 if [[ -n "${ROBOT_ASSET_FALLBACK_ROOT}" ]]; then
-  CDC_INSTALL_ARGS+=(--robot-asset-fallback-root "${ROBOT_ASSET_FALLBACK_ROOT}")
+  SIMFOUNDRY_INSTALL_ARGS+=(--robot-asset-fallback-root "${ROBOT_ASSET_FALLBACK_ROOT}")
 fi
-bash "${PROJECT_ROOT}/scripts/installation/install_cdc.sh" \
-  "${CDC_INSTALL_ARGS[@]}"
+bash "${PROJECT_ROOT}/scripts/installation/install_simfoundry.sh" \
+  "${SIMFOUNDRY_INSTALL_ARGS[@]}"
 
 echo "[install] Installing Hunyuan env: ${ENV_HUNYUAN}"
 bash "${PROJECT_ROOT}/scripts/installation/install_hunyuan.sh" \
@@ -149,7 +149,7 @@ bash "${PROJECT_ROOT}/scripts/installation/install_da3.sh" \
   "${INSTALL_ARGS[@]}" \
   --env-name "${ENV_DA3}"
 
-CHECKPOINT_ARGS=(--project-root "${PROJECT_ROOT}" --env-name "${ENV_CDC}" --default)
+CHECKPOINT_ARGS=(--project-root "${PROJECT_ROOT}" --env-name "${ENV_SIMFOUNDRY}" --default)
 if [[ -n "${CHECKPOINT_FALLBACK_ROOT}" ]]; then
   CHECKPOINT_ARGS+=(--checkpoint-fallback-root "${CHECKPOINT_FALLBACK_ROOT}")
 fi

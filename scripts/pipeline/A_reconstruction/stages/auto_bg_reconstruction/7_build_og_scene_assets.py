@@ -37,7 +37,7 @@ What this script does:
      from the reference nv_desk scene state when missing in stage-13's output.
   6. Recompute `expected_file_hash` for the BG USDZ.
 
-Run from cdc env (Hydra override syntax):
+Run from simfoundry env (Hydra override syntax):
   python scripts/pipeline/A_reconstruction/stages/auto_bg_reconstruction/7_build_og_scene_assets.py \\
       scene_name=<scene> \\
       s7_build_assets.bg_splat_ply=Data/<scene>/auto_bg/splat/export/<scene>_bg.ply
@@ -54,7 +54,7 @@ from pathlib import Path
 
 import hydra
 
-from digital_cousins.pipeline.stage_utils import bootstrap_hydra_workdir
+from simfoundry.pipeline.stage_utils import bootstrap_hydra_workdir
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -63,7 +63,7 @@ logger = logging.getLogger("build_og_scene_assets")
 REPO_ROOT = Path(__file__).resolve().parents[5]
 
 bootstrap_hydra_workdir(__file__)
-from digital_cousins import CFG_DIR  # noqa: E402
+from simfoundry import CFG_DIR  # noqa: E402
 
 THREEDGRUT_ENV_NAME = "3dgrut"  # must exist in `mamba env list`
 
@@ -79,7 +79,7 @@ def ply_to_usdz(in_ply: Path, out_usdz: Path) -> None:
     # 3dgut JIT-compiles a CUDA plugin (lib3dgut_cc); ninja must be on PATH, and it lives in
     # the 3dgrut env. `mamba run -n 3dgrut` puts that env's bin on PATH automatically and
     # re-applies the env's persisted build vars (CC, CXX, TORCH_CUDA_ARCH_LIST), so we strip
-    # the cdc-leaked compiler/flag vars here to avoid them interfering with that.
+    # the simfoundry-leaked compiler/flag vars here to avoid them interfering with that.
     # The 3dgrut env (created by scripts/create_conda.sh, CUDA 12.8) ships torch 2.8.0+cu128,
     # which DOES recognize sm_120 — include 12.0 so the JIT plugin has RTX 5090 / Blackwell
     # kernels (omitting it gives "no kernel image is available" at render time).

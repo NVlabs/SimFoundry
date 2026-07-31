@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Should be run from cdc env
+Should be run from simfoundry env
 
 Annotate source demonstrations with pick/place signals for MimicGen.
 
@@ -23,11 +23,11 @@ from glob import glob
 import omnigibson as og
 from omnigibson.macros import gm
 
-from digital_cousins import import_og_dependencies
-from digital_cousins.utils.annotation_utils import MinimalPlaybackWrapper, AnnotationManager
-from digital_cousins.utils.og_utils import apply_teleop_omnigibson_macros, setup_wrist_camera_viewport
-from digital_cousins.utils.processing_utils import make_json_serializable
-from digital_cousins.utils.scene_utils import load_json_with_absolute_usd_paths
+from simfoundry import import_og_dependencies
+from simfoundry.utils.annotation_utils import MinimalPlaybackWrapper, AnnotationManager
+from simfoundry.utils.og_utils import apply_teleop_omnigibson_macros, setup_wrist_camera_viewport
+from simfoundry.utils.processing_utils import make_json_serializable
+from simfoundry.utils.scene_utils import load_json_with_absolute_usd_paths
 
 # Needed so custom tasks can be instantiated properly
 import_og_dependencies()
@@ -37,7 +37,7 @@ gm.RENDER_VIEWER_CAMERA = False
 gm.DEFAULT_VIEWER_WIDTH = 128
 gm.DEFAULT_VIEWER_HEIGHT = 128
 
-from digital_cousins import CFG_DIR
+from simfoundry import CFG_DIR
 
 # At the start of every script, we cd into the scripts/config directory
 scripts_dir = os.path.dirname(os.path.abspath(__file__))

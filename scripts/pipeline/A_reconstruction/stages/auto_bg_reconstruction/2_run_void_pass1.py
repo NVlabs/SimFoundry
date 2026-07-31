@@ -14,7 +14,7 @@ Pass 1 mp4 — written to `<in-dir>/pass1/pass1.mp4` which is exactly what
 `run_void_pass2.py` reads next.
 
 Reads config from scripts/cfg/auto_bg.yaml (Hydra), section `s2_pass1`.
-Run from cdc env (Hydra override syntax):
+Run from simfoundry env (Hydra override syntax):
   python scripts/pipeline/A_reconstruction/stages/auto_bg_reconstruction/2_run_void_pass1.py \\
       scene_name=<scene>
 Per-stage values can be overridden directly, e.g. `s2_pass1.in_dir=...`.
@@ -32,21 +32,21 @@ import cv2
 import hydra
 import numpy as np
 
-from digital_cousins.pipeline.stage_utils import bootstrap_hydra_workdir
+from simfoundry.pipeline.stage_utils import bootstrap_hydra_workdir
 
 # cd to scripts/cfg so the cfg's `${root_dir}` (= ../../Data) resolves to repo/Data,
 # matching the sibling A_reconstruction stages.
 bootstrap_hydra_workdir(__file__)
 
-from digital_cousins import CFG_DIR  # noqa: E402
-from digital_cousins.utils.video_utils import read_video_frames, slice_video, slice_video_lossless, write_video  # noqa: E402
+from simfoundry import CFG_DIR  # noqa: E402
+from simfoundry.utils.video_utils import read_video_frames, slice_video, slice_video_lossless, write_video  # noqa: E402
 
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
 VOID_ROOT = REPO_ROOT / "deps" / "void-model"
 
 # The `void` env must already exist (`mamba env list`). We shell into it per
-# chunk via `mamba run -n void python …`, so this script can stay in the cdc env.
+# chunk via `mamba run -n void python …`, so this script can stay in the simfoundry env.
 VOID_ENV_NAME = "void"
 PASS1_SCRIPT = VOID_ROOT / "inference" / "cogvideox_fun" / "predict_v2v.py"
 PASS1_CONFIG = VOID_ROOT / "config" / "quadmask_cogvideox.py"

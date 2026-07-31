@@ -20,7 +20,7 @@ import hydra
 from omegaconf import OmegaConf
 from pathlib import Path
 
-from digital_cousins.models.vlm import Gemini
+from simfoundry.models.vlm import Gemini
 
 
 # OmniGibson object states (from omnigibson/object_states) useful for tabletop tasks
@@ -295,13 +295,13 @@ def get_base_task_template() -> dict:
     }
 
 
-from digital_cousins import ASSET_DIR as CDC_ASSET_DIR, CFG_DIR
+from simfoundry import ASSET_DIR as SIMFOUNDRY_ASSET_DIR, CFG_DIR
 
 
 @hydra.main(version_base=None, config_path=CFG_DIR, config_name="real2sim_cfg")
 def main(cfg):
     scene_name = cfg.scene_name
-    scene_dir = (Path(CDC_ASSET_DIR) / "scenes" / scene_name).resolve()
+    scene_dir = (Path(SIMFOUNDRY_ASSET_DIR) / "scenes" / scene_name).resolve()
 
     # Scene image: assets/scenes/{scene_name}/scene.png
     scene_image_path = scene_dir / "scene.png"

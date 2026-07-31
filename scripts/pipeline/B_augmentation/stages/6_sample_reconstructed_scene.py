@@ -15,7 +15,7 @@ import os
 
 # Point OmniGibson at this checkout's BEHAVIOR-1K datasets so generated
 # real2sim assets resolve even if OmniGibson was installed from another clone.
-from digital_cousins import configure_omnigibson_data_path
+from simfoundry import configure_omnigibson_data_path
 
 configure_omnigibson_data_path(force=True)
 
@@ -34,15 +34,15 @@ import json
 import subprocess
 import hydra
 from omegaconf import OmegaConf
-from digital_cousins import CFG_DIR as CDC_CFG_DIR
-from digital_cousins.utils.processing_utils import dump_json
-from digital_cousins.utils.og_utils import set_obj_materials
+from simfoundry import CFG_DIR as SIMFOUNDRY_CFG_DIR
+from simfoundry.utils.processing_utils import dump_json
+from simfoundry.utils.og_utils import set_obj_materials
 import numpy as np
 import logging
 
 logger = logging.getLogger(__name__)
 
-from digital_cousins import CFG_DIR
+from simfoundry import CFG_DIR
 
 
 ### At the start of every script, we cd into the scripts/config directory
@@ -915,7 +915,7 @@ def main(cfg):
             }
         robots_cfg.append(robot_cfg)
 
-    external_sensors_cfg_path = f"{CDC_CFG_DIR}/external_sensors/{cfg.s13_og.external_sensors_cfg}.yaml"
+    external_sensors_cfg_path = f"{SIMFOUNDRY_CFG_DIR}/external_sensors/{cfg.s13_og.external_sensors_cfg}.yaml"
     env_cfg = {
         "external_sensors": parse_config(external_sensors_cfg_path)["external_sensors"]
     }

@@ -17,7 +17,7 @@ import hydra
 import time
 import os
 import sys
-from digital_cousins import CFG_DIR
+from simfoundry import CFG_DIR
 
 os.environ["TORCHDYNAMO_DISABLE"] = "1"
 os.environ["OMNIGIBSON_HEADLESS"] = "1"

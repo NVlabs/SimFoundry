@@ -3,9 +3,9 @@
 
 import time
 
-from digital_cousins.pipeline.depth_backends import DepthAnythingV3Backend, FoundationStereoBackend, create_backend
-from digital_cousins.pipeline.stage_utils import list_object_iteration_indices, parse_iter_index
-from digital_cousins.pipeline.streaming import run_streaming_two_stage
+from simfoundry.pipeline.depth_backends import DepthAnythingV3Backend, FoundationStereoBackend, create_backend
+from simfoundry.pipeline.stage_utils import list_object_iteration_indices, parse_iter_index
+from simfoundry.pipeline.streaming import run_streaming_two_stage
 
 
 def test_depth_backend_registry():

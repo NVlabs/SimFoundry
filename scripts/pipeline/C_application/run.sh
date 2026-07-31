@@ -23,8 +23,8 @@ Options:
   --exec-mode mamba|direct            Process execution mode. Default: mamba
   --no-env-switch                     Alias for --exec-mode direct.
   --python-bin PATH                   Python executable inside each target env. Default: python
-  --env-cdc NAME                      Mamba env for CDC stages. Default: cdc
-  --env-b1k NAME                      Mamba env for OmniGibson stages. Default: cdc
+  --env-simfoundry NAME               Mamba env for SimFoundry stages. Default: simfoundry
+  --env-b1k NAME                      Mamba env for OmniGibson stages. Default: simfoundry
   --dry-run                           Print commands without running stages.
   -h, --help                          Show this help.
 EOF
@@ -35,8 +35,8 @@ SCENE_NAME="${SCENE_NAME:-home_coffee_4}"
 ROOT_DIR="${ROOT_DIR:-${REPO_DIR}/Data}"
 EXEC_MODE="${EXEC_MODE:-mamba}"
 PYTHON_BIN="${PYTHON_BIN:-python}"
-ENV_CDC="${ENV_CDC:-cdc}"
-ENV_B1K="${ENV_B1K:-cdc}"
+ENV_SIMFOUNDRY="${ENV_SIMFOUNDRY:-simfoundry}"
+ENV_B1K="${ENV_B1K:-simfoundry}"
 DRY_RUN=0
 INCLUDE_IDS=""
 EXCLUDE_IDS=""
@@ -52,7 +52,7 @@ while [[ $# -gt 0 ]]; do
     --exec-mode) EXEC_MODE="$2"; shift 2 ;;
     --no-env-switch) EXEC_MODE="direct"; shift ;;
     --python-bin) PYTHON_BIN="$2"; shift 2 ;;
-    --env-cdc) ENV_CDC="$2"; shift 2 ;;
+    --env-simfoundry) ENV_SIMFOUNDRY="$2"; shift 2 ;;
     --env-b1k) ENV_B1K="$2"; shift 2 ;;
     --dry-run) DRY_RUN=1; shift ;;
     -h|--help) usage; exit 0 ;;
@@ -63,7 +63,7 @@ done
 
 RUNNER_CMD=("${PYTHON_BIN}")
 if [[ "${EXEC_MODE}" == "mamba" ]]; then
-  RUNNER_CMD=(mamba run -n "${ENV_CDC}" "${PYTHON_BIN}")
+  RUNNER_CMD=(mamba run -n "${ENV_SIMFOUNDRY}" "${PYTHON_BIN}")
 fi
 
 CMD=(
@@ -72,7 +72,7 @@ CMD=(
   "--mode" "${MODE}"
   "--exec-mode" "${EXEC_MODE}"
   "--python-bin" "${PYTHON_BIN}"
-  "--env-cdc" "${ENV_CDC}"
+  "--env-simfoundry" "${ENV_SIMFOUNDRY}"
   "--env-b1k" "${ENV_B1K}"
 )
 

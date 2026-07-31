@@ -19,8 +19,8 @@ from pathlib import Path
 import json
 import subprocess
 import hydra
-from digital_cousins import CFG_DIR
-from digital_cousins.pipeline.stage_utils import StageResult, bootstrap_hydra_workdir, finalize_stage
+from simfoundry import CFG_DIR
+from simfoundry.pipeline.stage_utils import StageResult, bootstrap_hydra_workdir, finalize_stage
 import logging
 
 scripts_dir = os.path.dirname(os.path.abspath(__file__))
