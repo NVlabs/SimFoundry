@@ -14,7 +14,7 @@ visualize: false
 debug: false
 gcloud_project: ${oc.env:GCLOUD_PROJECT,null} # Google Cloud project id (required — Vertex AI backs all remote VLM stages). Reads $GCLOUD_PROJECT; replace with a literal id to hardcode it.
 rerun_all: true
-low_vram: true
+low_vram: false
 
 # ===== model init cfgs =====
 model:
@@ -133,8 +133,8 @@ s5_scene:     # env: simfoundry
   merge_output_images: true
   crop_removal_images: true
   # vlm_model: gemini-2.5-pro     # options: gemini-2.5-pro, gemini-2.5-flash, gemini-3-pro
-  detection_model: gemini-2.5-pro   # options: gemini-2.5-pro, gemini-2.5-flash, gemini-3-pro-preview, gemini-3.1-pro-preview, gemini-3-flash-preview
-  removal_model: gemini-2.5-flash-image     # options: gemini, gemini-2.5-flash-image, gemini-3-pro-image, flux
+  detection_model: gemini-3-pro-preview   # options: gemini-2.5-pro, gemini-2.5-flash, gemini-3-pro-preview, gemini-3.1-pro-preview, gemini-3-flash-preview
+  removal_model: gemini-3-pro-image     # options: gemini, gemini-2.5-flash-image, gemini-3-pro-image, flux
   min_detection_iterations: 3
   obj_removal_prompt_order: ["mask", "outline", "bbox"]   # options: mask, outline, bbox
   pda_K: 5
@@ -160,8 +160,8 @@ s5_scene_gmask:     # env: simfoundry
   merge_output_images: true
   crop_removal_images: true
   # vlm_model: gemini-2.5-pro     # options: gemini-2.5-pro, gemini-2.5-flash, gemini-3-pro
-  detection_model: gemini-2.5-pro   # options: gemini-2.5-pro, gemini-2.5-flash, gemini-3-pro-preview, gemini-3.1-pro-preview, gemini-3-flash-preview
-  removal_model: gemini-2.5-flash-image     # options: gemini, gemini-2.5-flash-image, gemini-3-pro-image, flux
+  detection_model: gemini-3-pro-preview   # options: gemini-2.5-pro, gemini-2.5-flash, gemini-3-pro-preview, gemini-3.1-pro-preview, gemini-3-flash-preview
+  removal_model: gemini-3-pro-image     # options: gemini, gemini-3-pro-image, gemini-3-pro-image, flux
   min_detection_iterations: 3
   obj_removal_prompt_order: ["mask", "outline", "bbox"]   # options: mask, outline, bbox
   pda_K: 5
@@ -172,23 +172,23 @@ s6_upsample:      # env: simfoundry
   out_dirname: s6_upsample
   out_dir: "${root_dir}/${scene_name}/${s6_upsample.out_dirname}"
   sam_conf_threshold: 0.1
-  model: gemini-2.5-flash-image     # options: gemini, gemini-2.5-flash-image, gemini-3-pro-image, gpt, flux
+  model: gemini-3-pro-image     # options: gemini, gemini-2.5-flash-image, gemini-3-pro-image, gpt, flux
   validity_model: gemini
   infill: false    # If true, infill the object before upsampling
   check_valid: false  # If true, run validity check on each upsampled object
   object_indices: null  # null = all, or [1,2] for selective streaming/reruns
   remove_bg_max_side: 1024  # Downscale before rembg inference to reduce ONNX memory use; null disables
   include_invalid: true  # If true, process objects that s5 marked as invalid (is_valid_removed_obj=false)
-s7_mesh:          # env: hunyuan
+s7_mesh:          # env: mesh
   rerun: true
   out_dirname: s7_mesh
   out_dir: "${root_dir}/${scene_name}/${s7_mesh.out_dirname}"
   generate_shape: true
   generate_texture: true
-  shape_model: hunyuan #hunyuan #trellis2 #direct3d
-  texture_model: hunyuan #hunyuan #trellis2
+  shape_model: trellis2 #hunyuan #trellis2 #direct3d
+  texture_model: trellis2 #hunyuan #trellis2
   save_intermediates: true
-  low_vram: true        # If true, enable CPU offloading to reduce GPU VRAM (~29GB -> ~6GB for shape gen)
+  low_vram: false        # If true, enable CPU offloading to reduce GPU VRAM (~29GB -> ~6GB for shape gen)
   object_indices: null   # null = process all, or set [3, 7] to process specific objects
 stage_review:
   mode: upsample   # options: depth, upsample, mesh
@@ -278,7 +278,7 @@ s10_sim:          # env: simfoundry
   rerun: true
   out_dirname: s10_sim
   out_dir: "${root_dir}/${scene_name}/${s10_sim.out_dirname}"
-  vlm_model: gemini-2.5-pro   # options: gemini-2.5-pro, gemini-2.5-flash, gemini-3-pro-preview, gemini-3.1-pro-preview
+  vlm_model: gemini-3-pro-preview   # options: gemini-2.5-pro, gemini-2.5-flash, gemini-3-pro-preview, gemini-3.1-pro-preview
   object_indices: null
   parallel_workers: 2
   collision_method: coacd
@@ -570,7 +570,7 @@ s18_replay:          # env: b1k
       enabled: false                             # Enable camera pose randomization
       position_noise_std: 0.05                  # Std dev of Gaussian noise added to camera position (meters)
       orientation_noise_std: 10.0               # Std dev of Gaussian noise added to camera orientation (degrees)
-s19_cousin_generation:          # env: hunyuan
+s19_cousin_generation:          # env: mesh
   out_dirname: s16_cousin_generation
   source_dir: "${root_dir}/${scene_name}/cousin_images"
   out_dir: "${root_dir}/${scene_name}/${s19_cousin_generation.out_dirname}"
@@ -612,7 +612,7 @@ generate_cousins_combination: # env: simfoundry
   num_obj_to_swap: 9
   num_variations_used_per_object: 2
   max_combinations: 4
-cousin_generation:    # env: hunyuan
+cousin_generation:    # env: mesh
   source_dir: "${root_dir}/${scene_name}/cousin_generation/source_img"
   out_dir: "${root_dir}/${scene_name}/cousin_generation"
   generate_shape: true

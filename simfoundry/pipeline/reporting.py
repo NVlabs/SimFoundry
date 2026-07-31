@@ -68,6 +68,25 @@ def _stage_info(stage_dir: Path) -> dict[str, Any]:
     return {"exists": True, "success": payload.get("success") if isinstance(payload, dict) else None}
 
 
+def _textured_mesh_count(scene_dir: Path) -> int:
+    """Count stage 7 textured meshes, whichever mesh backend produced them.
+
+    Stage 7 writes to `textured_mesh/<texture_model>/`, so the directory name follows the
+    configured backend (hunyuan, trellis2, direct3d, ...). Prefer the model recorded in the
+    stage's own `stage_info.json`; if the stage has not written one yet, fall back to summing
+    every backend directory so a partial or hand-run stage still reports a count.
+    """
+    textured_dir = scene_dir / "s7_mesh" / "textured_mesh"
+    stage_info = _load_json(scene_dir / "s7_mesh" / "stage_info.json")
+    if isinstance(stage_info, dict):
+        texture_model = stage_info.get("texture_model")
+        if isinstance(texture_model, str) and texture_model:
+            return _count_files(textured_dir / texture_model, "*_mesh.glb")
+    if not textured_dir.is_dir():
+        return 0
+    return sum(_count_files(backend_dir, "*_mesh.glb") for backend_dir in textured_dir.iterdir() if backend_dir.is_dir())
+
+
 def _scene_object_count(scene_dir: Path) -> int:
     payload = _load_json(scene_dir / "s10_sim" / "scene_objects_info.json")
     return len(payload) if isinstance(payload, dict) else 0
@@ -87,7 +106,7 @@ def build_scene_manifest(scene_dir: str | Path) -> dict[str, Any]:
         "s1_subsampled_frames": _count_files(scene_dir / "s1_video" / "frames_subsampled_15", "*.png"),
         "s5_object_categories": _count_files(scene_dir / "s5_scene" / "obj_cat_list", "*.json"),
         "s6_upsampled_objects": _count_files(scene_dir / "s6_upsample" / "upsampled", "*_transparent.png"),
-        "s7_textured_meshes": _count_files(scene_dir / "s7_mesh" / "textured_mesh" / "hunyuan", "*_mesh.glb"),
+        "s7_textured_meshes": _textured_mesh_count(scene_dir),
         "s8_pose_infos": _count_files(scene_dir / "s8_pose" / "info", "*.json"),
         "s10_scene_objects": _scene_object_count(scene_dir),
     }

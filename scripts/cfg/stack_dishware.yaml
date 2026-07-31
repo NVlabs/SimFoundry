@@ -105,7 +105,7 @@ s6_upsample:      # env: simfoundry
   model: gemini-3-pro-image-preview     # options: gpt, gemini, flux
   validity_model: gemini
   skip_infill: true  # Set to true to skip infill step and directly upsample
-s7_mesh:          # env: hunyuan
+s7_mesh:          # env: mesh
   rerun: true
   out_dirname: s7_mesh
   out_dir: "${root_dir}/${scene_name}/${s7_mesh.out_dirname}"
@@ -352,7 +352,7 @@ s18_replay:          # env: b1k
       enabled: true
       position_noise_std: 0.05
       orientation_noise_std: 10.0
-s19_cousin_generation:          # env: hunyuan
+s19_cousin_generation:          # env: mesh
   out_dirname: s16_cousin_generation
   source_dir: "${root_dir}/${scene_name}/cousin_images"
   out_dir: "${root_dir}/${scene_name}/${s16_cousin_generation.out_dirname}"

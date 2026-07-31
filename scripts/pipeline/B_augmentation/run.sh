@@ -25,7 +25,7 @@ Options:
   --no-env-switch                 Alias for --exec-mode direct.
   --python-bin PATH               Python executable inside each target env. Default: python
   --env-simfoundry NAME           Mamba env for SimFoundry stages. Default: simfoundry
-  --env-hunyuan NAME              Mamba env for mesh generation. Default: hunyuan
+  --env-mesh NAME                 Mamba env for mesh generation. Default: hunyuan
   --env-b1k NAME                  Mamba env for OmniGibson stages. Default: simfoundry
   --max-vram-gb N                 Single-GPU VRAM budget. Default: 30
   --cache-mode                    Cache raw remote model responses.
@@ -43,7 +43,7 @@ ROOT_DIR="${ROOT_DIR:-${REPO_DIR}/Data}"
 EXEC_MODE="${EXEC_MODE:-mamba}"
 PYTHON_BIN="${PYTHON_BIN:-python}"
 ENV_SIMFOUNDRY="${ENV_SIMFOUNDRY:-simfoundry}"
-ENV_HUNYUAN="${ENV_HUNYUAN:-hunyuan}"
+ENV_MESH="${ENV_MESH:-hunyuan}"
 ENV_B1K="${ENV_B1K:-simfoundry}"
 MAX_VRAM_GB="${MAX_VRAM_GB:-30}"
 CACHE_MODE_ENABLED=0
@@ -68,7 +68,7 @@ while [[ $# -gt 0 ]]; do
     --no-env-switch) EXEC_MODE="direct"; shift ;;
     --python-bin) PYTHON_BIN="$2"; shift 2 ;;
     --env-simfoundry) ENV_SIMFOUNDRY="$2"; shift 2 ;;
-    --env-hunyuan) ENV_HUNYUAN="$2"; shift 2 ;;
+    --env-mesh) ENV_MESH="$2"; shift 2 ;;
     --env-b1k) ENV_B1K="$2"; shift 2 ;;
     --max-vram-gb) MAX_VRAM_GB="$2"; shift 2 ;;
     --cache-mode) CACHE_MODE_ENABLED=1; shift ;;
@@ -115,7 +115,7 @@ CMD=(
   "--exec-mode" "${EXEC_MODE}"
   "--python-bin" "${PYTHON_BIN}"
   "--env-simfoundry" "${ENV_SIMFOUNDRY}"
-  "--env-hunyuan" "${ENV_HUNYUAN}"
+  "--env-mesh" "${ENV_MESH}"
   "--env-b1k" "${ENV_B1K}"
 )
 

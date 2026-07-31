@@ -42,7 +42,7 @@ def main():
         exclude_ids_csv=args.exclude,
         exec_mode=args.exec_mode,
         python_bin=args.python_bin,
-        env_map={"simfoundry": args.env_simfoundry, "b1k": args.env_b1k, "hunyuan": "hunyuan", "da3": "da3"},
+        env_map={"simfoundry": args.env_simfoundry, "b1k": args.env_b1k, "mesh": "hunyuan", "da3": "da3"},
         dry_run=args.dry_run,
         stream_subseq_enabled=False,
         stream_start_stage=5,

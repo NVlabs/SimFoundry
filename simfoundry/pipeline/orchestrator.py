@@ -25,6 +25,8 @@ class StageSpec:
     stage_id: str
     script: str
     cfg_key: str
+    # Env role key ("simfoundry", "da3", "mesh", "b1k"), resolved through env_map to a
+    # concrete mamba env: "mesh" runs in hunyuan or simfoundry depending on the backend.
     env: str
     description: str
 
@@ -137,7 +139,7 @@ def get_reconstruction_stage_plan(input_mode: str, *, detect_articulation: bool 
         StageSpec("4", f"{base}/4_unify_world_frame.py", "s4_frame", "simfoundry", "Unify world frame"),
         StageSpec("5", f"{base}/5_decompose_scene.py", "s5_scene", "simfoundry", "Decompose scene"),
         StageSpec("6", f"{base}/6_upsample_object_images.py", "s6_upsample", "simfoundry", "Upsample objects"),
-        StageSpec("7", f"{base}/7_generate_object_meshes.py", "s7_mesh", "hunyuan", "Generate meshes"),
+        StageSpec("7", f"{base}/7_generate_object_meshes.py", "s7_mesh", "mesh", "Generate meshes"),
         StageSpec("8", f"{base}/8_match_object_poses.py", "s8_pose", "simfoundry", "Match object poses"),
     ]
     if detect_articulation:
@@ -167,7 +169,7 @@ def get_augmentation_stage_plan(*, include_p2p: bool = False) -> list[StageSpec]
     plan = [
         StageSpec("1", f"{base}/1_prompt_object_cousins.py", "prompt_cousin_structured", "simfoundry", "Prompt object cousin variations"),
         StageSpec("2", f"{base}/2_generate_cousin_combinations.py", "generate_cousins_combination", "simfoundry", "Generate cousin combinations"),
-        StageSpec("3", f"{base}/3_generate_cousin_meshes.py", "cousin_generation", "hunyuan", "Generate cousin meshes"),
+        StageSpec("3", f"{base}/3_generate_cousin_meshes.py", "cousin_generation", "mesh", "Generate cousin meshes"),
         StageSpec("4", f"{base}/4_make_cousins_sim_ready.py", "sim", "simfoundry", "Make cousin assets sim-ready"),
         StageSpec("5", f"{base}/5_import_cousin_usd.py", "usd", "b1k", "Import cousin USD assets"),
         StageSpec("6", f"{base}/6_sample_reconstructed_scene.py", "s13_og", "simfoundry", "Sample reconstructed scene variations"),
@@ -314,7 +316,7 @@ def run_stage_subsequence_streaming(
             env_key = "simfoundry"
         elif stage == 7:
             script = f"{base}/7_generate_object_meshes.py"
-            env_key = "hunyuan"
+            env_key = "mesh"
         elif stage == 8:
             script = f"{base}/8_match_object_poses.py"
             env_key = "simfoundry"

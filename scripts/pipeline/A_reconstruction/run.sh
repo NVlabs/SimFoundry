@@ -31,13 +31,13 @@ Options:
   --python-bin PATH               Python executable inside each target env. Default: python
   --env-simfoundry NAME           Mamba env for SimFoundry stages. Default: simfoundry
   --env-da3 NAME                  Mamba env for depth stage. Default: da3
-  --env-hunyuan NAME              Mamba env for mesh generation. Default: hunyuan
+  --env-mesh NAME                 Mamba env for mesh generation. Default: hunyuan (use simfoundry for trellis.2 if installed)
   --env-b1k NAME                  Mamba env for OmniGibson stages. Default: b1k
   --stream / --no-stream          Enable/disable stages 5-8 streaming. Default: enabled
   --stream-start-stage N          Streaming start stage, 5-8. Default: 5
   --stream-end-stage N            Streaming end stage, 5-8. Default: 8
-  --max-vram-gb N                 Absolute VRAM budget for streaming. Default: unset (uses stream_subseq.max_vram_frac).
-  --detect-articulation           Run stage 8b (articulated objects). Not shipped in this release; ignored with a warning.
+  --max-vram-gb N                 Single-GPU hard VRAM budget for streaming. Default: 30
+  --detect-articulation           Run automated articulation decomposition stage 8b after stage 8.
   --cache-mode                    Cache raw remote model responses.
   --test-mode                     Replay remote model responses from cache.
   --model-cache-dir DIR           Cache root. Default: .cache/simfoundry/model_calls
@@ -56,12 +56,12 @@ EXEC_MODE="${EXEC_MODE:-mamba}"
 PYTHON_BIN="${PYTHON_BIN:-python}"
 ENV_SIMFOUNDRY="${ENV_SIMFOUNDRY:-simfoundry}"
 ENV_DA3="${ENV_DA3:-da3}"
-ENV_HUNYUAN="${ENV_HUNYUAN:-hunyuan}"
+ENV_MESH="${ENV_MESH:-hunyuan}"
 ENV_B1K="${ENV_B1K:-b1k}"
 STREAM_ENABLED="${STREAM_ENABLED:-1}"
 STREAM_START_STAGE="${STREAM_START_STAGE:-5}"
 STREAM_END_STAGE="${STREAM_END_STAGE:-8}"
-MAX_VRAM_GB="${MAX_VRAM_GB:-}"
+MAX_VRAM_GB="${MAX_VRAM_GB:-30}"
 DETECT_ARTICULATION="${DETECT_ARTICULATION:-0}"
 CACHE_MODE_ENABLED=0
 TEST_MODE_ENABLED=0
@@ -117,8 +117,8 @@ while [[ $# -gt 0 ]]; do
       ENV_DA3="$2"
       shift 2
       ;;
-    --env-hunyuan)
-      ENV_HUNYUAN="$2"
+    --env-mesh)
+      ENV_MESH="$2"
       shift 2
       ;;
     --env-b1k)
@@ -194,13 +194,6 @@ case "${PIPELINE}" in
     ;;
 esac
 
-# Stage 8b (articulation) is not shipped in this release. Disable it here rather than at
-# the flag, so restoring the stage script re-enables --detect-articulation automatically.
-if [[ "${DETECT_ARTICULATION}" == "1" && ! -f "${REPO_DIR}/scripts/pipeline/A_reconstruction/stages/8b_articulate_objects.py" ]]; then
-  echo "WARNING: Articulation component is not installed; continuing without articulation." >&2
-  DETECT_ARTICULATION=0
-fi
-
 if [[ "${CACHE_MODE_ENABLED}" == "1" && "${TEST_MODE_ENABLED}" == "1" ]]; then
   echo "--cache-mode and --test-mode are mutually exclusive." >&2
   exit 2
@@ -237,7 +230,7 @@ CMD=(
   "--python-bin" "${PYTHON_BIN}"
   "--env-simfoundry" "${ENV_SIMFOUNDRY}"
   "--env-da3" "${ENV_DA3}"
-  "--env-hunyuan" "${ENV_HUNYUAN}"
+  "--env-mesh" "${ENV_MESH}"
   "--env-b1k" "${ENV_B1K}"
 )
 
@@ -270,11 +263,9 @@ if [[ "${INPUT_MODE}" == "video" ]]; then
   CMD+=("s1_video.video_fpath=${VIDEO_FPATH}")
 fi
 
-# Only pin an absolute budget when the user asked for one; otherwise the pipeline sizes
-# the budget as a fraction of total GPU memory (stream_subseq.max_vram_frac).
-if [[ -n "${MAX_VRAM_GB}" ]]; then
-  CMD+=("stream_subseq.max_vram_gb=${MAX_VRAM_GB}")
-fi
+CMD+=(
+  "stream_subseq.max_vram_gb=${MAX_VRAM_GB}"
+)
 if [[ "${DETECT_ARTICULATION}" == "1" ]]; then
   CMD+=("s8b_articulate_objects.interactive_review=false")
 fi

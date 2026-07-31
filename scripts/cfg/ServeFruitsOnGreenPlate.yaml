@@ -113,7 +113,7 @@ s6_upsample:      # env: simfoundry
   infill: false    # If true, infill the object before upsampling
   check_valid: false  # If true, run validity check on each upsampled object
   object_indices: null  # null = all, or [1,2] for selective streaming/reruns
-s7_mesh:          # env: hunyuan
+s7_mesh:          # env: mesh
   rerun: true
   out_dirname: s7_mesh
   out_dir: "${root_dir}/${scene_name}/${s7_mesh.out_dirname}"
@@ -428,7 +428,7 @@ s18_replay:          # env: b1k
       enabled: true                             # Enable camera pose randomization
       position_noise_std: 0.05                  # Std dev of Gaussian noise added to camera position (meters)
       orientation_noise_std: 10.0               # Std dev of Gaussian noise added to camera orientation (degrees)
-s19_cousin_generation:          # env: hunyuan
+s19_cousin_generation:          # env: mesh
   out_dirname: s16_cousin_generation
   source_dir: "${root_dir}/${scene_name}/cousin_images"
   out_dir: "${root_dir}/${scene_name}/${s19_cousin_generation.out_dirname}"
@@ -444,7 +444,7 @@ s15_prompt_cousin_structured:      # env: simfoundry
   num_visual_variation: 3
   check_reasonableness: true
   # sam_conf_threshold: 0.1
-s16_cousin_generation:    # env: hunyuan
+s16_cousin_generation:    # env: mesh
   source_dir: "${root_dir}/${scene_name}/s16_cousin_generation/source_img"
   out_dir: "${root_dir}/${scene_name}/s16_cousin_generation"
   generate_shape: true

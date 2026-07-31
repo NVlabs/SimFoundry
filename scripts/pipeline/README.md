@@ -50,7 +50,7 @@ Useful options:
 | `4` | `A_reconstruction/stages/4_unify_world_frame.py` | `simfoundry` | Align the scene to a stable world frame. | `s4_frame/` |
 | `5` | `A_reconstruction/stages/5_decompose_scene.py` | `simfoundry` | Detect objects and create object-removal crops. | `s5_scene/` |
 | `6` | `A_reconstruction/stages/6_upsample_object_images.py` | `simfoundry` | Create cleaner object images for mesh generation. | `s6_upsample/` |
-| `7` | `A_reconstruction/stages/7_generate_object_meshes.py` | `hunyuan` | Generate 3D meshes. | `s7_mesh/` |
+| `7` | `A_reconstruction/stages/7_generate_object_meshes.py` | `hunyuan` (`--env-mesh`) | Generate 3D meshes. | `s7_mesh/` |
 | `8` | `A_reconstruction/stages/8_match_object_poses.py` | `simfoundry` | Estimate object poses. | `s8_pose/` |
 | `8b` | `A_reconstruction/stages/8b_articulate_objects.py` | `simfoundry` | Optional automatic articulation. **Not shipped in this release.** | `s8b_articulate_objects/` |
 | `9` | `A_reconstruction/stages/9_compile_scene.py` | `simfoundry` | Compile object metadata. | `s9_compile/` |
@@ -100,7 +100,7 @@ bash scripts/pipeline/B_augmentation/run.sh --include-p2p
 |---|---|---|---|---|
 | `1` | `B_augmentation/stages/1_prompt_object_cousins.py` | `simfoundry` | Ask a VLM/image model for object cousin images. | `prompt_cousin_structured/` |
 | `2` | `B_augmentation/stages/2_generate_cousin_combinations.py` | `simfoundry` | Choose which cousins to use together. | `cousins_combination/combinations.json` |
-| `3` | `B_augmentation/stages/3_generate_cousin_meshes.py` | `hunyuan` | Generate textured cousin meshes. | `cousin_generation/` |
+| `3` | `B_augmentation/stages/3_generate_cousin_meshes.py` | `hunyuan` (`--env-mesh`) | Generate textured cousin meshes. | `cousin_generation/` |
 | `4` | `B_augmentation/stages/4_make_cousins_sim_ready.py` | `simfoundry` | Convert cousin meshes to sim-ready URDFs. | `sim_cousins/` |
 | `5` | `B_augmentation/stages/5_import_cousin_usd.py` | `simfoundry` | Import cousin URDFs as USD assets. | `usd_cousins/`, custom asset dataset entries |
 | `6` | `B_augmentation/stages/6_sample_reconstructed_scene.py` | `simfoundry` | Swap cousins into the reconstructed scene and sample variants. | `s13_og/auto_generation/` |

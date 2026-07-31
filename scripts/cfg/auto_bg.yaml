@@ -52,7 +52,7 @@ env:
   void: void                                      # VOID inpainting (CogVideoX-Fun-V1.5-5b-InP)
   nerfstudio: nerfstudio_simfoundry               # ns-train + ns-export (splatfacto-big)
   threedgrut: 3dgrut                              # PLY -> USDZ conversion
-  hunyuan: hunyuan                                # Stage 7
+  mesh: hunyuan                                   # Stage 7 (mesh generation; simfoundry for TRELLIS.2)
   any6d: any6d                                    # Stage 8
 
 # ===== Background ingest (steps 1-4) =====

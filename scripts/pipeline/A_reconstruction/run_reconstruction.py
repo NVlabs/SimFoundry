@@ -22,7 +22,7 @@ def main():
     parser.add_argument("--python-bin", default="python")
     parser.add_argument("--env-simfoundry", default="simfoundry")
     parser.add_argument("--env-da3", default="da3")
-    parser.add_argument("--env-hunyuan", default="hunyuan")
+    parser.add_argument("--env-mesh", default="hunyuan")
     parser.add_argument("--env-b1k", default="b1k")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--stream-5-8", action="store_true", help="Enable streaming for a contiguous subsequence in stages 5-8")
@@ -45,7 +45,7 @@ def main():
         exclude_ids_csv=args.exclude,
         exec_mode=args.exec_mode,
         python_bin=args.python_bin,
-        env_map={"simfoundry": args.env_simfoundry, "da3": args.env_da3, "hunyuan": args.env_hunyuan, "b1k": args.env_b1k},
+        env_map={"simfoundry": args.env_simfoundry, "da3": args.env_da3, "mesh": args.env_mesh, "b1k": args.env_b1k},
         dry_run=args.dry_run,
         stream_subseq_enabled=stream_enabled,
         stream_start_stage=stream_start,

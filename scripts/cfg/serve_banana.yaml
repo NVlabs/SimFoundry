@@ -105,7 +105,7 @@ s6_upsample:      # env: simfoundry
   model: gemini-3-pro-image-preview     # options: gpt, gemini, flux
   validity_model: gemini
   skip_infill: true  # Set to true to skip infill step and directly upsample
-s7_mesh:          # env: hunyuan
+s7_mesh:          # env: mesh
   rerun: true
   out_dirname: s7_mesh
   out_dir: "${root_dir}/${scene_name}/${s7_mesh.out_dirname}"
@@ -321,7 +321,7 @@ s18_replay:          # env: b1k
   # Data transformations (applied during saving only, not during env execution)
   invert_gripper_action: true                    # If true, invert gripper action: action[-1] = 1 - action[-1]
   scale_gripper_state: 1.0                       # Factor to multiply gripper state (observation.state[-1]) by
-s19_cousin_generation:          # env: hunyuan
+s19_cousin_generation:          # env: mesh
   out_dirname: s16_cousin_generation
   source_dir: "${root_dir}/${scene_name}/cousin_images"
   out_dir: "${root_dir}/${scene_name}/${s16_cousin_generation.out_dirname}"
