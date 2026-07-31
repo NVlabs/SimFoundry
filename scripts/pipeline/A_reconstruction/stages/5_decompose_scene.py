@@ -524,7 +524,7 @@ def compute_object_removal_order(
 REMOVAL_MODELS = {
     "gemini",
     "gemini-2.5-flash-image",
-    "gemini-3-pro-image-preview",
+    "gemini-3-pro-image",
     "flux",
 }
 
@@ -822,7 +822,7 @@ def main(cfg):
         removal_model = Gemini(
             project=cfg.gcloud_project,
             location="global",
-            model="gemini-3-pro-image-preview",
+            model="gemini-3-pro-image",
         )
     elif "gemini" in removal_model_name:
         removal_model = Gemini(

@@ -36,7 +36,7 @@ Options:
   --stream / --no-stream          Enable/disable stages 5-8 streaming. Default: enabled
   --stream-start-stage N          Streaming start stage, 5-8. Default: 5
   --stream-end-stage N            Streaming end stage, 5-8. Default: 8
-  --max-vram-gb N                 Single-GPU hard VRAM budget for streaming. Default: 30
+  --max-vram-gb N                 Absolute VRAM budget for streaming. Default: unset (uses stream_subseq.max_vram_frac).
   --detect-articulation           Run stage 8b (articulated objects). Not shipped in this release; ignored with a warning.
   --cache-mode                    Cache raw remote model responses.
   --test-mode                     Replay remote model responses from cache.
@@ -61,7 +61,7 @@ ENV_B1K="${ENV_B1K:-b1k}"
 STREAM_ENABLED="${STREAM_ENABLED:-1}"
 STREAM_START_STAGE="${STREAM_START_STAGE:-5}"
 STREAM_END_STAGE="${STREAM_END_STAGE:-8}"
-MAX_VRAM_GB="${MAX_VRAM_GB:-30}"
+MAX_VRAM_GB="${MAX_VRAM_GB:-}"
 DETECT_ARTICULATION="${DETECT_ARTICULATION:-0}"
 CACHE_MODE_ENABLED=0
 TEST_MODE_ENABLED=0
@@ -270,9 +270,11 @@ if [[ "${INPUT_MODE}" == "video" ]]; then
   CMD+=("s1_video.video_fpath=${VIDEO_FPATH}")
 fi
 
-CMD+=(
-  "stream_subseq.max_vram_gb=${MAX_VRAM_GB}"
-)
+# Only pin an absolute budget when the user asked for one; otherwise the pipeline sizes
+# the budget as a fraction of total GPU memory (stream_subseq.max_vram_frac).
+if [[ -n "${MAX_VRAM_GB}" ]]; then
+  CMD+=("stream_subseq.max_vram_gb=${MAX_VRAM_GB}")
+fi
 if [[ "${DETECT_ARTICULATION}" == "1" ]]; then
   CMD+=("s8b_articulate_objects.interactive_review=false")
 fi

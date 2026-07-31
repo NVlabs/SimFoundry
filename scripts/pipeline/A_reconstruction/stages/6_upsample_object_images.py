@@ -36,12 +36,11 @@ bootstrap_hydra_workdir(__file__)
 
 REMBG_CPU_PROVIDERS = ["CPUExecutionProvider"]
 
-# TODO: How to upsample when object is partially occluded (e.g.: marker in cup scenario)
 
 UPSAMPLE_MODELS = {
     "gemini",
     "gemini-2.5-flash-image",
-    "gemini-3-pro-image-preview",
+    "gemini-3-pro-image",
     "gpt",
     "flux",
 }
@@ -58,8 +57,6 @@ def resolve_requested_indices(cfg):
         return {raw}
     return {int(v) for v in raw}
 
-
-# TODO: add infill and upsampling prompts for other models
 
 @hydra.main(config_name="real2sim_cfg", config_path=CFG_DIR, version_base="1.3")
 def main(cfg):
@@ -90,7 +87,7 @@ def main(cfg):
         model = Gemini(
             project=cfg.gcloud_project,
             location="global",
-            model="gemini-3-pro-image-preview",
+            model="gemini-3-pro-image",
         )
         for (out_w, out_h) in model.IMAGE_SHAPES:
             ratio = out_w / out_h

@@ -3,6 +3,9 @@
 
 import base64
 import os
+import random
+import re
+import time
 from io import BytesIO
 from types import SimpleNamespace
 from openai import OpenAI
@@ -156,6 +159,122 @@ def _get_vertex_imagen_api():
         VertexImage=VertexImage,
         vertexai=vertexai,
     )
+
+
+# ==============================================================================
+# Remote-call retry policy
+# ==============================================================================
+# Rate limits (HTTP 429 / RESOURCE_EXHAUSTED) are the common failure mode on
+# pay-as-you-go quota. Retrying them immediately makes throttling worse, so they get
+# exponential backoff with jitter and a generous attempt budget. Client errors that
+# will never succeed on retry (malformed request, auth, safety blocks) fail fast
+# instead of burning the budget.
+
+RETRY_BASE_DELAY_S = float(os.environ.get("SIMFOUNDRY_REMOTE_RETRY_BASE_S", 2.0))
+RETRY_MAX_DELAY_S = float(os.environ.get("SIMFOUNDRY_REMOTE_RETRY_MAX_S", 60.0))
+# Rate limits are worth waiting out, so they get their own (larger) attempt budget.
+RATE_LIMIT_MAX_ATTEMPTS = int(os.environ.get("SIMFOUNDRY_REMOTE_RATE_LIMIT_ATTEMPTS", 8))
+
+_RATE_LIMIT_MARKERS = (
+    "429",
+    "resource_exhausted",
+    "resourceexhausted",
+    "rate limit",
+    "ratelimit",
+    "quota exceeded",
+    "too many requests",
+)
+_NON_RETRYABLE_MARKERS = (
+    "400",
+    "401",
+    "403",
+    "404",
+    "invalid_argument",
+    "permission_denied",
+    "unauthenticated",
+    "not_found",
+    "api key not valid",
+)
+
+
+class RemoteCallFailed(RuntimeError):
+    """A remote model call exhausted its retries."""
+
+
+def is_rate_limit_error(exc: BaseException) -> bool:
+    """True when an exception looks like provider-side throttling."""
+    status = getattr(exc, "status_code", None) or getattr(exc, "code", None)
+    if status == 429:
+        return True
+    text = f"{type(exc).__name__} {exc}".lower()
+    return any(marker in text for marker in _RATE_LIMIT_MARKERS)
+
+
+def is_non_retryable_error(exc: BaseException) -> bool:
+    """True for client errors that will not succeed on retry."""
+    if is_rate_limit_error(exc):
+        return False
+    status = getattr(exc, "status_code", None) or getattr(exc, "code", None)
+    if isinstance(status, int) and 400 <= status < 500 and status not in (408, 429):
+        return True
+    text = f"{type(exc).__name__} {exc}".lower()
+    return any(marker in text for marker in _NON_RETRYABLE_MARKERS)
+
+
+def retry_delay_from_error(exc: BaseException) -> float | None:
+    """Honor a server-provided retry delay when the SDK surfaces one."""
+    for attr in ("retry_delay", "retry_after"):
+        value = getattr(exc, attr, None)
+        seconds = getattr(value, "seconds", value)
+        try:
+            if seconds is not None and float(seconds) > 0:
+                return float(seconds)
+        except (TypeError, ValueError):
+            pass
+    match = re.search(r"retry[_ -]?(?:delay|after)\D{0,12}?(\d+(?:\.\d+)?)", str(exc), re.IGNORECASE)
+    if match:
+        try:
+            return float(match.group(1))
+        except ValueError:
+            return None
+    return None
+
+
+def backoff_sleep_s(attempt: int, exc: BaseException | None = None) -> float:
+    """Exponential backoff with full jitter; `attempt` is 0-based."""
+    if exc is not None:
+        server_delay = retry_delay_from_error(exc)
+        if server_delay is not None:
+            return min(server_delay, RETRY_MAX_DELAY_S)
+    ceiling = min(RETRY_BASE_DELAY_S * (2 ** attempt), RETRY_MAX_DELAY_S)
+    return random.uniform(0.0, ceiling)
+
+
+def handle_remote_exception(exc, *, attempt, n_retries, provider, model, sleep_fn=time.sleep):
+    """Decide whether to retry `exc`, sleeping first when appropriate.
+
+    Returns the effective attempt budget so a rate-limited call can keep going past
+    ``n_retries``. Re-raises immediately for errors that retrying cannot fix.
+    """
+    if is_non_retryable_error(exc):
+        raise RemoteCallFailed(
+            f"{provider} [{model}] failed with a non-retryable error: {exc}"
+        ) from exc
+
+    rate_limited = is_rate_limit_error(exc)
+    budget = max(n_retries, RATE_LIMIT_MAX_ATTEMPTS) if rate_limited else n_retries
+    if attempt + 1 >= budget:
+        return budget
+
+    delay = backoff_sleep_s(attempt, exc)
+    kind = "rate limited (429)" if rate_limited else "error"
+    print(
+        f"{provider} [{model}] {kind} on attempt {attempt + 1}/{budget}; "
+        f"retrying in {delay:.1f}s: {exc}",
+        flush=True,
+    )
+    sleep_fn(delay)
+    return budget
 
 
 class VLM_API:
@@ -355,7 +474,7 @@ class Gemini(VLM_API):
             "modalities": ["TEXT"],
             "max_tokens": 65535,
         },
-        "gemini-3-pro-image-preview": {
+        "gemini-3-pro-image": {
             "modalities": ["TEXT", "IMAGE"],
             "max_tokens": 32768,
         },
@@ -503,11 +622,14 @@ class Gemini(VLM_API):
             if self.timeout_ms is not None:
                 client_kwargs["http_options"] = genai_types.HttpOptions(timeout=self.timeout_ms)
             self.client = _get_genai_module().Client(**client_kwargs)
-        for i in range(n_retries):
+        budget = n_retries
+        last_exc = None
+        i = 0
+        while i < budget:
             if result is not None:
                 break
             if self.verbose:
-                print(f"Querying Gemini [{self.model}]: attempt {i + 1} of {n_retries}...", flush=True)
+                print(f"Querying Gemini [{self.model}]: attempt {i + 1} of {budget}...", flush=True)
             _result = []
             try:
                 for chunk in self.client.models.generate_content_stream(
@@ -520,8 +642,16 @@ class Gemini(VLM_API):
                     _result.append(chunk)
                 result = _result
             except Exception as e:
-                print(f"\nFailed attempt {i + 1} of {n_retries}: {e}", flush=True)
-                print(f"\nFailed attempt {i + 1} of {n_retries}", flush=True)
+                last_exc = e
+                budget = handle_remote_exception(
+                    e, attempt=i, n_retries=budget, provider="Gemini", model=self.model
+                )
+            i += 1
+
+        if result is None:
+            raise RemoteCallFailed(
+                f"Gemini [{self.model}] failed after {budget} attempts: {last_exc}"
+            ) from last_exc
 
         print()
         if cache.cache_enabled and result is not None:
@@ -668,10 +798,13 @@ class Imagen3(VLM_API):
         if self.client is None:
             imagen_api.vertexai.init(project=self.project, location=self.location)
             self.client = imagen_api.ImageGenerationModel.from_pretrained(self.model)
-        for i in range(n_retries):
+        budget = n_retries
+        last_exc = None
+        i = 0
+        while i < budget:
             if result is not None:
                 break
-            print(f"Querying Imagen3 [{self.model}]: {i + 1} of {n_retries}...")
+            print(f"Querying Imagen3 [{self.model}]: {i + 1} of {budget}...")
             try:
                 result = self.client._generate_images(
                     prompt=prompt,
@@ -685,8 +818,17 @@ class Imagen3(VLM_API):
                     person_generation="allow_adult",
                 )
 
-            except:
-                print(f"Failed attempt {i + 1} of {n_retries}")
+            except Exception as e:
+                last_exc = e
+                budget = handle_remote_exception(
+                    e, attempt=i, n_retries=budget, provider="Imagen3", model=self.model
+                )
+            i += 1
+
+        if result is None:
+            raise RemoteCallFailed(
+                f"Imagen3 [{self.model}] failed after {budget} attempts: {last_exc}"
+            ) from last_exc
 
         if print_results and result is not None:
             for res in result:
@@ -787,10 +929,13 @@ class GPT(VLM_API):
             result = None
             if self.client is None:
                 self.client = OpenAI(api_key=self.api_key)
-            for i in range(n_retries):
+            budget = n_retries
+            last_exc = None
+            i = 0
+            while i < budget:
                 if result is not None:
                     break
-                print(f"Querying GPT [{self.model}]: {i + 1} of {n_retries}...")
+                print(f"Querying GPT [{self.model}]: {i + 1} of {budget}...")
                 try:
                     with open(image_path, "rb") as image_file:
                         result = self.client.images.edit(
@@ -805,8 +950,17 @@ class GPT(VLM_API):
                             background="auto",
                             # moderation="auto",
                         )
-                except:
-                    print(f"Failed attempt {i + 1} of {n_retries}")
+                except Exception as e:
+                    last_exc = e
+                    budget = handle_remote_exception(
+                        e, attempt=i, n_retries=budget, provider="GPT", model=self.model
+                    )
+                i += 1
+
+            if result is None:
+                raise RemoteCallFailed(
+                    f"GPT [{self.model}] failed after {budget} attempts: {last_exc}"
+                ) from last_exc
 
             if print_results and result is not None:
                 for dat in result.data:

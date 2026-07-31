@@ -231,12 +231,18 @@ def main(cfg):
     completed_artifacts_lock = Lock()
     timing_log_path = os.getenv(TIMING_LOG_ENV_VAR)
     timing_log = Path(timing_log_path) if timing_log_path else None
+    # The budget is a fraction of total GPU memory by default, so one config works across
+    # card sizes. An explicit max_vram_gb (e.g. from --max-vram-gb) still wins if set.
+    explicit_max_vram_gb = cfg.stream_subseq.get("max_vram_gb", None)
     scheduler = SingleGpuMemoryScheduler(
-        max_vram_gb=float(cfg.stream_subseq.get("max_vram_gb", 32)),
+        max_vram_gb=None if explicit_max_vram_gb is None else float(explicit_max_vram_gb),
+        max_vram_frac=float(cfg.stream_subseq.get("max_vram_frac", 0.9)),
         stage_vram_gb=_stage_vram_config(cfg.stream_subseq.get("stage_vram_gb", {})),
         gpu_index=int(cfg.stream_subseq.get("gpu_index", 0)),
         hard_cap=bool(cfg.stream_subseq.get("hard_vram_cap", True)),
         poll_interval_s=float(cfg.stream_subseq.get("memory_poll_interval_s", cfg.stream_subseq.poll_interval_s)),
+        wait_log_interval_s=float(cfg.stream_subseq.get("vram_wait_log_interval_s", 60.0)),
+        wait_timeout_s=cfg.stream_subseq.get("vram_wait_timeout_s", None),
     )
 
     workers: list[Thread] = []

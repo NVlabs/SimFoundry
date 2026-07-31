@@ -134,7 +134,7 @@ s5_scene:     # env: simfoundry
   crop_removal_images: true
   # vlm_model: gemini-2.5-pro     # options: gemini-2.5-pro, gemini-2.5-flash, gemini-3-pro
   detection_model: gemini-2.5-pro   # options: gemini-2.5-pro, gemini-2.5-flash, gemini-3-pro-preview, gemini-3.1-pro-preview, gemini-3-flash-preview
-  removal_model: gemini     # options: gemini, gemini-2.5-flash-image, gemini-3-pro-image-preview, flux
+  removal_model: gemini-2.5-flash-image     # options: gemini, gemini-2.5-flash-image, gemini-3-pro-image, flux
   min_detection_iterations: 3
   obj_removal_prompt_order: ["mask", "outline", "bbox"]   # options: mask, outline, bbox
   pda_K: 5
@@ -161,7 +161,7 @@ s5_scene_gmask:     # env: simfoundry
   crop_removal_images: true
   # vlm_model: gemini-2.5-pro     # options: gemini-2.5-pro, gemini-2.5-flash, gemini-3-pro
   detection_model: gemini-2.5-pro   # options: gemini-2.5-pro, gemini-2.5-flash, gemini-3-pro-preview, gemini-3.1-pro-preview, gemini-3-flash-preview
-  removal_model: gemini     # options: gemini, gemini-2.5-flash-image, gemini-3-pro-image-preview, flux
+  removal_model: gemini-2.5-flash-image     # options: gemini, gemini-2.5-flash-image, gemini-3-pro-image, flux
   min_detection_iterations: 3
   obj_removal_prompt_order: ["mask", "outline", "bbox"]   # options: mask, outline, bbox
   pda_K: 5
@@ -172,13 +172,13 @@ s6_upsample:      # env: simfoundry
   out_dirname: s6_upsample
   out_dir: "${root_dir}/${scene_name}/${s6_upsample.out_dirname}"
   sam_conf_threshold: 0.1
-  model: gemini     # options: gemini, gemini-2.5-flash-image, gemini-3-pro-image-preview, gpt, flux
+  model: gemini-2.5-flash-image     # options: gemini, gemini-2.5-flash-image, gemini-3-pro-image, gpt, flux
   validity_model: gemini
   infill: false    # If true, infill the object before upsampling
   check_valid: false  # If true, run validity check on each upsampled object
   object_indices: null  # null = all, or [1,2] for selective streaming/reruns
   remove_bg_max_side: 1024  # Downscale before rembg inference to reduce ONNX memory use; null disables
-  include_invalid: false  # If true, process objects that s5 marked as invalid (is_valid_removed_obj=false)
+  include_invalid: true  # If true, process objects that s5 marked as invalid (is_valid_removed_obj=false)
 s7_mesh:          # env: hunyuan
   rerun: true
   out_dirname: s7_mesh
@@ -197,10 +197,19 @@ stream_subseq:
   end_stage: 8          # end stage in contiguous subsequence (5-8)
   poll_interval_s: 3.0
   idle_timeout_s: 120.0
-  max_vram_gb: 30
+  # VRAM budget for streamed stages, as a fraction of the GPU's TOTAL memory. Sizing it
+  # relative to the card means one setting works on a 24 GiB and a 96 GiB GPU.
+  max_vram_frac: 0.9
+  # Optional absolute override in GiB (also set by run.sh --max-vram-gb). Leave null to
+  # use max_vram_frac. Setting this too low on a large card can stall stages: with
+  # hard_vram_cap the budget is compared against TOTAL GPU usage, so unrelated processes
+  # count against it.
+  max_vram_gb: null
   hard_vram_cap: true
   gpu_index: 0
   memory_poll_interval_s: 3.0
+  vram_wait_log_interval_s: 60.0   # How often to log why a stage is paused waiting for VRAM
+  vram_wait_timeout_s: null        # Give up after this many seconds waiting; null = wait forever
   analytics_path: null
   stage_vram_gb:
     5: 18
