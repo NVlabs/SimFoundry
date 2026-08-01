@@ -24,7 +24,7 @@ class StageIO:
 
 
 STAGE_IO = {
-    5: StageIO(stage=5, watch_dir_fn=lambda cfg: f"{cfg.s5_scene_gmask.out_dir}/obj_cat_list", artifact_suffix=".json", override_key=None),
+    5: StageIO(stage=5, watch_dir_fn=lambda cfg: f"{cfg.s5_scene.out_dir}/obj_cat_list", artifact_suffix=".json", override_key=None),
     6: StageIO(stage=6, watch_dir_fn=lambda cfg: f"{cfg.s6_upsample.out_dir}/upsampled", artifact_suffix="_transparent.png", override_key="s6_upsample.object_indices"),
     7: StageIO(stage=7, watch_dir_fn=lambda cfg: f"{cfg.s7_mesh.out_dir}/textured_mesh/{cfg.s7_mesh.texture_model}", artifact_suffix="_mesh.glb", override_key="s7_mesh.object_indices"),
     8: StageIO(stage=8, watch_dir_fn=lambda cfg: f"{cfg.s8_pose.out_dir}/info", artifact_suffix=".json", override_key="s8_pose.object_indices"),

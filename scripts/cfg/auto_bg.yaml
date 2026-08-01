@@ -146,7 +146,7 @@ canonical_run_overrides:
   s1_video_target_w: 672
   s1_video_target_h: 384
   s2_depth_backend: da3                           # orig-DA3 must be DA3 (the precondition checks the npz schema)
-  s5_scene_gmask_pda_geometric_backend: depth_pro # PDA geometric backend for the gmask sub-stage
+  s5_scene_pda_geometric_backend: depth_pro # PDA geometric backend for the gmask sub-stage
   s10_sim_vlm_model: gemini-2.5-pro               # plain override (key exists; no `+`)
   # Stage 13: auto-exits via os._exit(0) when interactive=false (the default); run headless:
   s13_og_interactive: false                       # true keeps the OmniGibson viewer alive (hangs the batch run)

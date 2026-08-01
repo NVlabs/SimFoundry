@@ -27,15 +27,15 @@ Builds an OmniGibson scene from video or ZED stereo capture.
 ```bash
 bash scripts/pipeline/A_reconstruction/run.sh \
   --scene-name pull_scene_2 \
-  --video-fpath /path/to/video.mov \
-  --max-vram-gb 24
+  --video-fpath /path/to/video.mov
 ```
 
 Useful options:
 
 - `--pipeline video|stereo|zed`: input mode; default is `video`.
 - `--stream / --no-stream`: stream stages 5-8 together or run them one at a time.
-- `--max-vram-gb N`: hard VRAM budget for streamed stages.
+- `--max-vram-frac F`: VRAM budget for streamed stages as a fraction of total GPU memory. Default `0.9`, so the same setting works across card sizes.
+- `--max-vram-gb N`: opt-in absolute hard budget in GiB, overriding the fraction. Leave unset unless you need to pin it — with `hard_vram_cap` the budget counts *total* GPU usage, so a value too small for the card stalls stages.
 - `--detect-articulation`: run stage 8b for automatic articulated-object generation. Not shipped in this release — the flag is accepted but ignored with a warning.
 - `--env-b1k simfoundry`: use this if OmniGibson is installed in the `simfoundry` env.
 
@@ -81,7 +81,6 @@ Generates digital cousin assets, samples scene variants, and proposes tasks for 
 ```bash
 bash scripts/pipeline/B_augmentation/run.sh \
   --scene-name pull_scene_2 \
-  --max-vram-gb 24 \
   -- prompt_cousin_structured.max_objects=2 \
        prompt_cousin_structured.max_generated_images_per_object=1
 ```

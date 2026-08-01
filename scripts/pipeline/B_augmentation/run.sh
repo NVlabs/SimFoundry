@@ -27,7 +27,7 @@ Options:
   --env-simfoundry NAME           Mamba env for SimFoundry stages. Default: simfoundry
   --env-mesh NAME                 Mamba env for mesh generation. Default: hunyuan
   --env-b1k NAME                  Mamba env for OmniGibson stages. Default: simfoundry
-  --max-vram-gb N                 Single-GPU VRAM budget. Default: 30
+  --max-vram-gb N                 Opt-in absolute VRAM budget, in GiB. Default: unset
   --cache-mode                    Cache raw remote model responses.
   --test-mode                     Replay remote model responses from cache.
   --model-cache-dir DIR           Cache root. Default: .cache/simfoundry/model_calls
@@ -45,7 +45,7 @@ PYTHON_BIN="${PYTHON_BIN:-python}"
 ENV_SIMFOUNDRY="${ENV_SIMFOUNDRY:-simfoundry}"
 ENV_MESH="${ENV_MESH:-hunyuan}"
 ENV_B1K="${ENV_B1K:-simfoundry}"
-MAX_VRAM_GB="${MAX_VRAM_GB:-30}"
+MAX_VRAM_GB="${MAX_VRAM_GB:-}"
 CACHE_MODE_ENABLED=0
 TEST_MODE_ENABLED=0
 MODEL_CACHE_DIR="${SIMFOUNDRY_MODEL_CACHE_DIR:-}"
@@ -152,9 +152,13 @@ CMD+=(
   "s13_og.auto_generation=true"
   "s13_og.auto_iter_num=2"
   "propose_scene_task.num_tasks=2"
-  "augmentation.max_vram_gb=${MAX_VRAM_GB}"
   "${HYDRA_OVERRIDES[@]}"
 )
+
+# Absolute cap is opt-in; without it the config default (null) applies.
+if [[ -n "${MAX_VRAM_GB}" ]]; then
+  CMD+=("augmentation.max_vram_gb=${MAX_VRAM_GB}")
+fi
 
 cd "${REPO_DIR}"
 exec "${CMD[@]}"

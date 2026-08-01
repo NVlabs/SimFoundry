@@ -36,7 +36,8 @@ Options:
   --stream / --no-stream          Enable/disable stages 5-8 streaming. Default: enabled
   --stream-start-stage N          Streaming start stage, 5-8. Default: 5
   --stream-end-stage N            Streaming end stage, 5-8. Default: 8
-  --max-vram-gb N                 Single-GPU hard VRAM budget for streaming. Default: 30
+  --max-vram-frac F               Streaming VRAM budget as a fraction of total GPU memory. Default: stream_subseq.max_vram_frac (0.9)
+  --max-vram-gb N                 Opt-in absolute hard VRAM budget for streaming, in GiB. Default: unset (uses the fraction)
   --detect-articulation           Run automated articulation decomposition stage 8b after stage 8.
   --cache-mode                    Cache raw remote model responses.
   --test-mode                     Replay remote model responses from cache.
@@ -61,7 +62,12 @@ ENV_B1K="${ENV_B1K:-b1k}"
 STREAM_ENABLED="${STREAM_ENABLED:-1}"
 STREAM_START_STAGE="${STREAM_START_STAGE:-5}"
 STREAM_END_STAGE="${STREAM_END_STAGE:-8}"
-MAX_VRAM_GB="${MAX_VRAM_GB:-30}"
+# Budget the streamed stages as a fraction of the card's total memory, so one setting works
+# on a 24 GiB and a 96 GiB GPU. An absolute GiB cap is opt-in: it is only forwarded when the
+# user asks for it, since with hard_vram_cap the budget counts TOTAL GPU usage, and a value
+# that is too small for the card stalls stages.
+MAX_VRAM_FRAC="${MAX_VRAM_FRAC:-}"
+MAX_VRAM_GB="${MAX_VRAM_GB:-}"
 DETECT_ARTICULATION="${DETECT_ARTICULATION:-0}"
 CACHE_MODE_ENABLED=0
 TEST_MODE_ENABLED=0
@@ -139,6 +145,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --stream-end-stage)
       STREAM_END_STAGE="$2"
+      shift 2
+      ;;
+    --max-vram-frac)
+      MAX_VRAM_FRAC="$2"
       shift 2
       ;;
     --max-vram-gb)
@@ -263,9 +273,12 @@ if [[ "${INPUT_MODE}" == "video" ]]; then
   CMD+=("s1_video.video_fpath=${VIDEO_FPATH}")
 fi
 
-CMD+=(
-  "stream_subseq.max_vram_gb=${MAX_VRAM_GB}"
-)
+if [[ -n "${MAX_VRAM_FRAC}" ]]; then
+  CMD+=("stream_subseq.max_vram_frac=${MAX_VRAM_FRAC}")
+fi
+if [[ -n "${MAX_VRAM_GB}" ]]; then
+  CMD+=("stream_subseq.max_vram_gb=${MAX_VRAM_GB}")
+fi
 if [[ "${DETECT_ARTICULATION}" == "1" ]]; then
   CMD+=("s8b_articulate_objects.interactive_review=false")
 fi

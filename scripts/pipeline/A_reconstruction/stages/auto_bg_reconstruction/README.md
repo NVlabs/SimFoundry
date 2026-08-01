@@ -18,7 +18,7 @@ bash scripts/pipeline/A_reconstruction/run.sh \
      s1_video.n_subsampled_frames=400 \
      s1_video.target_w=672 \
      s1_video.target_h=384 \
-     s5_scene_gmask.pda_geometric_backend=depth_pro \
+     s5_scene.pda_geometric_backend=depth_pro \
      s10_sim.vlm_model=gemini-2.5-pro
 ```
 

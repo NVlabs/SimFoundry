@@ -16,7 +16,7 @@
 #         --scene-name <scene> --video-fpath <video> --no-stream -- \
 #         s1_video.splat_prep=true s1_video.n_subsampled_frames=400 \
 #         s1_video.target_w=672 s1_video.target_h=384 \
-#         s5_scene_gmask.pda_geometric_backend=depth_pro s10_sim.vlm_model=gemini-2.5-pro
+#         s5_scene.pda_geometric_backend=depth_pro s10_sim.vlm_model=gemini-2.5-pro
 #   (Stage 2 uses the DA3 backend by default; stage 13 auto-exits via s13_og.interactive=false.)
 #
 # This script REUSES those outputs — it does NOT re-subsample, re-run orig-DA3, or
@@ -159,7 +159,7 @@ precondition_fail() {
 [orchestrator]     --scene-name ${SCENE} --video-fpath ${VIDEO} --no-stream -- \\
 [orchestrator]     s1_video.splat_prep=true s1_video.n_subsampled_frames=${NUM_FRAMES} \\
 [orchestrator]     s1_video.target_w=672 s1_video.target_h=384 \\
-[orchestrator]     s5_scene_gmask.pda_geometric_backend=depth_pro
+[orchestrator]     s5_scene.pda_geometric_backend=depth_pro
 [orchestrator]
 [orchestrator] (Stages 5/10 use Vertex AI Gemini; stage 2 uses DA3; stage 13 auto-exits via s13_og.interactive=false.)
 EOF

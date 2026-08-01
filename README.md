@@ -53,14 +53,16 @@ Pipeline reference: [scripts/pipeline/README.md](scripts/pipeline/README.md)
 
 ## Common Examples
 
-Reconstruct a scene from video with a 24 GiB VRAM budget:
+Reconstruct a scene from video:
 
 ```bash
 bash scripts/pipeline/A_reconstruction/run.sh \
   --scene-name pull_scene_2 \
-  --video-fpath /path/to/video.mov \
-  --max-vram-gb 24
+  --video-fpath /path/to/video.mov
 ```
+
+The streamed stages budget VRAM as a fraction of the card (90% by default), so this works
+unchanged on a 24 GiB or a 96 GiB GPU. Add `--max-vram-gb N` only to pin an absolute cap.
 
 Note: all VLM stages run on Google Cloud (Vertex AI Gemini), so `gcloud_project` must be set — including for the B augmentation pipeline below.
 
@@ -71,7 +73,6 @@ Generate bounded digital cousins, scene variants, and task proposals:
 ```bash
 bash scripts/pipeline/B_augmentation/run.sh \
   --scene-name pull_scene_2 \
-  --max-vram-gb 24 \
   -- prompt_cousin_structured.max_objects=2 \
        prompt_cousin_structured.max_generated_images_per_object=1
 ```

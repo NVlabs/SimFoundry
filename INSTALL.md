@@ -15,7 +15,9 @@ This guide covers the standard SimFoundry setup: environments, checkpoints, serv
 
 Recommended VRAM:
 
-- 24 GiB works for the standard video pipeline with `--max-vram-gb 24`.
+- 24 GiB works for the standard video pipeline. The streaming budget defaults to a fraction of
+  total GPU memory (`stream_subseq.max_vram_frac`, 0.9), so no flag is needed; pass
+  `--max-vram-gb N` only to pin an absolute cap.
 - More VRAM can improve throughput for streamed reconstruction and high-resolution background runs.
 
 ## 1. Clone And Prepare Submodules
@@ -198,8 +200,7 @@ Use an existing video and scene name:
 bash scripts/pipeline/A_reconstruction/run.sh \
   --scene-name smoke_scene \
   --video-fpath /path/to/video.mov \
-  --include 1b,2,3 \
-  --max-vram-gb 24
+  --include 1b,2,3
 ```
 
 Once a full A reconstruction exists, test scene loading:

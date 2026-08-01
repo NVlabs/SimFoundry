@@ -103,7 +103,7 @@ s3_ground:    # env: simfoundry
   floor_tilt_threshold: 0.125
   img_idx: 0
   use_fs: false  # Set to true to use FoundationStereo output (s2_fs) instead of Depth Anything (s2_da)
-  detection_model: gemini-2.5-pro   # options: gemini-2.5-pro, gemini-2.5-flash, gemini-3-pro-preview, gemini-3.1-pro-preview, gemini-3-flash-preview
+  detection_model: gemini-3.1-pro-preview   # options: gemini-2.5-pro, gemini-2.5-flash, gemini-3-pro-preview, gemini-3.1-pro-preview, gemini-3-flash-preview
 s4_frame:     # env: simfoundry
   rerun: true
   out_dirname: s4_frame
@@ -112,36 +112,11 @@ s4_frame:     # env: simfoundry
   denoise_nb_points: 30
   denoise_radius: 0.03
 s5_scene:     # env: simfoundry
+  # Single source of truth for stage 5. Previously split across s5_scene and
+  # s5_scene, where the stage read _gmask but downstream stages read s5_scene.
   rerun: true
   out_dirname: s5_scene
   out_dir: "${root_dir}/${scene_name}/${s5_scene.out_dirname}"
-  img_idx: "${s3_ground.img_idx}"
-  ratio: "4:3"
-  sam_conf_threshold: 0.15
-  start_iter: null
-  end_iter: null
-  force_categories: null
-  use_feedback: false   # If true, use rerun_feedback.json from 5b_visualize_decomposition.py
-  removal_outline_color: [0, 255, 0]
-  boundary_proportion: 0.02 #0.1
-  z_prune_threshold: -0.05
-  z_prune_threshold_proportion: 0.1
-  overlap_threshold_proportion: 0.9
-  duplicate_mask_intersect_area_threshold: 0.95
-  min_valid_pixel_prop: 0.10
-  update_categories_period: 3
-  merge_output_images: true
-  crop_removal_images: true
-  # vlm_model: gemini-2.5-pro     # options: gemini-2.5-pro, gemini-2.5-flash, gemini-3-pro
-  detection_model: gemini-3-pro-preview   # options: gemini-2.5-pro, gemini-2.5-flash, gemini-3-pro-preview, gemini-3.1-pro-preview, gemini-3-flash-preview
-  removal_model: gemini-3-pro-image     # options: gemini, gemini-2.5-flash-image, gemini-3-pro-image, flux
-  min_detection_iterations: 3
-  obj_removal_prompt_order: ["mask", "outline", "bbox"]   # options: mask, outline, bbox
-  pda_K: 5
-s5_scene_gmask:     # env: simfoundry
-  rerun: true
-  out_dirname: s5_scene
-  out_dir: "${root_dir}/${scene_name}/${s5_scene_gmask.out_dirname}"
   img_idx: "${s3_ground.img_idx}"
   ratio: "4:3"
   sam_conf_threshold: 0.35
@@ -160,7 +135,7 @@ s5_scene_gmask:     # env: simfoundry
   merge_output_images: true
   crop_removal_images: true
   # vlm_model: gemini-2.5-pro     # options: gemini-2.5-pro, gemini-2.5-flash, gemini-3-pro
-  detection_model: gemini-3-pro-preview   # options: gemini-2.5-pro, gemini-2.5-flash, gemini-3-pro-preview, gemini-3.1-pro-preview, gemini-3-flash-preview
+  detection_model: gemini-3.1-pro-preview   # options: gemini-2.5-pro, gemini-2.5-flash, gemini-3-pro-preview, gemini-3.1-pro-preview, gemini-3-flash-preview
   removal_model: gemini-3-pro-image     # options: gemini, gemini-3-pro-image, gemini-3-pro-image, flux
   min_detection_iterations: 3
   obj_removal_prompt_order: ["mask", "outline", "bbox"]   # options: mask, outline, bbox
@@ -200,10 +175,10 @@ stream_subseq:
   # VRAM budget for streamed stages, as a fraction of the GPU's TOTAL memory. Sizing it
   # relative to the card means one setting works on a 24 GiB and a 96 GiB GPU.
   max_vram_frac: 0.9
-  # Optional absolute override in GiB (also set by run.sh --max-vram-gb). Leave null to
-  # use max_vram_frac. Setting this too low on a large card can stall stages: with
-  # hard_vram_cap the budget is compared against TOTAL GPU usage, so unrelated processes
-  # count against it.
+  # Opt-in absolute override in GiB (run.sh --max-vram-gb). Null means the fraction above
+  # applies; setting a value here takes precedence over max_vram_frac. Opt-in because a value
+  # too small for the card stalls stages: with hard_vram_cap the budget is compared against
+  # TOTAL GPU usage, so unrelated processes count against it.
   max_vram_gb: null
   hard_vram_cap: true
   gpu_index: 0
@@ -278,7 +253,7 @@ s10_sim:          # env: simfoundry
   rerun: true
   out_dirname: s10_sim
   out_dir: "${root_dir}/${scene_name}/${s10_sim.out_dirname}"
-  vlm_model: gemini-3-pro-preview   # options: gemini-2.5-pro, gemini-2.5-flash, gemini-3-pro-preview, gemini-3.1-pro-preview
+  vlm_model: gemini-3.1-pro-preview   # options: gemini-2.5-pro, gemini-2.5-flash, gemini-3-pro-preview, gemini-3.1-pro-preview
   object_indices: null
   parallel_workers: 2
   collision_method: coacd
@@ -636,7 +611,7 @@ cousin_p2p_match:
   out_dirname: cousin_p2p_match
   out_dir: "${root_dir}/${scene_name}/${cousin_p2p_match.out_dirname}"
 augmentation:
-  max_vram_gb: 30
+  max_vram_gb: null   # opt-in absolute cap (run.sh --max-vram-gb); null leaves it unbounded
   cpu_workers: 2
 application_smoke:
   n_steps: 20

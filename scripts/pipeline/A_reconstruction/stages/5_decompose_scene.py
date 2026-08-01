@@ -547,7 +547,7 @@ def load_rerun_feedback(out_dir: str) -> dict:
     Load rerun feedback from the visualization script.
     
     Args:
-        out_dir: Path to the s5_scene_gmask output directory
+        out_dir: Path to the s5_scene output directory
         
     Returns:
         Dictionary with rerun requests, or empty dict if no feedback
@@ -575,7 +575,7 @@ def delete_iteration_data(out_dir: str, start_iter: int, end_iter: int = None):
     Delete iteration data for specified iterations.
     
     Args:
-        out_dir: Path to the s5_scene_gmask output directory
+        out_dir: Path to the s5_scene output directory
         start_iter: First iteration to delete (inclusive)
         end_iter: Last iteration to delete (inclusive). If None, deletes all from start_iter onwards.
     """
@@ -696,7 +696,7 @@ def process_feedback_requests(rerun_requests: dict, out_dir: str) -> tuple:
     
     Args:
         rerun_requests: Dictionary of {iter_idx: {rerun, category, rerun_downstream, point_prompt}}
-        out_dir: Path to the s5_scene_gmask output directory
+        out_dir: Path to the s5_scene output directory
         
     Returns:
         Tuple of (start_iteration, category_overrides, point_prompts, iterations_to_delete)
@@ -770,8 +770,8 @@ def main(cfg):
     raw_img_dir = f"{cfg.s1_video.out_dir}/frames_subsampled_{cfg.s1_video.n_subsampled_frames}"
     raw_imgs = list(sorted([f"{raw_img_dir}/{fname}" for fname in os.listdir(raw_img_dir) if fname.endswith(".png")]))
     source_dir = cfg.s2_da.out_dir
-    # source_image_fpath = f"{cfg.s1_zed.out_dir}/{cfg.s5_scene_gmask.img_name}_l.png"
-    out_dir = cfg.s5_scene_gmask.out_dir
+    # source_image_fpath = f"{cfg.s1_zed.out_dir}/{cfg.s5_scene.img_name}_l.png"
+    out_dir = cfg.s5_scene.out_dir
     Path(out_dir).mkdir(parents=True, exist_ok=True)
 
     # Other hyperparams we need
@@ -779,7 +779,7 @@ def main(cfg):
     ground_img_idx = cfg.s3_ground.img_idx
 
     # Other hyperparams we need
-    scene_img_idx = cfg.s5_scene_gmask.img_idx
+    scene_img_idx = cfg.s5_scene.img_idx
     ground_img_idx = cfg.s3_ground.img_idx
 
     dirs_to_create = ["masked_object", "masked_object_focus", "masked_object_background", "detected_phrases", "gemini_detected_phrases", "removal_mask", "removal_mask_resized",
@@ -788,9 +788,9 @@ def main(cfg):
         Path(f"{out_dir}/{dir_name}").mkdir(parents=True, exist_ok=True)
 
     # Set hyperparams
-    RATIO = cfg.s5_scene_gmask.ratio
-    REMOVAL_OUTLINE_COLOR = cfg.s5_scene_gmask.removal_outline_color
-    BOUNDARY_PROPORTION = cfg.s5_scene_gmask.boundary_proportion
+    RATIO = cfg.s5_scene.ratio
+    REMOVAL_OUTLINE_COLOR = cfg.s5_scene.removal_outline_color
+    BOUNDARY_PROPORTION = cfg.s5_scene.boundary_proportion
 
     logger.info("="*60)
     logger.info("Starting scene decomposition pipeline...")
@@ -799,15 +799,15 @@ def main(cfg):
 
     # Create SAM model
     sam3 = SAM3(
-        confidence_threshold=cfg.s5_scene_gmask.sam_conf_threshold,
+        confidence_threshold=cfg.s5_scene.sam_conf_threshold,
         device="cuda",
         video=False,
     )
 
-    # Object detection model: configurable via cfg.s5_scene_gmask.detection_model.
+    # Object detection model: configurable via cfg.s5_scene.detection_model.
     # Needs strong vision + structured JSON output. Uses Vertex AI Gemini and must be
     # one of Gemini's supported model ids (DETECTION_MODELS).
-    detection_model_name = cfg.s5_scene_gmask.detection_model
+    detection_model_name = cfg.s5_scene.detection_model
     assert_valid_key(key=detection_model_name, valid_keys=DETECTION_MODELS, name="detection model")
     vlm_pro = Gemini(
         project=cfg.gcloud_project,
@@ -816,7 +816,7 @@ def main(cfg):
     )
 
     # Define removal model
-    removal_model_name = cfg.s5_scene_gmask.removal_model
+    removal_model_name = cfg.s5_scene.removal_model
     assert_valid_key(key=removal_model_name, valid_keys=REMOVAL_MODELS, name="removal model")
     if removal_model_name == "gemini":
         removal_model = Gemini(
@@ -844,10 +844,10 @@ def main(cfg):
 
     # Models for generating synthetic depth
     args = Arguments()
-    args.K = cfg.s5_scene_gmask.pda_K
+    args.K = cfg.s5_scene.pda_K
 
     # Select geometric depth backend for PriorDepthAnything
-    pda_geometric_backend = cfg.s5_scene_gmask.get("pda_geometric_backend", "depth_pro")
+    pda_geometric_backend = cfg.s5_scene.get("pda_geometric_backend", "depth_pro")
     assert_valid_key(key=pda_geometric_backend, valid_keys=PDA_GEOMETRIC_BACKENDS, name="pda_geometric_backend")
     logger.info(f"Using PDA geometric depth backend: {pda_geometric_backend}")
 
@@ -975,7 +975,7 @@ def main(cfg):
     K = results["intrinsics"][ground_img_idx]
     np.save(f"{out_dir}/original_depth.npy", results["depth"][scene_img_idx])
     # K_fpath = f"{source_dir}/{cfg.s3_ground.img_name}_K.npy"
-    # scene_img_name = cfg.s5_scene_gmask.img_name
+    # scene_img_name = cfg.s5_scene.img_name
     # K = np.load(K_fpath)
     # depth_path = f"{source_dir}/{scene_img_name}_depth_meter.npy"
     # shutil.copy2(depth_path, f"{out_dir}/original_depth.npy")
@@ -996,14 +996,14 @@ def main(cfg):
     # TODO: Idea: Crop and resize a small portion of the image before passing to FLUX to remove to limit the removal impact -- maybe more accurate?
 
     # Iterate
-    current_iteration = 0 if cfg.s5_scene_gmask.start_iter is None else cfg.s5_scene_gmask.start_iter
-    end_iteration = cfg.s5_scene_gmask.end_iter
+    current_iteration = 0 if cfg.s5_scene.start_iter is None else cfg.s5_scene.start_iter
+    end_iteration = cfg.s5_scene.end_iter
     detection_iteration = 0
     resumed_obj_metadata = None
     feedback_resume_applied = False
     
     # Handle feedback from visualization script if enabled
-    use_feedback = cfg.s5_scene_gmask.get("use_feedback", False)
+    use_feedback = cfg.s5_scene.get("use_feedback", False)
     category_overrides = {}
     point_prompts = {}
     vlm_obj_prompt_points = {}
@@ -1051,7 +1051,7 @@ def main(cfg):
 
     # Automatically continue from the last complete iteration unless the user explicitly
     # set start_iter or provided a feedback-based rerun request.
-    if cfg.s5_scene_gmask.start_iter is None and not feedback_resume_applied:
+    if cfg.s5_scene.start_iter is None and not feedback_resume_applied:
         inferred_resume_iter, stale_iterations, resumed_obj_metadata = infer_resume_state(out_dir)
         if stale_iterations:
             logger.info(f"Cleaning up incomplete iteration data before resume: {stale_iterations}")
@@ -1076,12 +1076,12 @@ def main(cfg):
         K=K,
         world_to_cam_tf=cam2world_tf,
     )
-    update_categories_period = cfg.s5_scene_gmask.update_categories_period
-    merge_output_images = cfg.s5_scene_gmask.merge_output_images
-    crop_removal_images = cfg.s5_scene_gmask.crop_removal_images
-    obj_removal_prompt_order = cfg.s5_scene_gmask.obj_removal_prompt_order
-    min_valid_pixel_prop = cfg.s5_scene_gmask.min_valid_pixel_prop
-    force_categories = cfg.s5_scene_gmask.force_categories
+    update_categories_period = cfg.s5_scene.update_categories_period
+    merge_output_images = cfg.s5_scene.merge_output_images
+    crop_removal_images = cfg.s5_scene.crop_removal_images
+    obj_removal_prompt_order = cfg.s5_scene.obj_removal_prompt_order
+    min_valid_pixel_prop = cfg.s5_scene.min_valid_pixel_prop
+    force_categories = cfg.s5_scene.force_categories
     obj_cat_list = None
     if current_iteration > 0:
         if resumed_obj_metadata is None:
@@ -1116,8 +1116,8 @@ def main(cfg):
                     "skipping residual-image VLM detection on resume."
                 )
                 finalize_stage(
-                    stage_cfg=cfg.s5_scene_gmask,
-                    out_dir=cfg.s5_scene_gmask.out_dir,
+                    stage_cfg=cfg.s5_scene,
+                    out_dir=cfg.s5_scene.out_dir,
                     result=StageResult(success=True),
                 )
                 return
@@ -1140,7 +1140,7 @@ def main(cfg):
             detection_iteration += 1
         elif force_categories is None:
             # TODO: add step to prune hallucinated objects
-            if obj_cat_list is None or (current_iteration % update_categories_period == 0 and detection_iteration <= cfg.s5_scene_gmask.min_detection_iterations):
+            if obj_cat_list is None or (current_iteration % update_categories_period == 0 and detection_iteration <= cfg.s5_scene.min_detection_iterations):
                 # 1. Detect object categories from raw source image using VLM (Gemini Pro, or another open-source model?)
                 logger.info("Detecting objects in image...")
                 result = vlm_pro(
@@ -1157,8 +1157,8 @@ def main(cfg):
                         "Stopping so the run can be resumed later."
                     )
                     finalize_stage(
-                        stage_cfg=cfg.s5_scene_gmask,
-                        out_dir=cfg.s5_scene_gmask.out_dir,
+                        stage_cfg=cfg.s5_scene,
+                        out_dir=cfg.s5_scene.out_dir,
                         result=StageResult(
                             success=False,
                             additional_info={
@@ -1495,7 +1495,7 @@ def main(cfg):
         # boxes_xyxy, logits, gsam_phrases = gsam.predict_boxes(image, obj_cat_list)
 
         # If no objects are detected and we have reached the minimum number of detection iterations, we are done
-        if len(all_masks) == 0 and detection_iteration >= cfg.s5_scene_gmask.min_detection_iterations:
+        if len(all_masks) == 0 and detection_iteration >= cfg.s5_scene.min_detection_iterations:
             break
         elif len(all_masks) == 0: # TODO: handle this better?
             current_iteration += 1
@@ -1516,7 +1516,7 @@ def main(cfg):
             polygon_relative_intersection_threshold=0.97,
             polygon_relative_area_threshold=0.9,
             obj_mask_intersect_area_threshold=0.8,
-            duplicate_mask_intersect_area_threshold=cfg.s5_scene_gmask.duplicate_mask_intersect_area_threshold,
+            duplicate_mask_intersect_area_threshold=cfg.s5_scene.duplicate_mask_intersect_area_threshold,
             boundary_proportion=BOUNDARY_PROPORTION,
             text_encoder=text_encoder,
             text_encoder_similarity_threshold=0.85,
@@ -1534,8 +1534,8 @@ def main(cfg):
             phrases=pruned_phrases,
             pc=resized_padded_pc,
             valid_mask=cumulative_remaining_mask,
-            z_threshold=cfg.s5_scene_gmask.z_prune_threshold,
-            z_threshold_proportion=cfg.s5_scene_gmask.z_prune_threshold_proportion,
+            z_threshold=cfg.s5_scene.z_prune_threshold,
+            z_threshold_proportion=cfg.s5_scene.z_prune_threshold_proportion,
             verbose=True,
         )
         if len(pruned_masks) == 0:
@@ -1545,7 +1545,7 @@ def main(cfg):
         pruned_masks = sam3.disentangle_masks(
             masks=pruned_masks,
             phrases=pruned_phrases,
-            overlap_threshold_proportion=cfg.s5_scene_gmask.overlap_threshold_proportion,
+            overlap_threshold_proportion=cfg.s5_scene.overlap_threshold_proportion,
             verbose=True,
         )
 
@@ -1856,8 +1856,8 @@ def main(cfg):
                 "Stopping so the run can be resumed later."
             )
             finalize_stage(
-                stage_cfg=cfg.s5_scene_gmask,
-                out_dir=cfg.s5_scene_gmask.out_dir,
+                stage_cfg=cfg.s5_scene,
+                out_dir=cfg.s5_scene.out_dir,
                 result=StageResult(
                     success=False,
                     additional_info={
@@ -1924,7 +1924,7 @@ def main(cfg):
         elif pda_geometric_backend == "da3":
             geometric_depth = da3_geometric_model.infer_depth(
                 image=img_resized_unpadded,
-                resolution=cfg.s5_scene_gmask.pda_da3_resolution,
+                resolution=cfg.s5_scene.pda_da3_resolution,
                 resize_to_input=True,
             )
         else:
@@ -2031,8 +2031,8 @@ def main(cfg):
     logger.info(f"\n{'*' * 30}\nCompleted scene decomposition!\n{'*' * 30}\n")
 
     finalize_stage(
-        stage_cfg=cfg.s5_scene_gmask,
-        out_dir=cfg.s5_scene_gmask.out_dir,
+        stage_cfg=cfg.s5_scene,
+        out_dir=cfg.s5_scene.out_dir,
         result=StageResult(success=True),
     )
 

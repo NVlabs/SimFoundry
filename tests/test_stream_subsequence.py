@@ -42,13 +42,13 @@ def test_subsequence_complete_waits_for_expected_final_indices():
 
 def test_discover_ready_indices(tmp_path):
     scene = tmp_path / "scene"
-    (scene / "s5_scene_gmask" / "obj_cat_list").mkdir(parents=True)
+    (scene / "s5_scene" / "obj_cat_list").mkdir(parents=True)
     (scene / "s6_upsample" / "upsampled").mkdir(parents=True)
     (scene / "s7_mesh" / "textured_mesh" / "hunyuan").mkdir(parents=True)
     (scene / "s8_pose" / "info").mkdir(parents=True)
 
     for name in ["iter_0.json", "iter_2.json"]:
-        (scene / "s5_scene_gmask" / "obj_cat_list" / name).write_text("{}", encoding="utf-8")
+        (scene / "s5_scene" / "obj_cat_list" / name).write_text("{}", encoding="utf-8")
     for name in ["iter_1_transparent.png", "iter_3_transparent.png"]:
         (scene / "s6_upsample" / "upsampled" / name).write_bytes(b"x")
     for name in ["iter_2_mesh.glb", "iter_4_mesh.glb"]:
@@ -57,7 +57,7 @@ def test_discover_ready_indices(tmp_path):
         (scene / "s8_pose" / "info" / name).write_text("{}", encoding="utf-8")
 
     cfg = _Node(
-        s5_scene_gmask=_Node(out_dir=str(scene / "s5_scene_gmask")),
+        s5_scene=_Node(out_dir=str(scene / "s5_scene")),
         s6_upsample=_Node(out_dir=str(scene / "s6_upsample")),
         s7_mesh=_Node(out_dir=str(scene / "s7_mesh"), texture_model="hunyuan"),
         s8_pose=_Node(out_dir=str(scene / "s8_pose")),
