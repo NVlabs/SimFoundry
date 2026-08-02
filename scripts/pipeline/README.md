@@ -36,7 +36,7 @@ Useful options:
 - `--stream / --no-stream`: stream stages 5-8 together or run them one at a time.
 - `--max-vram-frac F`: VRAM budget for streamed stages as a fraction of total GPU memory. Default `0.9`, so the same setting works across card sizes.
 - `--max-vram-gb N`: opt-in absolute hard budget in GiB, overriding the fraction. Leave unset unless you need to pin it — with `hard_vram_cap` the budget counts *total* GPU usage, so a value too small for the card stalls stages.
-- `--detect-articulation`: run stage 8b for automatic articulated-object generation. Not shipped in this release — the flag is accepted but ignored with a warning.
+- `--detect-articulation`: run stage 8b for automatic articulated-object generation. Requires the optional `articulate` environments; ignored with a warning if they are absent.
 - `--env-b1k simfoundry`: use this if OmniGibson is installed in the `simfoundry` env.
 
 ### Stages
@@ -52,7 +52,7 @@ Useful options:
 | `6` | `A_reconstruction/stages/6_upsample_object_images.py` | `simfoundry` | Create cleaner object images for mesh generation. | `s6_upsample/` |
 | `7` | `A_reconstruction/stages/7_generate_object_meshes.py` | `hunyuan` (`--env-mesh`) | Generate 3D meshes. | `s7_mesh/` |
 | `8` | `A_reconstruction/stages/8_match_object_poses.py` | `simfoundry` | Estimate object poses. | `s8_pose/` |
-| `8b` | `A_reconstruction/stages/8b_articulate_objects.py` | `simfoundry` | Optional automatic articulation. **Not shipped in this release.** | `s8b_articulate_objects/` |
+| `8b` | `A_reconstruction/stages/8b_articulate_objects.py` | `simfoundry` | Optional automatic articulation (`--detect-articulation`). | `s8b_articulate_objects/` |
 | `9` | `A_reconstruction/stages/9_compile_scene.py` | `simfoundry` | Compile object metadata. | `s9_compile/` |
 | `10` | `A_reconstruction/stages/10_make_objects_sim_ready.py` | `simfoundry` | Build sim-ready URDF/collision assets. | `s10_sim/` |
 | `11` | `A_reconstruction/stages/11_stabilize_physics.py` | `simfoundry` | Settle objects in physics. | `s11_physics/` |

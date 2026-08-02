@@ -18,10 +18,17 @@ import numpy as np
 import pybullet as p
 import pybullet_data
 
+from simfoundry.utils.python_utils import sanitize_path_component
+
 
 def default_urdf_path(root_dir: Path, scene_name: str, object_name: str) -> Path:
-    sanitized = object_name.replace(" ", "_").replace("/", "_")
-    return root_dir / scene_name / "s8b_articulate_objects" / scene_name / sanitized / "results" / "mobility.urdf"
+    """Resolve a stage-8b URDF, accepting the pre-sanitizer layout for older runs."""
+    s8b_dir = root_dir / scene_name / "s8b_articulate_objects"
+    sanitized = s8b_dir / sanitize_path_component(scene_name) / sanitize_path_component(object_name) / "results" / "mobility.urdf"
+    if sanitized.is_file():
+        return sanitized
+    legacy = s8b_dir / scene_name / object_name.replace(" ", "_").replace("/", "_") / "results" / "mobility.urdf"
+    return legacy if legacy.is_file() else sanitized
 
 
 def make_pybullet_compatible_urdf(urdf_path: Path) -> tuple[Path, list[Path]]:

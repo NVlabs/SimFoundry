@@ -69,7 +69,7 @@ Optional environments:
 | Env | Purpose | Script |
 |---|---|---|
 | `3dgrut` | Convert Gaussian splats to USDZ for auto-background scenes. | `install_3dgrut.sh` |
-| `articulate` | Articulation generation dependencies. *Not shipped in this release.* | `install_articulate.sh` |
+| `articulate` | Articulation generation dependencies (stage 8b). | `install_articulate.sh` |
 | `openpi` | OpenPI policy evaluation. | `install_openpi.sh` |
 
 ## 3. Log In To Services
@@ -224,10 +224,8 @@ See [scripts/pipeline/A_reconstruction/stages/auto_bg_reconstruction/README.md](
 
 ## Articulation Dependencies
 
-> **Not shipped in this release.** Stage 8b and `install_articulate.sh` are not included yet.
-> `--detect-articulation` is still accepted but is ignored with a warning, and the rest of the
-> reconstruction pipeline runs normally. The notes below describe the component for when it
-> is published; they do not apply to this checkout.
+Articulation is optional. If these environments are not installed, `--detect-articulation` is
+ignored with a warning and the rest of the reconstruction pipeline runs normally.
 
 Articulation (stage 8b, `--detect-articulation`) is an optional component installed by:
 
@@ -241,10 +239,9 @@ conda environment per segmentation backend: `articulate-anything-{hunyuan,partfi
 Requirements specific to articulation:
 
 - **Source** — the fork is cloned from
-  [`nadunRanawaka1/articulate-anything-sf`](https://github.com/nadunRanawaka1/articulate-anything-sf)
-  (branch `oss_release`); override `ARTICULATE_ANYTHING_REPO` / `ARTICULATE_ANYTHING_BRANCH` to use a
-  mirror. The default segmentation backends (`Hunyuan3D-Part`, `PartField`) are fetched from their
-  public upstreams and patched at install time (see `deps/articulate-anything/patches/`).
+  [`nadunRanawaka1/articulate-anything-sf`](https://github.com/nadunRanawaka1/articulate-anything-sf).
+  The default segmentation backends (`Hunyuan3D-Part`, `PartField`) are fetched from their public
+  upstreams and patched at install time (see `deps/articulate-anything/patches/`).
 - **Git LFS** — the repos store large assets (embeddings, meshes) in Git LFS. The install
   script installs `git-lfs` automatically, but it must be present before cloning.
 - **CUDA 12.8** at `/usr/local/cuda-12.8` (flash-attn / spconv build against it).

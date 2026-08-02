@@ -44,8 +44,8 @@ TIMING_LOG_ENV_VAR = "SIMFOUNDRY_PIPELINE_TIMING_LOG"
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CFG_PATH = REPO_ROOT / "scripts" / "cfg" / "real2sim_cfg.yaml"
 
-# Stage 8b (articulation) is not shipped in this release. It is re-enabled automatically
-# once the stage script is restored, so nothing else needs to change to turn it back on.
+# Stage 8b (articulation) is an optional component: it is included in the plan only when the
+# stage script is present, so a checkout without it degrades to a warning rather than a failure.
 ARTICULATION_STAGE_SCRIPT = "scripts/pipeline/A_reconstruction/stages/8b_articulate_objects.py"
 
 

@@ -22,6 +22,7 @@ import logging
 import re
 from simfoundry import CFG_DIR
 from simfoundry.utils.processing_utils import extract_numbers_from_str
+from simfoundry.utils.python_utils import sanitize_path_component
 from simfoundry.utils.prompt_utils import prompt_object_mass_friction, prompt_articulated_object_parts_properties, parse_json_response
 from simfoundry.pipeline.stage_utils import StageResult, bootstrap_hydra_workdir, finalize_stage
 
@@ -126,6 +127,31 @@ def link_has_existing_mesh(link, *, urdf_dir: Path, mesh_parts_dir: Path) -> boo
         if any(path.exists() for path in candidates):
             return True
     return False
+
+
+def resolve_articulation_results_dir(s8b_out_dir: str, scene_name: str, obj_phrase: str) -> str:
+    """Locate a stage-8b articulation result directory.
+
+    Stage 8b writes to ``<out_dir>/<sanitized scene>/<sanitized object>/results``. Runs
+    produced before the sanitizer was shared used the raw, un-lowercased scene and object
+    names, so those layouts are still accepted rather than silently falling back to a rigid
+    import. The sanitized path always wins when both exist.
+    """
+    candidates = [
+        (sanitize_path_component(scene_name), sanitize_path_component(obj_phrase)),
+        # Legacy layout: scene name verbatim, object name not lowercased.
+        (str(scene_name), str(obj_phrase).replace(" ", "_").replace("/", "_")),
+    ]
+    seen = set()
+    for scene_part, obj_part in candidates:
+        results_dir = f"{s8b_out_dir}/{scene_part}/{obj_part}/results"
+        if results_dir in seen:
+            continue
+        seen.add(results_dir)
+        if os.path.exists(f"{results_dir}/mobility.urdf"):
+            return results_dir
+    # Nothing on disk: return the canonical path so the caller's warning names it.
+    return f"{s8b_out_dir}/{candidates[0][0]}/{candidates[0][1]}/results"
 
 
 def invalid_articulated_links(urdf_path: str, mesh_parts_dir: str) -> list[str]:
@@ -281,9 +307,9 @@ def main(cfg):
         obj_model = generate_seeded_random_letters(seed_value=seed_string, length=6)
 
         is_articulated = obj_phrase in articulated_objects
-        sanitized_obj_phrase = obj_phrase.replace(" ", "_").replace("/", "_").lower()
-        sanitized_scene_name = cfg.scene_name.replace(" ", "_").replace("/", "_").lower()
-        obj_results_dir = f"{cfg.s8b_articulate_objects.out_dir}/{sanitized_scene_name}/{sanitized_obj_phrase}/results"
+        obj_results_dir = resolve_articulation_results_dir(
+            cfg.s8b_articulate_objects.out_dir, cfg.scene_name, obj_phrase
+        )
         mesh_parts_dir = f"{obj_results_dir}/meshes"
         urdf_path = f"{obj_results_dir}/mobility.urdf"
 

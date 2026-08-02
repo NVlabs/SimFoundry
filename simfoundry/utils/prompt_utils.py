@@ -272,7 +272,8 @@ def prompt_list_articulated_objects(object_list):
     return f"You are an expert in image captioning.\n\n" + \
     "### Task Description ###\n\n" + \
     f"In the following list of objects {object_list}, please list all the objects that are articulated, i.e., have a movable part or joint. " + \
-    "You will also be given images of the objects. Analyze the images and determine if the object is articulated. Return the articulated objects in the following format:\n\n" + \
+    "You will also be given images of the objects. Analyze the images and determine if the object is articulated. Do not include objects where all articulated parts are smaller than 6 inches in every dimension (length, width, height). " + \
+    "Return the articulated objects in the following format:\n\n" + \
     "Return your final answer as a JSON object in the following format: " + \
     '''json
     {{

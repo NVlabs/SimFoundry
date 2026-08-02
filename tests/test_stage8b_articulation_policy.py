@@ -13,8 +13,7 @@ _STAGE8B_SCRIPT = (
     / "scripts/pipeline/A_reconstruction/stages/8b_articulate_objects.py"
 )
 
-# Stage 8b (articulation) is not shipped in this release; these tests come back
-# automatically when the stage script is restored.
+# Stage 8b (articulation) is an optional component; these tests skip when it is absent.
 pytestmark = pytest.mark.skipif(
     not _STAGE8B_SCRIPT.is_file(),
     reason="articulation stage 8b is not available in this release",

@@ -103,7 +103,7 @@ s3_ground:    # env: simfoundry
   floor_tilt_threshold: 0.125
   img_idx: 0
   use_fs: false  # Set to true to use FoundationStereo output (s2_fs) instead of Depth Anything (s2_da)
-  detection_model: gemini-3.1-pro-preview   # options: gemini-2.5-pro, gemini-2.5-flash, gemini-3-pro-preview, gemini-3.1-pro-preview, gemini-3-flash-preview
+  detection_model: gemini-3.1-pro-preview   # options: gemini-2.5-pro, gemini-2.5-flash, gemini-3.1-pro-preview, gemini-3-flash-preview
 s4_frame:     # env: simfoundry
   rerun: true
   out_dirname: s4_frame
@@ -135,7 +135,7 @@ s5_scene:     # env: simfoundry
   merge_output_images: true
   crop_removal_images: true
   # vlm_model: gemini-2.5-pro     # options: gemini-2.5-pro, gemini-2.5-flash, gemini-3-pro
-  detection_model: gemini-3.1-pro-preview   # options: gemini-2.5-pro, gemini-2.5-flash, gemini-3-pro-preview, gemini-3.1-pro-preview, gemini-3-flash-preview
+  detection_model: gemini-3.1-pro-preview   # options: gemini-2.5-pro, gemini-2.5-flash, gemini-3.1-pro-preview, gemini-3-flash-preview
   removal_model: gemini-3-pro-image     # options: gemini, gemini-3-pro-image, gemini-3-pro-image, flux
   min_detection_iterations: 3
   obj_removal_prompt_order: ["mask", "outline", "bbox"]   # options: mask, outline, bbox
@@ -219,12 +219,12 @@ s8b_articulate_objects:
   rerun: true
   out_dirname: s8b_articulate_objects
   out_dir: "${root_dir}/${scene_name}/${s8b_articulate_objects.out_dirname}"
-  vlm_model: gemini-2.5-pro
+  vlm_model: gemini-3.1-pro-preview
   vlm_backend: vertex                 # [vertex] — routes all articulation VLM calls (classifier + s2/s4/s5) through Vertex AI Gemini using gcloud_project
-  method: hunyuan # or partfield
-  tree_model: gemini-2.5-flash       # articulate-anything s2 VLM model
-  merge_model: gemini-2.5-pro        # articulate-anything s4 VLM model; gemini-3-pro-preview is not available in all projects
-  s5_model: gemini-2.5-pro           # articulate-anything joint-refinement VLM model
+  method: hunyuan # options : [hunyuan, partfield]
+  tree_model: gemini-3.1-pro-preview       # articulate-anything s2 VLM model
+  merge_model: gemini-3.1-pro-preview        # articulate-anything s4 VLM model
+  s5_model: gemini-3.1-pro-preview           # articulate-anything joint-refinement VLM model
   s5_actor_only: true                 # Avoid brittle critic loop for unattended E2E articulation
   s5_max_iter: 1
   s5_num_seeds: 1
@@ -253,7 +253,7 @@ s10_sim:          # env: simfoundry
   rerun: true
   out_dirname: s10_sim
   out_dir: "${root_dir}/${scene_name}/${s10_sim.out_dirname}"
-  vlm_model: gemini-3.1-pro-preview   # options: gemini-2.5-pro, gemini-2.5-flash, gemini-3-pro-preview, gemini-3.1-pro-preview
+  vlm_model: gemini-3.1-pro-preview   # options: gemini-2.5-pro, gemini-2.5-flash, gemini-3.1-pro-preview
   object_indices: null
   parallel_workers: 2
   collision_method: coacd

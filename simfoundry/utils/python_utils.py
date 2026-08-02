@@ -19,3 +19,15 @@ def assert_valid_key(key, valid_keys, name=None):
 
 
 
+
+
+def sanitize_path_component(value):
+    """Normalize a scene or object name into a filesystem path component.
+
+    Stage 8b writes articulation results to
+    ``<out_dir>/<scene>/<object>/results/`` and stage 10 reads them back. Both sides
+    must agree exactly, so this is the single definition they share: spaces and
+    slashes become underscores, and the result is lowercased so that a scene named
+    ``Laptop`` and one named ``laptop`` resolve to the same directory.
+    """
+    return str(value).replace(" ", "_").replace("/", "_").lower()

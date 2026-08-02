@@ -66,7 +66,9 @@ unchanged on a 24 GiB or a 96 GiB GPU. Add `--max-vram-gb N` only to pin an abso
 
 Note: all VLM stages run on Google Cloud (Vertex AI Gemini), so `gcloud_project` must be set — including for the B augmentation pipeline below.
 
-Automatic articulation (`--detect-articulation` / stage 8b) is not shipped in this release. The flag is still accepted, but it is ignored with a warning.
+Automatic articulation is available via `--detect-articulation` (stage 8b). It needs the optional
+`articulate` environments — see [INSTALL.md](INSTALL.md). If they are not installed, the flag is
+ignored with a warning and the rest of the pipeline runs normally.
 
 Generate bounded digital cousins, scene variants, and task proposals:
 

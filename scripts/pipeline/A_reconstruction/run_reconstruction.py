@@ -28,7 +28,7 @@ def main():
     parser.add_argument("--stream-5-8", action="store_true", help="Enable streaming for a contiguous subsequence in stages 5-8")
     parser.add_argument("--stream-start-stage", type=int, default=5, help="Streaming subsequence start stage (5-8)")
     parser.add_argument("--stream-end-stage", type=int, default=8, help="Streaming subsequence end stage (5-8)")
-    parser.add_argument("--detect-articulation", action="store_true", help="Run stage 8b after pose matching to decompose articulated objects (not shipped in this release; ignored with a warning)")
+    parser.add_argument("--detect-articulation", action="store_true", help="Run stage 8b after pose matching to decompose articulated objects (requires the optional articulate envs; ignored with a warning if absent)")
     parser.add_argument("overrides", nargs="*", help="Additional Hydra overrides forwarded to each stage")
     args = parser.parse_args()
 
