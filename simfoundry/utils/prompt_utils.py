@@ -144,6 +144,7 @@ def prompt_object_setlist_specific_floorplane_v3(floor_category):
     "8. Default to grouping parts that usually move together as a single segment target. Examples: flowers with vase, tape with dispenser, toothbrush in a holder cup when inserted and moving together as placed.\n\n" + \
     "9. Only split into separate objects when components are clearly independent and not physically coupled (e.g., a banana resting on a plate, a pen lying on a notebook).\n\n" + \
     "10. Do not include walls, floors, windows, ceiling objects, or the main supporting surface itself.\n\n" + \
+    "10.b. Do not include items that are not solid or that are stuck onto other objects such as magnets, sticky notes, tape, etc.\n\n" + \
     f"11. Do not include the main surface itself, which is the {floor_category}.\n\n" + \
     "12. If multiple identical objects exist, only list one category entry for that object type.\n\n" + \
     "13. Include small objects if they are clearly visible, but do not invent objects or include objects that are mostly clipped out of frame.\n\n" + \
@@ -152,6 +153,9 @@ def prompt_object_setlist_specific_floorplane_v3(floor_category):
     "16. Bounding boxes should tightly cover the visible object area and stay within image bounds.\n\n" + \
     "17. Keep the same object order between `objects` and `detections`.\n\n" + \
     "18. In each `detections` item, `name` must exactly match the corresponding string in `objects`.\n\n" + \
+    "19. If no valid objects are visible on the surface (after applying all exclusion rules above), " + \
+    "return empty arrays for both `objects` and `detections`. Do not invent placeholder names, " + \
+    "sentinel strings, or explanatory text in place of objects.\n\n" + \
     "Return your final answer as a JSON object in the following format: " + \
     '''json
     {{
@@ -218,8 +222,15 @@ def prompt_object_setlist_specific_floorplane_v3(floor_category):
             }}
         ]
     }}
+    ''' + \
+    "Example output3 (no valid objects): " + \
+    '''json
+    {{
+        "objects": [],
+        "detections": []
+    }}
     '''
-    
+   
 
 
 def prompt_floor_setlist():
