@@ -230,9 +230,9 @@ s8b_articulate_objects:
   # critic loop" - re-enable with max_iter>1 so a flagged joint actually gets a second attempt;
   # a critic with max_iter=1 reports but cannot correct. Set actor_only=true to revert.
   s5_actor_only: false
-  s5_max_iter: 3
+  s5_max_iter: 5
   s5_num_seeds: 1
-  merge_interactive_correction: false # Keep the generated articulation workflow unattended by default
+  merge_interactive_correction: true # Keep the generated articulation workflow unattended by default
   # Classification review options:
   classification_only: false          # If true, stop after writing object_classification.json
   interactive_review: false          # If true, prompt user to review/modify VLM classification

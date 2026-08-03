@@ -129,6 +129,76 @@ def load_api_keys(path=None):
 load_api_keys()
 
 
+GEMINI_API_KEY_ENVS = ("GEMINI_API_KEY", "GOOGLE_API_KEY")
+
+
+def resolve_gemini_auth(project=None, location="global", api_key=None, backend=None):
+    """Pick the Gemini auth route. Returns (client_kwargs, route).
+
+    route "api_key" -> Gemini Developer API (generativelanguage.googleapis.com);
+    route "vertex"  -> Vertex AI (aiplatform.googleapis.com) via gcloud ADC.
+
+    An API key and ADC are NOT interchangeable: a key identifies a project and
+    carries no IAM principal, so Vertex cannot accept one. They are separate
+    endpoints with separate quota and billing.
+
+    backend forces a route ("api_key" or "vertex"); "auto" (the default) takes a
+    key if one is configured and otherwise falls back to ADC. Override without
+    touching code via SIMFOUNDRY_GEMINI_BACKEND.
+    """
+    backend = (backend or os.environ.get("SIMFOUNDRY_GEMINI_BACKEND") or "auto").lower()
+    if backend not in ("auto", "api_key", "vertex"):
+        raise ValueError(
+            f"Unknown Gemini backend {backend!r}: expected 'auto', 'api_key' or 'vertex'."
+        )
+    key = api_key or next(
+        (os.environ[k] for k in GEMINI_API_KEY_ENVS if os.environ.get(k)), None
+    )
+
+    if backend == "vertex" or (backend == "auto" and not key):
+        if not project:
+            raise ValueError(
+                "Gemini needs a Vertex project: pass project=, set GCLOUD_PROJECT, or "
+                "supply an API key via api_key=/GEMINI_API_KEY. Vertex also needs ADC "
+                "(`gcloud auth application-default login`, or a service-account JSON in "
+                "GOOGLE_APPLICATION_CREDENTIALS)."
+            )
+        return {"vertexai": True, "project": project, "location": location}, "vertex"
+
+    if not key:
+        raise ValueError(
+            "Gemini backend 'api_key' requires a key: pass api_key= or set "
+            + " / ".join(GEMINI_API_KEY_ENVS) + "."
+        )
+    return {"api_key": key}, "api_key"
+
+
+GEMINI_TEXT_HARM_CATEGORIES = (
+    "HARM_CATEGORY_HATE_SPEECH",
+    "HARM_CATEGORY_DANGEROUS_CONTENT",
+    "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+    "HARM_CATEGORY_HARASSMENT",
+)
+GEMINI_IMAGE_HARM_CATEGORIES = (
+    "HARM_CATEGORY_IMAGE_HATE",
+    "HARM_CATEGORY_IMAGE_DANGEROUS_CONTENT",
+    "HARM_CATEGORY_IMAGE_HARASSMENT",
+    "HARM_CATEGORY_IMAGE_SEXUALLY_EXPLICIT",
+)
+
+
+def gemini_safety_settings(SafetySetting, route="vertex", threshold="OFF"):
+    """Safety settings for the given auth route.
+
+    The Developer API rejects the HARM_CATEGORY_IMAGE_* categories with a 400
+    INVALID_ARGUMENT, so they are sent on the vertex route only.
+    """
+    categories = GEMINI_TEXT_HARM_CATEGORIES
+    if route != "api_key":
+        categories += GEMINI_IMAGE_HARM_CATEGORIES
+    return [SafetySetting(category=c, threshold=threshold) for c in categories]
+
+
 def _remote_timeout_ms(*env_names, default_ms):
     for env_name in env_names:
         raw_value = os.environ.get(env_name)
@@ -485,19 +555,26 @@ class Gemini(VLM_API):
     }
     def __init__(
         self,
-        project,
+        project=None,
         location="global",
         model="gemini-3-pro-image-preview",
         verbose=False,
         timeout_ms=None,
+        api_key=None,
+        backend=None,
     ):
         """
         Args:
-            project (str): Name of the project to use when calling the Gemini client
+            project (None or str): Vertex project. Required for the "vertex" route only.
             location (str): Location to use when calling the Gemini client
             model (str): Gemini model to use. Must be one of self.VERSIONS
             timeout_ms (None or int): Request timeout in milliseconds. If None, uses SIMFOUNDRY_GEMINI_TIMEOUT_MS,
                 SIMFOUNDRY_REMOTE_TIMEOUT_MS, or the default.
+            api_key (None or str): Gemini Developer API key. Falls back to
+                GEMINI_API_KEY / GOOGLE_API_KEY.
+            backend (None or str): "api_key", "vertex", or "auto" (default). See
+                resolve_gemini_auth. Auth is resolved lazily at first call, so
+                TEST_MODE and cache replay still need no credentials.
         """
         self.project = project
         self.verbose = verbose
@@ -506,6 +583,10 @@ class Gemini(VLM_API):
             print(f"USING PROJECT: {self.project}")
             print("="*100)
         self.location = location
+        self.api_key = api_key
+        self.backend = backend
+        self.auth_route = None
+        self._client_kwargs = None
         assert_valid_key(key=model, valid_keys=self.VERSIONS, name="Gemini model")
         self.model = model
         self.client = None
@@ -515,6 +596,19 @@ class Gemini(VLM_API):
             else _remote_timeout_ms("SIMFOUNDRY_GEMINI_TIMEOUT_MS", "SIMFOUNDRY_REMOTE_TIMEOUT_MS", default_ms=300_000)
         )
 
+    def _resolve_auth(self):
+        """Resolve and cache the auth route. Called on the first request, not in
+        __init__, so TEST_MODE and cache replay still need no credentials."""
+        if self.auth_route is None:
+            self._client_kwargs, self.auth_route = resolve_gemini_auth(
+                project=self.project,
+                location=self.location,
+                api_key=self.api_key,
+                backend=self.backend,
+            )
+            if self.verbose:
+                print(f"Gemini auth route: {self.auth_route}", flush=True)
+        return self.auth_route
 
     def __call__(
         self,
@@ -585,40 +679,14 @@ class Gemini(VLM_API):
             seed=seed,
             max_output_tokens=self.VERSIONS[self.model]["max_tokens"],
             response_modalities=self.VERSIONS[self.model]["modalities"],
-            safety_settings=[genai_types.SafetySetting(
-                category="HARM_CATEGORY_HATE_SPEECH",
-                threshold="OFF"
-            ), genai_types.SafetySetting(
-                category="HARM_CATEGORY_DANGEROUS_CONTENT",
-                threshold="OFF"
-            ), genai_types.SafetySetting(
-                category="HARM_CATEGORY_SEXUALLY_EXPLICIT",
-                threshold="OFF"
-            ), genai_types.SafetySetting(
-                category="HARM_CATEGORY_HARASSMENT",
-                threshold="OFF"
-            ), genai_types.SafetySetting(
-                category="HARM_CATEGORY_IMAGE_HATE",
-                threshold="OFF"
-            ), genai_types.SafetySetting(
-                category="HARM_CATEGORY_IMAGE_DANGEROUS_CONTENT",
-                threshold="OFF"
-            ), genai_types.SafetySetting(
-                category="HARM_CATEGORY_IMAGE_HARASSMENT",
-                threshold="OFF"
-            ), genai_types.SafetySetting(
-                category="HARM_CATEGORY_IMAGE_SEXUALLY_EXPLICIT",
-                threshold="OFF"
-            )],
+            safety_settings=gemini_safety_settings(
+                genai_types.SafetySetting, route=self._resolve_auth()
+            ),
         )
 
         result = None
         if self.client is None:
-            client_kwargs = {
-                "vertexai": True,
-                "project": self.project,
-                "location": self.location,
-            }
+            client_kwargs = dict(self._client_kwargs)
             if self.timeout_ms is not None:
                 client_kwargs["http_options"] = genai_types.HttpOptions(timeout=self.timeout_ms)
             self.client = _get_genai_module().Client(**client_kwargs)
