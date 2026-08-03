@@ -75,7 +75,7 @@ Optional environments:
 ## 3. Log In To Services
 
 The pipeline's VLM stages (reconstruction 3/5/6/10 and B augmentation) run on
-**Google Cloud Vertex AI**. First, create a [gcloud project](https://docs.cloud.google.com/distributed-cloud/hosted/docs/latest/appliance/application/ao-user/vertex-ai-set-up-project).
+**Google Cloud Vertex AI**. First, setup a [gcloud project](https://console.cloud.google.com/welcome/new) and then enable [Vertex AI](https://docs.vectorize.io/build-deploy/external-service-setup/how-to/google-vertex-ai/create-a-gcp-service-account-for-google-vertex-ai/).
 Then, authenticate and set your project:
 
 ```bash

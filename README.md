@@ -10,7 +10,7 @@ SimFoundry builds simulation-ready OmniGibson scenes from real video or ZED capt
 bash scripts/installation/install_everything.sh
 ```
 
-2. Set up service access — the pipeline's VLM stages run on **Google Cloud Vertex AI (Gemini)**. First, setup a Vertex AI-enabled [gcloud project](https://docs.cloud.google.com/distributed-cloud/hosted/docs/latest/appliance/application/ao-user/vertex-ai-set-up-project). A Hugging Face account is also required before downloading the gated VOID weights:
+2. Set up service access — the pipeline's VLM stages run on **Google Cloud Vertex AI (Gemini)**. First, setup a [gcloud project](https://console.cloud.google.com/welcome/new) and then enable [Vertex AI](https://docs.vectorize.io/build-deploy/external-service-setup/how-to/google-vertex-ai/create-a-gcp-service-account-for-google-vertex-ai/). A Hugging Face account is also required before downloading the gated VOID weights:
 
 ```bash
 export GCLOUD_PROJECT=<your-gcp-project>   # or: bash scripts/installation/login_services.sh
