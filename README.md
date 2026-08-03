@@ -27,6 +27,12 @@ bash scripts/installation/download_checkpoints.sh --default
 > Already logged in to Hugging Face? You can fold step 3 into step 1 with
 > `bash scripts/installation/install_everything.sh --checkpoints`.
 
+4. (Optional) Install the articulation pipeline:
+
+```bash
+bash scripts/installation/install_articulate.sh
+```
+
 All VLM stages — reconstruction (stages 3, 5, 6, 10) and the B augmentation pipeline — run on **Google Vertex AI (Gemini)**. Set `gcloud_project` in `scripts/cfg/real2sim_cfg.yaml` (or `export GCLOUD_PROJECT`) and authenticate with `login_services.sh` or `gcloud auth application-default login`. Make sure the Gemini model IDs referenced in the configs are enabled in your GCP project and region.
 
 More installation detail: [INSTALL.md](INSTALL.md)
