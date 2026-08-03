@@ -31,6 +31,7 @@ eval "$(mamba shell hook --shell bash)"
 # repo dir is grandparent directory, by default
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 source "${SCRIPT_DIR}/faiss_gpu.sh"
+source "${SCRIPT_DIR}/git_safe.sh"
 project_root="$(cd "$SCRIPT_DIR/../.." && pwd)"
 env_name="da3"
 DEFAULT=false

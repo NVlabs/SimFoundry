@@ -24,6 +24,7 @@ eval "$(mamba shell hook --shell bash)"
 # repo dir is grandparent directory, by default
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 source "${SCRIPT_DIR}/faiss_gpu.sh"
+source "${SCRIPT_DIR}/git_safe.sh"
 project_root="$(cd "$SCRIPT_DIR/../.." && pwd)"
 env_name="hunyuan"
 DEFAULT=false
@@ -118,7 +119,7 @@ fi
 if ! git -C "${HUNYUAN_DIR}" cat-file -e "${HUNYUAN_COMMIT}^{commit}" 2>/dev/null; then
   git -C "${HUNYUAN_DIR}" fetch --depth 1 origin "${HUNYUAN_COMMIT}"
 fi
-git -C "${HUNYUAN_DIR}" checkout --detach "${HUNYUAN_COMMIT}"
+git_safe_checkout_detached "${HUNYUAN_DIR}" "${HUNYUAN_COMMIT}" "deps/Hunyuan3D-2.1"
 
 HUNYUAN_PATCH="${PROJECT_ROOT}/patches/Hunyuan3D-2.1.patch"
 if git -C "${HUNYUAN_DIR}" apply --check --reverse "${HUNYUAN_PATCH}" 2>/dev/null; then

@@ -6,6 +6,7 @@ eval "$(mamba shell hook --shell bash)"
 # Get script dir
 # repo dir is grandparent directory, by default
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+source "${SCRIPT_DIR}/git_safe.sh"
 project_root="$(cd "$SCRIPT_DIR/../.." && pwd)"
 DEFAULT=false
 
@@ -38,9 +39,6 @@ export ARTICULATE_ANYTHING_REPO="${ARTICULATE_ANYTHING_REPO:-https://github.com/
 # ==============================================================================
 # SYSTEM DEPENDENCIES (run first)
 # ==============================================================================
-# Everything that needs sudo lives here at the top, so the password prompt
-# appears immediately instead of hours later, after the long unattended conda
-# env builds. Do the interactive/sudo work up front, then walk away.
 
 echo "=== Installing system dependencies (this step may prompt for your sudo password) ==="
 # Prime sudo now so the credential is cached for the rest of this block.
@@ -52,11 +50,7 @@ if ! command -v git-lfs >/dev/null 2>&1; then
 fi
 git lfs install
 
-# Do NOT use the Ubuntu 'blender' apt package: it is a stripped build that runs
-# the system python3 (missing numpy) and is compiled WITHOUT OpenImageDenoise,
-# which makes articulate-anything's Cycles renders fail with
-# "Error: Build without OpenImageDenoiser". We install the official blender.org
-# build below instead, which bundles its own Python (with numpy) and OIDN.
+# Do NOT use the Ubuntu 'blender' apt package: 
 echo "=== Installing ffmpeg + Blender runtime libraries ==="
 sudo apt-get install -y ffmpeg \
   libxrender1 libxi6 libxxf86vm1 libxfixes3 libxkbcommon0 libsm6 libgl1
@@ -98,10 +92,10 @@ if [ ! -d "articulate-anything" ]; then
 fi
 
 cd articulate-anything
-# Always land on the latest main, even if this checkout was previously left detached.
-git fetch origin main
-git checkout -B main origin/main
-git reset --hard origin/main
+# Track the latest main, but never discard local work: if this checkout is dirty, on
+# another branch, or has diverged, the update is skipped with a warning and the install
+# continues against the user's code.
+git_safe_sync_branch "." origin main "deps/articulate-anything"
 
 bash installation_hunyuan.sh   # create hunyuan environment
 bash installation_partfield.sh # create partfield environment

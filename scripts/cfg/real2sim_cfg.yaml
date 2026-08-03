@@ -225,8 +225,12 @@ s8b_articulate_objects:
   tree_model: gemini-3.1-pro-preview       # articulate-anything s2 VLM model
   merge_model: gemini-3.1-pro-preview        # articulate-anything s4 VLM model
   s5_model: gemini-3.1-pro-preview           # articulate-anything joint-refinement VLM model
-  s5_actor_only: true                 # Avoid brittle critic loop for unattended E2E articulation
-  s5_max_iter: 1
+  # Critic on: its rubric has a `joint_limit` category covering the failure mode seen on
+  # reconstructed assets (wrong range/direction). Previously true, commented "avoid brittle
+  # critic loop" - re-enable with max_iter>1 so a flagged joint actually gets a second attempt;
+  # a critic with max_iter=1 reports but cannot correct. Set actor_only=true to revert.
+  s5_actor_only: false
+  s5_max_iter: 3
   s5_num_seeds: 1
   merge_interactive_correction: false # Keep the generated articulation workflow unattended by default
   # Classification review options:
