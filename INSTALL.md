@@ -103,12 +103,17 @@ NAF every time. Until stage 7 gains a persistent worker, use `--include 7` or `-
 ```bash
 # stage 7 only
 scripts/pipeline/A_reconstruction/run.sh --env-mesh pixal3d --include 7 \
-    s7_mesh.shape_model=pixal3d s7_mesh.texture_model=pixal3d
+    s7_mesh.shape_model=pixal3d s7_mesh.texture_model=pixal3d s7_mesh.low_vram=true
 
 # full pipeline, streaming off
 scripts/pipeline/A_reconstruction/run.sh --env-mesh pixal3d --no-stream \
-    s7_mesh.shape_model=pixal3d s7_mesh.texture_model=pixal3d
+    s7_mesh.shape_model=pixal3d s7_mesh.texture_model=pixal3d s7_mesh.low_vram=true
 ```
+
+`s7_mesh.low_vram=true` is **required on a 24 GiB card and is part of the supported profile**,
+not an optimization. It selects resolution 1024. `s7_mesh.low_vram` defaults to `false`, which
+selects resolution **1536 — measured to OOM on an RTX 4090** (24 GiB). Only override it on a
+card with materially more memory.
 
 Backend options go through `s7_mesh.generation_kwargs` (and `cousin_generation.generation_kwargs`).
 Because that dict starts empty, adding a key from the CLI needs Hydra's `+` prefix:
@@ -141,7 +146,8 @@ Caveats, in rough order of how likely they are to bite:
   produces exactly this), because SimFoundry does not load Pixal3D's gated, non-commercial
   background-removal model. Other inputs are rejected with an explanatory error.
 - **VRAM.** Measured **14.2 GiB peak** with `s7_mesh.low_vram=true` (resolution 1024) on an
-  RTX 4090. The resolution-1536 default is estimated at ~20 GiB and has not been measured here.
+  RTX 4090 — the supported profile. The `low_vram=false` default (resolution 1536) was also
+  tested on the same card and **OOMs**, so 24 GiB users must set `low_vram=true`.
   Update `stream_subseq.stage_vram_gb[7]` if you use streaming anyway.
 
 The `hunyuan` backend is installed by `install_hunyuan.sh` as part of the standard setup above.
@@ -387,6 +393,11 @@ Components requiring your own review before use include SAM 3, Any6D, Hunyuan3D-
 Hunyuan3D-Part, PartField, FoundationPose, FoundationStereo, nvdiffrast, cuRobo,
 Depth Pro, VOID/CogVideoX weights, OpenPI/Gemma weights, CoTracker (CC-BY-NC-4.0),
 and TeleMoMa (all-rights-reserved, user-supplied).
+
+The optional `pixal3d` backend adds **DINOv3** (Meta, custom gated licence — you must accept its
+terms before installing) and **NAF**, whose pinned checkout vendors DINOv3-licensed source that
+executes on every generation. A machine or image with `pixal3d` installed therefore carries
+DINOv3 terms; do not describe such a build as Apache-only or fully open source.
 
 For each of these, the **component disclosure matrix** in
 [THIRD_PARTY_LICENSES.md §6](THIRD_PARTY_LICENSES.md#6-component-disclosure-matrix--restricted-and-optional-components)

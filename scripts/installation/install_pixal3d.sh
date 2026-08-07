@@ -350,7 +350,16 @@ pip install "git+https://github.com/microsoft/MoGe.git@${MOGE_COMMIT}"
 #
 # Check the installed library for cubins matching every requested arch, and force a genuine
 # rebuild (bypassing the wheel cache) when any is missing.
-natten_has_all_archs() {
+natten_is_current() {
+  # Version FIRST: cubins prove which GPU the binary targets, not which natten it is. An older
+  # natten built for this same arch passes every cubin check, so without this the installer would
+  # keep it and still report NATTEN_VERSION as installed.
+  local installed
+  installed="$(python -c 'import natten; print(getattr(natten, "__version__", ""))' 2>/dev/null)"
+  if [[ "${installed}" != "${NATTEN_VERSION}" ]]; then
+    echo "natten ${installed:-<none>} installed but ${NATTEN_VERSION} requested; rebuilding."
+    return 1
+  fi
   local so
   so="$(python -c 'import glob, os, natten; print((glob.glob(os.path.join(os.path.dirname(natten.__file__), "libnatten*.so")) or [""])[0])' 2>/dev/null)"
   [[ -n "${so}" && -f "${so}" ]] || return 1
@@ -364,8 +373,8 @@ natten_has_all_archs() {
   return 0
 }
 
-if python -c 'import natten' >/dev/null 2>&1 && natten_has_all_archs; then
-  echo "natten==${NATTEN_VERSION} already built with cubins for arch '${NATTEN_ARCH}'; skipping rebuild."
+if python -c 'import natten' >/dev/null 2>&1 && natten_is_current; then
+  echo "natten==${NATTEN_VERSION} already installed with cubins for arch '${NATTEN_ARCH}'; skipping rebuild."
 else
   echo "Building natten==${NATTEN_VERSION} for arch '${NATTEN_ARCH}' with ${NATTEN_WORKERS} workers (this is slow)..."
   # --no-cache-dir is load-bearing: without it pip serves the previously built wheel and
