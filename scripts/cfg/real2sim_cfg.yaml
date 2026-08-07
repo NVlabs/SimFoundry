@@ -190,11 +190,24 @@ s7_mesh:          # env: mesh
   out_dir: "${root_dir}/${scene_name}/${s7_mesh.out_dirname}"
   generate_shape: true
   generate_texture: true
-  shape_model: hunyuan #hunyuan #trellis2 #direct3d
-  texture_model: hunyuan #hunyuan #trellis2
+  shape_model: hunyuan #hunyuan #trellis2 #pixal3d #direct3d
+  texture_model: hunyuan #hunyuan #trellis2 #pixal3d
   save_intermediates: true
   low_vram: false        # If true, enable CPU offloading to reduce GPU VRAM (~29GB -> ~6GB for shape gen)
   object_indices: null   # null = process all, or set [3, 7] to process specific objects
+  # Backend-specific generation options, forwarded to the generator. Keys the selected backend
+  # cannot accept are dropped with a warning. `seed` defaults to the global `seed` above.
+  # NOTE: this dict starts empty, so adding a key from the CLI needs Hydra's `+` prefix
+  # (`+s7_mesh.generation_kwargs.resolution=1024`); keys listed here are overridden normally.
+  # Examples for pixal3d:
+  #   resolution: 1536     # 1024 or 1536; 1024 is the low_vram default
+  #   fov: 0.2             # radians; skips MoGe-2 camera estimation. Try this if output is distorted
+  #   num_faces: 300000    # decimation target
+  #   remesh: true
+  #   remesh_project: 0     # 0 = upstream default; trellis2 uses 0.9
+  #   max_num_tokens: 49152
+  #   shape_slat_sampling_steps: 12   # ss_ / shape_slat_ / tex_slat_ prefixes route to samplers
+  generation_kwargs: {}
 stage_review:
   mode: upsample   # options: depth, upsample, mesh
 stream_subseq:
@@ -227,6 +240,20 @@ stream_subseq:
   # card before the stage even starts. Stage 5's estimate matches its measured ~14 GiB
   # peak; actual usage is governed at runtime by the measured-usage check (hard_vram_cap).
   # Stage 7 additionally needs s7_mesh.low_vram=true on cards below ~29 GiB.
+  #
+  # NOTE for pixal3d: stage 7's estimate below assumes the default `hunyuan` backend; raise it
+  # when selecting pixal3d, or stage 7 is admitted alongside stage 6 and then OOMs.
+  #   pixal3d  ~15 MEASURED with s7_mesh.low_vram=true (resolution 1024): 14.22 GiB peak on an
+  #            RTX 4090, 409x409 input, torch.cuda.max_memory_allocated. Larger inputs cost more.
+  #            ~20 at the resolution-1536 default is still an ESTIMATE from upstream's figures,
+  #            not measured here.
+  #            Peak briefly exceeds the pipeline itself because MoGe-2 is moved onto the GPU for
+  #            camera estimation while the pipeline is resident (it is parked on CPU otherwise).
+  # An estimate larger than the budget (max_vram_frac * total, default 0.9) is rejected outright,
+  # so on a 24 GiB card pixal3d at 1536 needs max_vram_frac raised or low_vram=true.
+  # Streaming relaunches stage 7 per object, reloading ~18 GiB of models every time, so
+  # `--no-stream` (or `--include 7`) is an operational requirement with pixal3d, not a tuning
+  # suggestion. Leaving streaming on is slow enough to look like a hang.
   stage_vram_gb:
     5: 14
     6: 4
@@ -651,9 +678,12 @@ cousin_generation:    # env: mesh
   out_dir: "${root_dir}/${scene_name}/cousin_generation"
   generate_shape: true
   generate_texture: true
-  shape_model: hunyuan #direct3d
-  texture_model: hunyuan
+  shape_model: hunyuan #hunyuan #trellis2 #pixal3d #direct3d
+  texture_model: hunyuan #hunyuan #trellis2 #pixal3d
   keep_original_mass_friction: true  # If true, copy mass/friction from original source object instead of querying VLM
+  low_vram: false        # If true, enable CPU offloading to reduce GPU VRAM
+  # See s7_mesh.generation_kwargs above for the available keys.
+  generation_kwargs: {}
 sim:          # env: simfoundry
   rerun: true
   out_dirname: sim_cousins

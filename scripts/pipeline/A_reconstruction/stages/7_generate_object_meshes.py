@@ -15,21 +15,24 @@ from pathlib import Path
 import hydra
 
 from simfoundry.models.mesh_generator import (
-    Direct3D,
     Hunyuan,
     MeshGenerator,
+    Pixal3D,
     ShapeGenerator,
     TextureGenerator,
-    Trellis,
     Trellis2,
+    RESERVED_GENERATION_KWARGS,
+    filter_generation_kwargs,
+    get_mesh_generator_cls,
+    make_generator,
 )
 from simfoundry.pipeline.stage_utils import (
     StageResult,
     bootstrap_hydra_workdir,
     finalize_stage,
     parse_iter_index,
+    resolve_generation_kwargs,
 )
-from simfoundry.utils.python_utils import assert_valid_key
 import torch
 
 # see https://github.com/facebookresearch/hydra/issues/2949#issue-2516892001
@@ -41,19 +44,15 @@ from simfoundry import CFG_DIR
 logger = logging.getLogger(__name__)
 bootstrap_hydra_workdir(__file__)
 
-MESH_GENERATORS = {
-    "direct3d": Direct3D,
-    "hunyuan": Hunyuan,
-    "trellis": Trellis,
-    "trellis2": Trellis2,
-}
-
 hunyuan_repo_path = "../../deps/Hunyuan3D-2.1"
 
 Hunyuan.set_repo_path(repo_path=hunyuan_repo_path)
 
 trellis2_repo_path = "../../deps/TRELLIS.2"
 Trellis2.set_repo_path(repo_path=trellis2_repo_path)
+
+pixal3d_repo_path = "../../deps/Pixal3D"
+Pixal3D.set_repo_path(repo_path=pixal3d_repo_path)
 
 
 class GenerationMode(IntEnum):
@@ -147,21 +146,26 @@ def main(cfg):
     low_vram = cfg.s7_mesh.get("low_vram", False)
     if low_vram:
         logger.info("Low VRAM mode enabled — will use model CPU offloading to reduce GPU memory")
+    generation_kwargs = resolve_generation_kwargs(cfg, cfg.s7_mesh)
+    if generation_kwargs:
+        logger.info("Forwarding generation kwargs to the backend: %s", generation_kwargs)
     shape_generator_cls, texture_generator_cls, mesh_generator_cls = None, None, None
     shape_generator, texture_generator, mesh_generator = None, None, None
     shape_generator_name = cfg.s7_mesh.shape_model
-    assert_valid_key(key=shape_generator_name, valid_keys=MESH_GENERATORS, name="shape_generator")
+    # Resolve unconditionally so an invalid backend name fails fast even when that half of
+    # generation is disabled (the output directory below is named after it either way).
+    resolved_shape_cls = get_mesh_generator_cls(shape_generator_name)
     shape_dir = f"{out_dir}/shape/{shape_generator_name}"
     Path(shape_dir).mkdir(parents=True, exist_ok=True)
     if generate_shape:
-        shape_generator_cls = MESH_GENERATORS[shape_generator_name]
+        shape_generator_cls = resolved_shape_cls
         assert issubclass(shape_generator_cls, ShapeGenerator)
     texture_generator_name = cfg.s7_mesh.texture_model
-    assert_valid_key(key=texture_generator_name, valid_keys=MESH_GENERATORS, name="texture_generator")
+    resolved_texture_cls = get_mesh_generator_cls(texture_generator_name)
     texture_dir = f"{out_dir}/textured_mesh/{texture_generator_name}"
     Path(texture_dir).mkdir(parents=True, exist_ok=True)
     if generate_texture:
-        texture_generator_cls = MESH_GENERATORS[texture_generator_name]
+        texture_generator_cls = resolved_texture_cls
         assert issubclass(texture_generator_cls, TextureGenerator)
 
     
@@ -194,10 +198,11 @@ def main(cfg):
     if generation_mode == GenerationMode.SHAPE_TEXTURE_SINGLE_MODEL:
         # Both shape + texture and shared class, so only create once
         assert issubclass(shape_generator_cls, MeshGenerator)
-        mesh_generator = texture_generator_cls(
+        mesh_generator = make_generator(
+            texture_generator_cls,
+            low_vram=low_vram,
             create_shape_pipeline=True,
             create_texture_pipeline=True,
-            low_vram=low_vram,
         )
     else:
         if shape_generator_cls is not None:
@@ -205,17 +210,39 @@ def main(cfg):
             if issubclass(shape_generator_cls, MeshGenerator):
                 shape_kwargs["create_shape_pipeline"] = True
                 shape_kwargs["create_texture_pipeline"] = False
-                shape_kwargs["low_vram"] = low_vram
-            shape_generator = shape_generator_cls(**shape_kwargs)
+            shape_generator = make_generator(shape_generator_cls, low_vram=low_vram, **shape_kwargs)
 
         if texture_generator_cls is not None:
             texture_kwargs = dict()
             if issubclass(texture_generator_cls, MeshGenerator):
                 texture_kwargs["create_shape_pipeline"] = False
                 texture_kwargs["create_texture_pipeline"] = True
-                texture_kwargs["low_vram"] = low_vram
-            texture_generator = texture_generator_cls(**texture_kwargs)
+            texture_generator = make_generator(texture_generator_cls, low_vram=low_vram, **texture_kwargs)
 
+
+    # Backends accept different option sets, so filter once here and say what was dropped rather
+    # than silently ignoring a configured value (or raising TypeError on backends whose
+    # generate_* signatures enumerate fixed parameters, e.g. hunyuan and direct3d).
+    def prepare_kwargs(generate_fn, label):
+        reserved = RESERVED_GENERATION_KWARGS[generate_fn.__name__]
+        prepared = filter_generation_kwargs(generate_fn, generation_kwargs, reserved=reserved)
+        dropped = sorted(set(generation_kwargs) - set(prepared))
+        if dropped:
+            logger.warning("%s does not accept %s — dropped from generation_kwargs", label, dropped)
+        return prepared
+
+    mesh_gen_kwargs = (
+        prepare_kwargs(mesh_generator.generate_mesh, f"{shape_generator_name}.generate_mesh")
+        if mesh_generator is not None else {}
+    )
+    shape_gen_kwargs = (
+        prepare_kwargs(shape_generator.generate_shape, f"{shape_generator_name}.generate_shape")
+        if shape_generator is not None else {}
+    )
+    texture_gen_kwargs = (
+        prepare_kwargs(texture_generator.generate_texture, f"{texture_generator_name}.generate_texture")
+        if texture_generator is not None else {}
+    )
 
     requested_indices = resolve_requested_indices(cfg)
     jobs = discover_mesh_jobs(
@@ -228,59 +255,100 @@ def main(cfg):
     logger.info("Discovered %s mesh jobs", len(jobs))
 
     # Iterate over all discovered jobs and pass them through generation process.
+    failed_jobs = []
     for job in jobs:
         write_manifest(manifest_dir, job, status="started")
-        # Process based on mode
-        if generation_mode == GenerationMode.SHAPE_TEXTURE_SINGLE_MODEL:
-            mesh_generator.generate_mesh(
-                out_fpath=job.texture_fpath,
-                shape_image_path=job.input_img_path,
-                texture_image_path=job.input_img_path,
-                visualize=cfg.visualize,
-                save_intermediates=cfg.s7_mesh.save_intermediates,
-            )
-            # generate_mesh saves the untextured shape as <texture_fpath>_untextured.glb but
-            # never writes job.shape_fpath. Stage 8 needs the shape as an OBJ at shape_fpath,
-            # so convert the untextured GLB that generate_mesh already produced.
-            untextured_glb = job.texture_fpath.replace(".glb", "_untextured.glb")
-            if os.path.exists(untextured_glb):
-                import trimesh as _trimesh
-                Path(job.shape_fpath).parent.mkdir(parents=True, exist_ok=True)
-                _trimesh.load(untextured_glb).export(job.shape_fpath)
-        else:
-            if generation_mode in {GenerationMode.SHAPE_TEXTURE_SEPARATE_MODELS, GenerationMode.SHAPE_ONLY}:
-                shape_generator.generate_shape(
-                    image_path=job.input_img_path,
-                    out_fpath=job.shape_fpath,
-                    visualize=cfg.visualize,
-                )
-            if generation_mode in {GenerationMode.SHAPE_TEXTURE_SEPARATE_MODELS, GenerationMode.TEXTURE_ONLY}:
-                texture_generator.generate_texture(
-                    shape_fpath=job.shape_fpath,
-                    image_path=job.input_img_path,
+        # One bad object must not abort the rest, and must not leave a manifest stuck at
+        # "started" — that state is indistinguishable from "killed mid-run" and hides which
+        # object actually broke.
+        try:
+            # Process based on mode
+            if generation_mode == GenerationMode.SHAPE_TEXTURE_SINGLE_MODEL:
+                mesh_generator.generate_mesh(
                     out_fpath=job.texture_fpath,
+                    shape_image_path=job.input_img_path,
+                    texture_image_path=job.input_img_path,
                     visualize=cfg.visualize,
+                    save_intermediates=cfg.s7_mesh.save_intermediates,
+                    **mesh_gen_kwargs,
                 )
-        write_manifest(manifest_dir, job, status="finished")
+                # generate_mesh saves the untextured shape as <texture_fpath>_untextured.glb but
+                # never writes job.shape_fpath. Stage 8 needs the shape as an OBJ at shape_fpath,
+                # so convert the untextured GLB that generate_mesh already produced.
+                untextured_glb = job.texture_fpath.replace(".glb", "_untextured.glb")
+                if os.path.exists(untextured_glb):
+                    import trimesh as _trimesh
+                    Path(job.shape_fpath).parent.mkdir(parents=True, exist_ok=True)
+                    _trimesh.load(untextured_glb).export(job.shape_fpath)
+            else:
+                if generation_mode in {GenerationMode.SHAPE_TEXTURE_SEPARATE_MODELS, GenerationMode.SHAPE_ONLY}:
+                    shape_generator.generate_shape(
+                        image_path=job.input_img_path,
+                        out_fpath=job.shape_fpath,
+                        visualize=cfg.visualize,
+                        **shape_gen_kwargs,
+                    )
+                if generation_mode in {GenerationMode.SHAPE_TEXTURE_SEPARATE_MODELS, GenerationMode.TEXTURE_ONLY}:
+                    texture_generator.generate_texture(
+                        shape_fpath=job.shape_fpath,
+                        image_path=job.input_img_path,
+                        out_fpath=job.texture_fpath,
+                        visualize=cfg.visualize,
+                        **texture_gen_kwargs,
+                    )
+        except KeyboardInterrupt:
+            # Operator interrupt is not a per-object failure; leave the loop immediately.
+            raise
+        except Exception as exc:
+            logger.exception("Mesh generation failed for %s", job.mesh_name)
+            failed_jobs.append(job.mesh_name)
+            write_manifest(
+                manifest_dir, job, status="failed",
+                details={"error": f"{type(exc).__name__}: {exc}"},
+            )
+        else:
+            write_manifest(manifest_dir, job, status="finished")
 
-        if cfg.low_vram:
+        # Use the already-resolved local, not cfg.low_vram: the top-level key exists only in
+        # real2sim_cfg.yaml, so task configs that do not inherit it (e.g. PutCupInBowl.yaml)
+        # raised ConfigAttributeError here after the first object had already been generated.
+        if low_vram:
             torch.cuda.empty_cache()
 
     logger.info("="*60)
-    logger.info("Object meshes generation complete!")
+    if failed_jobs:
+        logger.error("Object meshes generation finished with %s failure(s): %s",
+                     len(failed_jobs), ", ".join(failed_jobs))
+    else:
+        logger.info("Object meshes generation complete!")
     logger.info("="*60)
-    
+
     finalize_stage(
         stage_cfg=cfg.s7_mesh,
         out_dir=cfg.s7_mesh.out_dir,
         result=StageResult(
-            success=True,
+            success=not failed_jobs,
             additional_info={
                 "n_jobs": len(jobs),
+                "failed_jobs": failed_jobs,
                 "requested_indices": sorted(requested_indices) if requested_indices is not None else None,
             },
         ),
     )
+
+    # Raise AFTER finalize_stage so the result payload and per-object manifests are still
+    # written. The orchestrator launches stages with subprocess.run(..., check=True)
+    # (simfoundry/pipeline/orchestrator.py), which only inspects the exit code — it never reads
+    # StageResult.success. Returning normally here therefore reported a clean stage even when
+    # every mesh failed, and stages 8+ went on to pose-match and sim-ready objects whose .glb
+    # was never produced. SystemExit matches how the auto_bg stages signal fatal conditions.
+    if failed_jobs:
+        raise SystemExit(
+            f"Mesh generation failed for {len(failed_jobs)} of {len(jobs)} object(s): "
+            f"{', '.join(failed_jobs)}. See the per-object manifests in "
+            f"{manifest_dir} for the recorded error."
+        )
+
 
 if __name__ == "__main__":
     main()

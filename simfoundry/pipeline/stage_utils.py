@@ -69,6 +69,29 @@ def finalize_stage(stage_cfg: Any, out_dir: str | Path, result: StageResult) -> 
     return payload
 
 
+def resolve_generation_kwargs(cfg: Any, stage_cfg: Any) -> dict[str, Any]:
+    """Resolve a mesh stage's backend generation options into a plain dict.
+
+    Reads `stage_cfg.generation_kwargs` and defaults `seed` to the global `cfg.seed`, so a run is
+    reproducible without repeating the seed per stage (backends otherwise fall back to their own
+    hardcoded default, e.g. Pixal3D's 42).
+
+    Returns a plain dict rather than a DictConfig so it can be splatted into generator calls,
+    which take ordinary Python values.
+    """
+    raw = stage_cfg.get("generation_kwargs", None)
+    if raw is None:
+        raw = {}
+    if OmegaConf.is_config(raw):
+        raw = OmegaConf.to_container(raw, resolve=True)
+    kwargs = dict(raw)
+    if "seed" not in kwargs:
+        seed = cfg.get("seed", None)
+        if seed is not None:
+            kwargs["seed"] = int(seed)
+    return kwargs
+
+
 def parse_iter_index(name: str, *, prefix: str = "iter_") -> int | None:
     """Extract integer index from strings that contain `<prefix><int>`."""
     if prefix not in name:

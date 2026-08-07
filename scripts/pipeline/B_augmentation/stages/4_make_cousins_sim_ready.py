@@ -72,7 +72,9 @@ def main(cfg):
     scene_dir = cfg_path(cfg.s5_scene.out_dir)
     img_dir = cfg_path(cfg.prompt_cousin_structured.out_dir)
     pose_dir = cfg_path(cfg.s8_pose.out_dir)
-    mesh_dir = cfg_path(cfg.cousin_generation.out_dir, "textured_mesh", "hunyuan")
+    # Must track the backend that actually wrote the meshes; 3_generate_cousin_meshes.py names
+    # this directory after `cousin_generation.texture_model`, not a fixed backend.
+    mesh_dir = cfg_path(cfg.cousin_generation.out_dir, "textured_mesh", cfg.cousin_generation.texture_model)
     out_dir = cfg_path(cfg.sim.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 

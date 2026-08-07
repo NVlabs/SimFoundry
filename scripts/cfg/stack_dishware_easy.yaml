@@ -111,8 +111,8 @@ s7_mesh:          # env: mesh
   out_dir: "${root_dir}/${scene_name}/${s7_mesh.out_dirname}"
   generate_shape: true
   generate_texture: true
-  shape_model: hunyuan #hunyuan #trellis2 #direct3d
-  texture_model: hunyuan #hunyuan #trellis2
+  shape_model: hunyuan #hunyuan #trellis2 #pixal3d #direct3d
+  texture_model: hunyuan #hunyuan #trellis2 #pixal3d
   save_intermediates: true
 s8_pose:          # env: any6d
   rerun: true

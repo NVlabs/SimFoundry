@@ -32,7 +32,7 @@ sys.path.insert(0, str(project_root))
 bootstrap_hydra_workdir(__file__)
 
 
-def find_cousin_meshes(s16_result_dir, combinations_dir, canonical_mesh_dir, texture_model="hunyuan"):
+def find_cousin_meshes(s16_result_dir, combinations_dir, canonical_mesh_dir, texture_model):
     """
     Find all cousin meshes using the combinations.json and the actual s16 output structure.
     
@@ -49,7 +49,7 @@ def find_cousin_meshes(s16_result_dir, combinations_dir, canonical_mesh_dir, tex
         s16_result_dir: Root s16 output directory (e.g., .../s16_cousin_generation)
         combinations_dir: Directory containing combinations.json (e.g., .../cousins_combination)
         canonical_mesh_dir: Directory containing canonical meshes (e.g., .../s8_pose/canonical_mesh)
-        texture_model: Name of the texture model used (default: "hunyuan")
+        texture_model: Name of the texture model used, i.e. `cousin_generation.texture_model`
     
     Returns:
         dict: {object_name: {'base_mesh': path, 'cousins': [cousin_paths]}}

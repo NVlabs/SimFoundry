@@ -94,6 +94,20 @@ United Kingdom, and South Korea.
   - Renderers: pyrender (MIT, default); Blender (GPL-2.0-or-later) optional — downloaded from
     blender.org and invoked as a separate process (not redistributed by SimFoundry).
 - openpi / openpi-client (Apache-2.0; Gemma Terms for some weights)
+- Pixal3D (MIT) — optional `pixal3d` mesh backend. `install_pixal3d.sh` additionally fetches the
+  following at install time (into `deps/pixal3d-weights/` and torch's hub cache) unless
+  `--skip-weights` is passed:
+  - DINOv3 ViT-L/16 weights — Meta (DINOv3 License, non-OSS, **gated**: manual approval)
+  - BRIA RMBG-2.0 — BRIA AI (`license: other`, CC-BY-NC-4.0 terms — **non-commercial**, **gated**).
+    Selected by Pixal3D's published `pipeline.json`. SimFoundry substitutes a stub so these
+    weights are never downloaded, and requires RGBA inputs instead; see
+    `simfoundry/models/mesh_generator.py`.
+  - MoGe / MoGe-2 — Microsoft (MIT), camera FOV estimation
+  - NAF — Neighborhood Attention Filtering, valeo.ai (Apache-2.0 for its own code). The pinned
+    checkout additionally vendors `src/layers/rope.py` under the **DINOv3 License Agreement**
+    (Meta), which is imported and executed on every generation. Cloned into torch's hub cache by
+    `install_pixal3d.sh`.
+  - NATTEN — Neighborhood Attention Extension (MIT), built from source at install
 
 ## Third-party projects installed at build time (git clone / pip)
 

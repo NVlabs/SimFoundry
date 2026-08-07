@@ -8,18 +8,31 @@ Requires installing (depending on generator used):
 
 - Hunyuan2.1, see https://github.com/Tencent-Hunyuan/Hunyuan3D-2.1
 - TRELLIS, see https://github.com/microsoft/TRELLIS
+- TRELLIS.2, see https://github.com/microsoft/TRELLIS.2
 """
-from simfoundry.models.mesh_generator import ShapeGenerator, MeshGenerator, TextureGenerator, Hunyuan, Direct3D, Trellis
+from simfoundry.models.mesh_generator import (
+    Hunyuan,
+    MeshGenerator,
+    Pixal3D,
+    ShapeGenerator,
+    TextureGenerator,
+    Trellis2,
+    RESERVED_GENERATION_KWARGS,
+    filter_generation_kwargs,
+    publish_mesh_atomically,
+    get_mesh_generator_cls,
+    make_generator,
+)
 from pathlib import Path
+import math
 import os
-import inspect
+import tempfile
 from enum import IntEnum
 import hydra
 from omegaconf import OmegaConf
 
-from simfoundry.utils.python_utils import assert_valid_key
 from simfoundry import CFG_DIR, REPO_DIR
-from simfoundry.pipeline.stage_utils import bootstrap_hydra_workdir
+from simfoundry.pipeline.stage_utils import bootstrap_hydra_workdir, resolve_generation_kwargs
 
 import torch
 import trimesh
@@ -32,15 +45,15 @@ if hydra.core.global_hydra.GlobalHydra.instance().is_initialized():
 bootstrap_hydra_workdir(__file__)
 REPO_ROOT = Path(REPO_DIR)
 
-MESH_GENERATORS = {
-    "direct3d": Direct3D,
-    "hunyuan": Hunyuan,
-    "trellis": Trellis,
-}
-
 hunyuan_repo_path = str(REPO_ROOT / "deps" / "Hunyuan3D-2.1")
 
 Hunyuan.set_repo_path(repo_path=hunyuan_repo_path)
+
+trellis2_repo_path = str(REPO_ROOT / "deps" / "TRELLIS.2")
+Trellis2.set_repo_path(repo_path=trellis2_repo_path)
+
+pixal3d_repo_path = str(REPO_ROOT / "deps" / "Pixal3D")
+Pixal3D.set_repo_path(repo_path=pixal3d_repo_path)
 
 
 class GenerationMode(IntEnum):
@@ -75,11 +88,56 @@ def rescale_glb(glb_path, scale):
     mesh.export(glb_path)
 
 
-def make_generator(generator_cls, *, low_vram, **kwargs):
-    """Instantiate a mesh generator while passing low_vram only when supported."""
-    if "low_vram" in inspect.signature(generator_cls).parameters:
-        kwargs["low_vram"] = low_vram
-    return generator_cls(**kwargs)
+def generate_rescaled_mesh(out_fpath, produce_fn, canonical_scene):
+    """
+    Generates into a staging path, rescales to the canonical mesh, then publishes once, atomically.
+
+    Generation and rescaling have to land at the final path together. Publishing the generated
+    mesh first and rescaling it in place leaves a window in which `out_fpath` exists but holds an
+    unscaled mesh — and the loop below skips any target that already exists, so an interruption
+    (or a crash mid-export) in that window makes the wrong mesh permanent: every later run treats
+    it as finished. Staging also means a failed rescale never destroys a previously good file.
+
+    Args:
+        out_fpath (str): Final path to publish
+        produce_fn (callable): Called with the staging path; must write the mesh there
+        canonical_scene (trimesh.Scene): Reference whose largest extent sets the target size
+
+    Returns:
+        float: The scale factor applied
+    """
+    out_dir = os.path.dirname(os.path.abspath(out_fpath))
+    Path(out_dir).mkdir(parents=True, exist_ok=True)
+    extension = os.path.splitext(out_fpath)[1] or ".glb"
+    fd, staging_fpath = tempfile.mkstemp(dir=out_dir, prefix=".tmp-staging-", suffix=extension)
+    os.close(fd)
+    try:
+        produce_fn(staging_fpath)
+        gen_scene = trimesh.load(staging_fpath, force="scene")
+        _, gen_extents = get_aabb(gen_scene)
+        _, can_extents = get_aabb(canonical_scene)
+        gen_size = float(gen_extents.max())
+        can_size = float(can_extents.max())
+        if not (gen_size > 0.0) or not math.isfinite(gen_size):
+            raise ValueError(
+                f"Generated mesh has a degenerate bounding box (largest extent {gen_size}); "
+                f"refusing to rescale and publish {out_fpath}"
+            )
+        scale = can_size / gen_size
+        gen_scene.apply_scale(scale)
+        publish_mesh_atomically(out_fpath, gen_scene.export)
+        return scale
+    finally:
+        # Sweep by stem, not just the exact path. Backends derive sibling intermediates from the
+        # path they are handed — MeshGenerator.generate_mesh writes
+        # `<staging>_untextured.glb` — and because the staging stem is random, each failed or
+        # retried cousin would otherwise strand a fresh hidden file next to the published mesh.
+        stem = os.path.splitext(os.path.basename(staging_fpath))[0]
+        for leftover in Path(out_dir).glob(f"{stem}*"):
+            try:
+                leftover.unlink()
+            except OSError:
+                pass
 
 
 @hydra.main(config_name="real2sim_cfg", config_path=CFG_DIR, version_base="1.3")
@@ -107,18 +165,20 @@ def main(cfg):
     shape_generator_cls, texture_generator_cls, mesh_generator_cls = None, None, None
     shape_generator, texture_generator, mesh_generator = None, None, None
     shape_generator_name = cfg.cousin_generation.shape_model
-    assert_valid_key(key=shape_generator_name, valid_keys=MESH_GENERATORS, name="shape_generator")
+    # Resolve unconditionally so an invalid backend name fails fast even when that half of
+    # generation is disabled (the output directory below is named after it either way).
+    resolved_shape_cls = get_mesh_generator_cls(shape_generator_name)
     shape_dir = f"{out_dir}/shape/{shape_generator_name}"
     Path(shape_dir).mkdir(parents=True, exist_ok=True)
     if generate_shape:
-        shape_generator_cls = MESH_GENERATORS[shape_generator_name]
+        shape_generator_cls = resolved_shape_cls
         assert issubclass(shape_generator_cls, ShapeGenerator)
     texture_generator_name = cfg.cousin_generation.texture_model
-    assert_valid_key(key=texture_generator_name, valid_keys=MESH_GENERATORS, name="texture_generator")
+    resolved_texture_cls = get_mesh_generator_cls(texture_generator_name)
     texture_dir = f"{out_dir}/textured_mesh/{texture_generator_name}"
     Path(texture_dir).mkdir(parents=True, exist_ok=True)
     if generate_texture:
-        texture_generator_cls = MESH_GENERATORS[texture_generator_name]
+        texture_generator_cls = resolved_texture_cls
         assert issubclass(texture_generator_cls, TextureGenerator)
 
     
@@ -173,6 +233,34 @@ def main(cfg):
                 texture_kwargs["create_texture_pipeline"] = True
             texture_generator = make_generator(texture_generator_cls, low_vram=low_vram, **texture_kwargs)
 
+    # Backends accept different option sets, so filter once here and say what was dropped rather
+    # than silently ignoring a configured value (or raising TypeError on backends whose
+    # generate_* signatures enumerate fixed parameters, e.g. hunyuan and direct3d).
+    generation_kwargs = resolve_generation_kwargs(cfg, cfg.cousin_generation)
+    if generation_kwargs:
+        print(f"Forwarding generation kwargs to the backend: {generation_kwargs}")
+
+    def prepare_kwargs(generate_fn, label):
+        reserved = RESERVED_GENERATION_KWARGS[generate_fn.__name__]
+        prepared = filter_generation_kwargs(generate_fn, generation_kwargs, reserved=reserved)
+        dropped = sorted(set(generation_kwargs) - set(prepared))
+        if dropped:
+            print(f"WARNING: {label} does not accept {dropped} - dropped from generation_kwargs")
+        return prepared
+
+    mesh_gen_kwargs = (
+        prepare_kwargs(mesh_generator.generate_mesh, f"{shape_generator_name}.generate_mesh")
+        if mesh_generator is not None else {}
+    )
+    shape_gen_kwargs = (
+        prepare_kwargs(shape_generator.generate_shape, f"{shape_generator_name}.generate_shape")
+        if shape_generator is not None else {}
+    )
+    texture_gen_kwargs = (
+        prepare_kwargs(texture_generator.generate_texture, f"{texture_generator_name}.generate_texture")
+        if texture_generator is not None else {}
+    )
+
     
 
 
@@ -214,55 +302,49 @@ def main(cfg):
 
         # Process based on mode
         if generation_mode == GenerationMode.SHAPE_TEXTURE_SINGLE_MODEL:
-            mesh_generator.generate_mesh(
-                out_fpath=texture_fpath,
-                shape_image_path=input_img_path,
-                texture_image_path=input_img_path,
-                visualize=cfg.visualize,
+            scale = generate_rescaled_mesh(
+                texture_fpath,
+                lambda staging_fpath: mesh_generator.generate_mesh(
+                    out_fpath=staging_fpath,
+                    shape_image_path=input_img_path,
+                    texture_image_path=input_img_path,
+                    visualize=cfg.visualize,
+                    **mesh_gen_kwargs,
+                ),
+                can_scene,
             )
-            gen_scene = trimesh.load(texture_fpath, force="scene")
-            gen_bounds, gen_extents = get_aabb(gen_scene)
-            can_bounds, can_extents = get_aabb(can_scene)
-            gen_size = gen_extents.max()
-            can_size = can_extents.max()
-            scale = can_size / gen_size
-            gen_scene.apply_scale(scale)
-            gen_scene.export(texture_fpath)
             print(f"[DEBUG] In {generation_mode}, the rescaling factor is: {scale}.")
         else:
             if generation_mode in {GenerationMode.SHAPE_TEXTURE_SEPARATE_MODELS, GenerationMode.SHAPE_ONLY}:
-                shape_generator.generate_shape(
-                    image_path=input_img_path,
-                    out_fpath=shape_fpath,
-                    visualize=cfg.visualize,
+                scale = generate_rescaled_mesh(
+                    shape_fpath,
+                    lambda staging_fpath: shape_generator.generate_shape(
+                        image_path=input_img_path,
+                        out_fpath=staging_fpath,
+                        visualize=cfg.visualize,
+                        **shape_gen_kwargs,
+                    ),
+                    can_scene,
                 )
-                gen_scene = trimesh.load(shape_fpath, force="scene")
-                gen_bounds, gen_extents = get_aabb(gen_scene)
-                can_bounds, can_extents = get_aabb(can_scene)
-                gen_size = gen_extents.max()
-                can_size = can_extents.max()
-                scale = can_size / gen_size
-                gen_scene.apply_scale(scale)
-                gen_scene.export(shape_fpath)
                 print(f"[DEBUG] In {generation_mode}, the rescaling factor is: {scale}.")
             if generation_mode in {GenerationMode.SHAPE_TEXTURE_SEPARATE_MODELS, GenerationMode.TEXTURE_ONLY}:
-                texture_generator.generate_texture(
-                    shape_fpath=shape_fpath,
-                    image_path=input_img_path,
-                    out_fpath=texture_fpath,
-                    visualize=cfg.visualize,
+                scale = generate_rescaled_mesh(
+                    texture_fpath,
+                    lambda staging_fpath: texture_generator.generate_texture(
+                        shape_fpath=shape_fpath,
+                        image_path=input_img_path,
+                        out_fpath=staging_fpath,
+                        visualize=cfg.visualize,
+                        **texture_gen_kwargs,
+                    ),
+                    can_scene,
                 )
-                gen_scene = trimesh.load(texture_fpath, force="scene")
-                gen_bounds, gen_extents = get_aabb(gen_scene)
-                can_bounds, can_extents = get_aabb(can_scene)
-                gen_size = gen_extents.max()
-                can_size = can_extents.max()
-                scale = can_size / gen_size
-                gen_scene.apply_scale(scale)
-                gen_scene.export(texture_fpath)
                 print(f"[DEBUG] In {generation_mode}, the rescaling factor is: {scale}.")
 
-        if cfg.low_vram:
+        # Use the already-resolved local, not cfg.low_vram: the top-level key exists only in
+        # real2sim_cfg.yaml, so task configs that do not inherit it raised ConfigAttributeError
+        # here after the first cousin had already been generated.
+        if low_vram:
             torch.cuda.empty_cache()
 
 if __name__ == "__main__":

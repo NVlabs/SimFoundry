@@ -88,17 +88,22 @@ def main(cfg):
         is_articulated = obj_info.get("is_articulated", False)
         
         # Import
+        # Uses simfoundry.utils.og_asset_import rather than OmniGibson's own
+        # `examples.objects.import_custom_object`: that example passes `keep_instanceable=` to
+        # import_og_asset_from_urdf, which current OmniGibson main no longer declares, so it
+        # fails with TypeError before importing anything. Our module reproduces the URDF path of
+        # that example and filters arguments against the installed signature, so it works across
+        # the OmniGibson revisions this repo can have checked out. See that module's docstring.
         subprocess.run([
             "python",
-            "-m", "omnigibson.examples.objects.import_custom_object",
+            "-m", "simfoundry.utils.og_asset_import",
             "--dataset-name", "real2sim-assets",
             "--asset-path", obj_urdf_fpath,
             "--category", obj_category,
             "--model", obj_model,
             "--collision-method", "none",
-            "--no_keep_instanceable",
-            # "--no_import_inertia",
-            "--headless",
+            # keep_instanceable is intentionally omitted (equivalent to the old
+            # --no_keep_instanceable), matching upstream's _ALLOW_INSTANCING = False.
             "--overwrite",
         ], check=True)
         

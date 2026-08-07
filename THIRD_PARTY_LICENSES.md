@@ -69,6 +69,7 @@ are reproduced in [§7](#7-full-license-texts-for-vendored-code).
 | 11 | Hunyuan3D-2.1 | Tencent Hunyuan 3D 2.1 Community License (**non-OSS**; **licensed Territory excludes the EU, UK, and South Korea**) — full text preserved at [`third_party_notices/Hunyuan3D-2.1-LICENSE.txt`](third_party_notices/Hunyuan3D-2.1-LICENSE.txt) | Copyright (C) 2025 Tencent | https://github.com/Tencent-Hunyuan/Hunyuan3D-2.1/blob/82920d643c0dc2f7bfd7255f45f62d386edfe60c/LICENSE |
 | 12 | articulate-anything | MIT | Copyright (c) 2024 Long Le and the Articulate Anything authors| https://github.com/vlongle/articulate-anything/blob/main/LICENSE |
 | 13 | openpi (openpi-client) | Apache-2.0 (client); **Gemma Terms** (some weights) | Copyright Physical Intelligence | https://github.com/Physical-Intelligence/openpi/blob/15a9616a00943ada6c20a0f158e3adb39df2ccac/LICENSE |
+| 13a | Pixal3D | MIT | Copyright (c) 2026 Tencent | https://github.com/TencentARC/Pixal3D/blob/cdbb2bbffbf4e6f298b5f2af3d1d76a8d823d2af/LICENSE |
 
 ### 1a. Articulation-stage backends (fetched at install into `deps/articulate-anything/deps/`)
 
@@ -80,6 +81,32 @@ articulate-anything itself (item 12) is MIT, but the articulation feature
 | 12a | CoTracker | **CC-BY-NC-4.0** (Attribution-NonCommercial) | Copyright (c) Meta Platforms, Inc. and affiliates | https://github.com/facebookresearch/co-tracker/blob/main/LICENSE.md |
 | 12c | PartField (NVIDIA-origin) | NVIDIA License (**non-commercial** for third parties) | Copyright (c) NVIDIA Corporation & affiliates | https://github.com/nv-tlabs/PartField/blob/main/LICENSE |
 | 12d | Hunyuan3D-Part — incl. P3-SAM, X-Part | Tencent Hunyuan 3D-Part Community License (**non-OSS**) | Copyright (C) 2025 Tencent | https://github.com/Tencent-Hunyuan/Hunyuan3D-Part/blob/main/LICENSE |
+
+### 1b. Models and code fetched by `install_pixal3d.sh` for the Pixal3D backend
+
+Pixal3D (item 13a) is MIT, but running it requires the components below. **`install_pixal3d.sh`
+downloads all of them by default**, into `deps/pixal3d-weights/` (revision-pinned Hugging Face
+snapshots) and into torch's hub cache (the NAF checkout and its checkpoint). `--skip-weights`
+opts out, but the backend then fails closed unless `SIMFOUNDRY_PIXAL3D_ALLOW_UNPINNED=1` — so a
+plain install writes these to disk, and an image built from one carries them.
+
+None are redistributed *by this repository*; they are fetched from their own upstreams at install
+time. **DINOv3 is gated** and requires accepted terms plus a `hf auth login` on that machine.
+
+Item 13e (BRIA RMBG-2.0) is listed for completeness but is **not fetched**: Pixal3D's published
+`pipeline.json` selects it, so upstream would download it eagerly at pipeline construction, but
+SimFoundry substitutes a stub (`_RejectingBackgroundRemover` in
+`simfoundry/models/mesh_generator.py`) and requires RGBA inputs whose alpha already isolates the
+object. As integrated here, SimFoundry does not download, execute, or use BRIA code or weights;
+evaluate BRIA's terms yourself if you re-enable it. See §6.
+
+| No. | Component | License | Copyright | License Link |
+|-----|-----------|---------|-----------|--------------|
+| 13b | DINOv3 (ViT-L/16 weights, image conditioning) | **DINOv3 License** (Meta, custom — **gated**, manual approval) | Copyright (c) Meta Platforms, Inc. and affiliates | https://ai.meta.com/resources/models-and-libraries/dinov3-license/ |
+| 13c | NAF — Neighborhood Attention Filtering (feature upsampler; cloned into torch's hub cache by `install_pixal3d.sh`, executed on every generation) | Apache-2.0 for NAF's own code, **but the pinned checkout vendors `src/layers/rope.py` under the "DINOv3 License Agreement" (Meta)**, which `src/model/naf.py` imports and runs — see §6 | Copyright holder **inferred**: NAF's `LICENSE` is an unedited Apache template (`Copyright [yyyy] [name of copyright owner]`) and the README declares none. `rope.py` is Copyright (c) Meta Platforms, Inc. | https://github.com/valeoai/NAF/blob/37f2dfc180f2de53d98bd601109c0da0dd6b0f43/LICENSE |
+| 13d | MoGe / MoGe-2 (`Ruicheng/moge-2-vitl`, camera FOV estimation) | MIT | Copyright (c) Microsoft Corporation | https://github.com/microsoft/MoGe/blob/main/LICENSE |
+| 13e | BRIA RMBG-2.0 (`briaai/RMBG-2.0`, background removal) — **referenced by `TencentARC/Pixal3D`'s `pipeline.json` but NOT fetched by SimFoundry; substituted with a stub** | **BRIA RMBG-2.0 License** (`license: other`, CC-BY-NC-4.0 terms — **non-commercial**, **gated**) | Copyright (c) BRIA AI (BiRefNet architecture code is MIT, Copyright (c) 2024 ZhengPeng) | https://huggingface.co/briaai/RMBG-2.0 |
+| 13f | NATTEN — Neighborhood Attention Extension (built from source by `install_pixal3d.sh`) | MIT | Copyright (c) 2022-2025 Ali Hassani and contributors | https://github.com/SHI-Labs/NATTEN/blob/main/LICENSE |
 
 
 ## 2. Third-party projects installed at build time (git clone / pip)
@@ -228,7 +255,11 @@ not extend to any component below, their model weights, or any dataset or SDK re
 | OpenPI / Gemma weights | Installed with `simfoundry` (client only) | `git clone` — `install_simfoundry.sh` | `15a9616a…` | Apache-2.0 (client) | **Gemma Terms of Use** | Weights governed by Gemma Terms |
 | CoTracker | Optional (`articulate`) | Fetched by articulate-anything | **CC-BY-NC-4.0** | Same | **Non-commercial** |
 | TeleMoMa | **User-supplied** | Not installed by SimFoundry | User's choice (`0.3.0` known-good) | **No license file — all rights reserved** | n/a | **No rights granted by upstream.** Not installed, distributed, or mirrored |
-| TRELLIS.2 | Optional (`--trellis`) | `git clone` — `install_simfoundry.sh` | `75fbf018…` | MIT | n/a | None |
+| TRELLIS.2 | Optional (`--trellis`) | `git clone` — `install_simfoundry.sh`, `install_trellis.sh` | `75fbf018…` | MIT | n/a | None |
+| Pixal3D | Optional (`pixal3d` mesh backend) | `git clone` — `install_pixal3d.sh` | `cdbb2bbf…` | MIT | MIT, ungated (`TencentARC/Pixal3D`) | None on Pixal3D's own code or weights, but its pipeline pulls DINOv3 and BRIA RMBG-2.0 at runtime — see the two rows below |
+| DINOv3 (ViT-L/16 weights) | Optional — pulled at runtime by `pixal3d` | Hugging Face `from_pretrained` on first stage 7 run | `facebook/dinov3-vitl16-pretrain-lvd1689m` | DINOv3 License (Meta, custom) | Same; **gated: manual approval** | **Non-OSS**; manual approval + HF login required. Upstream Pixal3D hardcodes an *ungated third-party mirror* of these weights; SimFoundry repoints to the official gated repo instead (see `Pixal3D.DINOV3_REPO`) |
+| NAF (Neighborhood Attention Filtering) | Optional — required by `pixal3d`; cloned by `install_pixal3d.sh` into torch's hub cache | `git clone` pinned to `37f2dfc1…`, checkpoint SHA256-verified | `37f2dfc180f2de53d98bd601109c0da0dd6b0f43` | Apache-2.0 for NAF's own code (`LICENSE` is an unedited template; holder inferred) | Checkpoint `naf_release.pth`, no separate terms stated | **The checkout vendors `src/layers/rope.py` under the DINOv3 License Agreement (Meta)**, imported by `src/model/naf.py` and executed on every generation. That Agreement's field-of-use terms (no military/weapons end use) and redistribution obligations therefore apply to anyone containerizing this install |
+| BRIA RMBG-2.0 | **Not used** — referenced by Pixal3D's config, blocked by SimFoundry | Would be a Hugging Face `from_pretrained` with `trust_remote_code=True`; SimFoundry substitutes a stub before the pipeline is built, so nothing is downloaded | `briaai/RMBG-2.0` | BRIA RMBG-2.0 License (`license: other`) | Same; **gated: click-through**, CC-BY-NC-4.0 terms | **Non-commercial** without a separate BRIA agreement — which is why it is blocked rather than fetched. `pixal3d` instead requires RGBA inputs whose alpha already isolates the object (what stage 6 produces), and raises a clear error otherwise |
 | pyzed / ZED SDK | Optional (`--zed`) | User installs the ZED SDK | User's SDK version | MIT (bindings) | n/a | **Proprietary ZED SDK** required at runtime, under Stereolabs terms |
 
 ### Components requiring your acceptance or approval before use
