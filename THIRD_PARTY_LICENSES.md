@@ -44,14 +44,15 @@ Derived files carry an attribution note in their header.
 
 Individual files adapted from other projects, each carrying an attribution note in its
 header. Upstream copyright is reproduced where the upstream declares one. The full
-MIT license texts for the vendored urdfpy and OmniGibson portions (items 0a and 0d)
-are reproduced in [§7](#7-full-license-texts-for-vendored-code).
+MIT license texts for the vendored urdfpy, OmniGibson, and Pixal3D portions (items 0a,
+0d, and 0f) are reproduced in [§7](#7-full-license-texts-for-vendored-code).
 
 | No. | Component | Adapted into | License | Copyright | License Link |
 |-----|-----------|--------------|---------|-----------|--------------|
 | 0a | urdfpy | `simfoundry/utils/urdfpy_utils.py` | **MIT** | Copyright (c) 2019 Matthew Matl | https://github.com/mmatl/urdfpy/blob/5466842899b33bd549e8f9e2a9a987bd5e37373b/LICENSE |
 | 0b | MolmoSpaces | `simfoundry/utils/data_gen_utils.py` | Apache-2.0 | Copyright 2026 Allen Institute for AI | https://github.com/allenai/molmospaces/blob/c2f1b583f087e1d3994e1377574843b759d9d0f8/LICENSE |
 | 0d | OmniGibson (BEHAVIOR-1K) | `simfoundry/utils/asset_conversion_utils.py` | **MIT** | Copyright (c) 2023 Stanford Vision and Learning Group | https://github.com/StanfordVL/BEHAVIOR-1K/blob/d89aae4e0e9a1de3cf8285cb9669c11d8c8bb864/OmniGibson/LICENSE |
+| 0f | Pixal3D — two short regions of `inference.py` (the manual-FOV camera derivation and the GLB axis-conversion matrix) adapted into `Pixal3D.generate_mesh` | **MIT** | Copyright (c) 2026 Tencent | https://github.com/TencentARC/Pixal3D/blob/cdbb2bbffbf4e6f298b5f2af3d1d76a8d823d2af/LICENSE |
 
 ## 1. Third-party projects fetched into `deps/` at install time (not distributed)
 
@@ -107,6 +108,7 @@ evaluate BRIA's terms yourself if you re-enable it. See §6.
 | 13d | MoGe / MoGe-2 (`Ruicheng/moge-2-vitl`, camera FOV estimation) | MIT | Copyright (c) Microsoft Corporation | https://github.com/microsoft/MoGe/blob/main/LICENSE |
 | 13e | BRIA RMBG-2.0 (`briaai/RMBG-2.0`, background removal) — **referenced by `TencentARC/Pixal3D`'s `pipeline.json` but NOT fetched by SimFoundry; substituted with a stub** | **BRIA RMBG-2.0 License** (`license: other`, CC-BY-NC-4.0 terms — **non-commercial**, **gated**) | Copyright (c) BRIA AI (BiRefNet architecture code is MIT, Copyright (c) 2024 ZhengPeng) | https://huggingface.co/briaai/RMBG-2.0 |
 | 13f | NATTEN — Neighborhood Attention Extension (built from source by `install_pixal3d.sh`) | MIT | Copyright (c) 2022-2025 Ali Hassani and contributors | https://github.com/SHI-Labs/NATTEN/blob/main/LICENSE |
+| 13g | utils3d (`utils3d-0.0.2-py3-none-any.whl`, required by Pixal3D) | MIT (per wheel metadata) | Copyright (c) the utils3d authors | Installed from a personal GitHub release asset, **not PyPI**: https://github.com/LDYang694/Storages/releases/download/20260430/utils3d-0.0.2-py3-none-any.whl — SHA256-verified by `install_pixal3d.sh` (`UTILS3D_WHEEL_SHA256`) |
 
 
 ## 2. Third-party projects installed at build time (git clone / pip)
@@ -256,8 +258,8 @@ not extend to any component below, their model weights, or any dataset or SDK re
 | CoTracker | Optional (`articulate`) | Fetched by articulate-anything | **CC-BY-NC-4.0** | Same | **Non-commercial** |
 | TeleMoMa | **User-supplied** | Not installed by SimFoundry | User's choice (`0.3.0` known-good) | **No license file — all rights reserved** | n/a | **No rights granted by upstream.** Not installed, distributed, or mirrored |
 | TRELLIS.2 | Optional (`--trellis`) | `git clone` — `install_simfoundry.sh`, `install_trellis.sh` | `75fbf018…` | MIT | n/a | None |
-| Pixal3D | Optional (`pixal3d` mesh backend) | `git clone` — `install_pixal3d.sh` | `cdbb2bbf…` | MIT | MIT, ungated (`TencentARC/Pixal3D`) | None on Pixal3D's own code or weights, but its pipeline pulls DINOv3 and BRIA RMBG-2.0 at runtime — see the two rows below |
-| DINOv3 (ViT-L/16 weights) | Optional — pulled at runtime by `pixal3d` | Hugging Face `from_pretrained` on first stage 7 run | `facebook/dinov3-vitl16-pretrain-lvd1689m` | DINOv3 License (Meta, custom) | Same; **gated: manual approval** | **Non-OSS**; manual approval + HF login required. Upstream Pixal3D hardcodes an *ungated third-party mirror* of these weights; SimFoundry repoints to the official gated repo instead (see `Pixal3D.DINOV3_REPO`) |
+| Pixal3D | Optional (`pixal3d` mesh backend) | `git clone` — `install_pixal3d.sh` | `cdbb2bbf…` | MIT | MIT, ungated (`TencentARC/Pixal3D`) | None on Pixal3D's own code or weights. Its config names BRIA RMBG-2.0, but SimFoundry blocks that (row below). DINOv3 and NAF are fetched **at install time** and do carry terms — see their rows |
+| DINOv3 (ViT-L/16 weights) | Optional — required by `pixal3d` | `hf download --revision` during `install_pixal3d.sh` into `deps/pixal3d-weights/` (not at runtime; the backend fails closed if the pinned snapshot is absent) | `facebook/dinov3-vitl16-pretrain-lvd1689m` @ `ea8dc286…` | DINOv3 License (Meta, custom) | Same; **gated: manual approval** | **Non-OSS**; manual approval + HF login required. Upstream Pixal3D hardcodes an *ungated third-party mirror* of these weights; SimFoundry repoints to the official gated repo instead (see `Pixal3D.DINOV3_REPO`) |
 | NAF (Neighborhood Attention Filtering) | Optional — required by `pixal3d`; cloned by `install_pixal3d.sh` into torch's hub cache | `git clone` pinned to `37f2dfc1…`, checkpoint SHA256-verified | `37f2dfc180f2de53d98bd601109c0da0dd6b0f43` | Apache-2.0 for NAF's own code (`LICENSE` is an unedited template; holder inferred) | Checkpoint `naf_release.pth`, no separate terms stated | **The checkout vendors `src/layers/rope.py` under the DINOv3 License Agreement (Meta)**, imported by `src/model/naf.py` and executed on every generation. That Agreement's field-of-use terms (no military/weapons end use) and redistribution obligations therefore apply to anyone containerizing this install |
 | BRIA RMBG-2.0 | **Not used** — referenced by Pixal3D's config, blocked by SimFoundry | Would be a Hugging Face `from_pretrained` with `trust_remote_code=True`; SimFoundry substitutes a stub before the pipeline is built, so nothing is downloaded | `briaai/RMBG-2.0` | BRIA RMBG-2.0 License (`license: other`) | Same; **gated: click-through**, CC-BY-NC-4.0 terms | **Non-commercial** without a separate BRIA agreement — which is why it is blocked rather than fetched. `pixal3d` instead requires RGBA inputs whose alpha already isolates the object (what stage 6 produces), and raises a clear error otherwise |
 | pyzed / ZED SDK | Optional (`--zed`) | User installs the ZED SDK | User's SDK version | MIT (bindings) | n/a | **Proprietary ZED SDK** required at runtime, under Stereolabs terms |
@@ -282,8 +284,8 @@ not extend to any component below, their model weights, or any dataset or SDK re
 
 The MIT License requires that its copyright and permission notice be included with
 all copies or substantial portions of the software. The notices below are reproduced
-verbatim from the commit-pinned upstream `LICENSE` files for the two components
-vendored in this repository (items 0a and 0d above).
+verbatim from the commit-pinned upstream `LICENSE` files for the three components
+vendored in this repository (items 0a, 0d, and 0f above).
 
 ### urdfpy — vendored in `simfoundry/utils/urdfpy_utils.py`
 
@@ -323,6 +325,32 @@ under [`third_party_notices/`](third_party_notices/); see
 MIT License
 
 Copyright (c) 2023 Stanford Vision and Learning Group
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### Pixal3D — adapted in `simfoundry/models/mesh_generator.py`
+
+```
+MIT License
+
+Copyright (c) 2026 Tencent.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

@@ -305,15 +305,51 @@ def test_base_generate_mesh_routes_loose_kwargs_to_both_halves():
 # Pinned local snapshots
 # ---------------------------------------------------------------------------
 
+def _install_snapshot(tmp_path, key, revision=None):
+    """Create a snapshot dir the way install_pixal3d.sh leaves it (marker written last)."""
+    snapshot = tmp_path / Pixal3D.SNAPSHOT_SUBDIRS[key]
+    snapshot.mkdir(exist_ok=True)
+    inner = Pixal3D.SNAPSHOT_FILES.get(key)
+    if inner:
+        (snapshot / inner).write_bytes(b"x")
+    rev = revision if revision is not None else Pixal3D.SNAPSHOT_REVISIONS[key]
+    (snapshot / Pixal3D.REVISION_MARKER).write_text(rev, encoding="utf-8")
+    return snapshot
+
+
 def test_resolve_model_source_prefers_local_snapshot(tmp_path, monkeypatch):
     monkeypatch.setenv(Pixal3D.WEIGHTS_DIR_ENV_VAR, str(tmp_path))
 
     # No snapshot installed -> fall back to the (mutable) repo id.
     assert Pixal3D.resolve_model_source("pixal3d", "TencentARC/Pixal3D") == "TencentARC/Pixal3D"
 
-    snapshot = tmp_path / Pixal3D.SNAPSHOT_SUBDIRS["pixal3d"]
-    snapshot.mkdir()
+    snapshot = _install_snapshot(tmp_path, "pixal3d")
     assert Pixal3D.resolve_model_source("pixal3d", "TencentARC/Pixal3D") == str(snapshot)
+
+
+def test_resolve_model_source_rejects_snapshot_without_revision_marker(tmp_path, monkeypatch):
+    # An interrupted `hf download` leaves a plausible-looking directory with no marker: the
+    # marker is written last. Existence alone must not count as installed, or a half-downloaded
+    # snapshot loads silently.
+    monkeypatch.setenv(Pixal3D.WEIGHTS_DIR_ENV_VAR, str(tmp_path))
+    (tmp_path / Pixal3D.SNAPSHOT_SUBDIRS["pixal3d"]).mkdir()
+    assert Pixal3D.resolve_model_source("pixal3d", "TencentARC/Pixal3D") == "TencentARC/Pixal3D"
+
+
+def test_resolve_model_source_rejects_snapshot_at_unexpected_revision(tmp_path, monkeypatch):
+    # A bumped pin downloaded over an existing tree, or a hand-edited snapshot, must not be
+    # accepted as the pinned revision this build expects.
+    monkeypatch.setenv(Pixal3D.WEIGHTS_DIR_ENV_VAR, str(tmp_path))
+    _install_snapshot(tmp_path, "pixal3d", revision="deadbeef" * 5)
+    assert Pixal3D.resolve_model_source("pixal3d", "TencentARC/Pixal3D") == "TencentARC/Pixal3D"
+
+
+def test_snapshot_revisions_cover_every_snapshot():
+    # A key present in SNAPSHOT_SUBDIRS but missing from SNAPSHOT_REVISIONS would skip
+    # verification entirely and silently accept any tree on disk.
+    assert set(Pixal3D.SNAPSHOT_REVISIONS) == set(Pixal3D.SNAPSHOT_SUBDIRS)
+    for key, rev in Pixal3D.SNAPSHOT_REVISIONS.items():
+        assert len(rev) == 40 and all(c in "0123456789abcdef" for c in rev), key
 
 
 def test_resolve_model_source_covers_every_runtime_model(tmp_path, monkeypatch):
@@ -321,26 +357,17 @@ def test_resolve_model_source_covers_every_runtime_model(tmp_path, monkeypatch):
     assert set(Pixal3D.SNAPSHOT_SUBDIRS) == {"pixal3d", "dinov3", "moge"}
     monkeypatch.setenv(Pixal3D.WEIGHTS_DIR_ENV_VAR, str(tmp_path))
     for key in Pixal3D.SNAPSHOT_SUBDIRS:
-        snapshot = tmp_path / Pixal3D.SNAPSHOT_SUBDIRS[key]
-        snapshot.mkdir()
+        snapshot = _install_snapshot(tmp_path, key)
         inner = Pixal3D.SNAPSHOT_FILES.get(key)
-        if inner is None:
-            assert Pixal3D.resolve_model_source(key, "some/repo") == str(snapshot)
-        else:
-            # Before the inner file exists, fall back to the repo id rather than returning a
-            # path the loader cannot use.
-            assert Pixal3D.resolve_model_source(key, "some/repo") == "some/repo"
-            (snapshot / inner).write_bytes(b"x")
-            assert Pixal3D.resolve_model_source(key, "some/repo") == str(snapshot / inner)
+        expected = str(snapshot / inner) if inner else str(snapshot)
+        assert Pixal3D.resolve_model_source(key, "some/repo") == expected
 
 
 def test_moge_snapshot_resolves_to_a_checkpoint_file_not_a_directory(tmp_path, monkeypatch):
     # MoGeModel.from_pretrained torch.load()s the path it is given, so a directory raises
     # IsADirectoryError at pipeline construction. It must receive model.pt.
     monkeypatch.setenv(Pixal3D.WEIGHTS_DIR_ENV_VAR, str(tmp_path))
-    snapshot = tmp_path / Pixal3D.SNAPSHOT_SUBDIRS["moge"]
-    snapshot.mkdir()
-    (snapshot / "model.pt").write_bytes(b"x")
+    _install_snapshot(tmp_path, "moge")
     resolved = Pixal3D.resolve_model_source("moge", "Ruicheng/moge-2-vitl")
     assert resolved.endswith("model.pt")
     import os

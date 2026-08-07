@@ -245,8 +245,8 @@ stream_subseq:
   # when selecting pixal3d, or stage 7 is admitted alongside stage 6 and then OOMs.
   #   pixal3d  ~15 MEASURED with s7_mesh.low_vram=true (resolution 1024): 14.22 GiB peak on an
   #            RTX 4090, 409x409 input, torch.cuda.max_memory_allocated. Larger inputs cost more.
-  #            ~20 at the resolution-1536 default is still an ESTIMATE from upstream's figures,
-  #            not measured here.
+  #            The resolution-1536 default (s7_mesh.low_vram=false) was TESTED on the same
+  #            RTX 4090 and OOMs — do not use it on 24 GiB. Treat low_vram=true as required there.
   #            Peak briefly exceeds the pipeline itself because MoGe-2 is moved onto the GPU for
   #            camera estimation while the pipeline is resident (it is parked on CPU otherwise).
   # An estimate larger than the budget (max_vram_frac * total, default 0.9) is rejected outright,

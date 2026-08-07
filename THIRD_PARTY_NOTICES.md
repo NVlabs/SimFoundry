@@ -108,6 +108,7 @@ United Kingdom, and South Korea.
     (Meta), which is imported and executed on every generation. Cloned into torch's hub cache by
     `install_pixal3d.sh`.
   - NATTEN — Neighborhood Attention Extension (MIT), built from source at install
+  - utils3d (MIT) — installed from a pinned, SHA256-verified GitHub release wheel, not PyPI
 
 ## Third-party projects installed at build time (git clone / pip)
 

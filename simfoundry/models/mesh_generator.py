@@ -698,6 +698,11 @@ class Trellis2(MeshGenerator):
             glb.export(_tmp_out)
 
 
+# Upstream Pixal3D defines exactly these cascade variants
+# (deps/Pixal3D/pixal3d/pipelines/pixal3d_image_to_3d.py run()).
+_PIXAL3D_PIPELINE_TYPES = ("1024_cascade", "1536_cascade")
+
+
 class _RejectingBackgroundRemover:
     """
     Stand-in for Pixal3D's BiRefNet background remover that downloads and runs nothing.
@@ -798,6 +803,25 @@ class Pixal3D(MeshGenerator):
     SNAPSHOT_FILES = {
         "moge": "model.pt",
     }
+    # Revisions install_pixal3d.sh pins and records in each snapshot's `.simfoundry-revision`.
+    # KEEP IN SYNC with *_MODEL_REVISION in that script. Existence alone is not integrity: an
+    # interrupted `hf download`, a hand-edited snapshot, or a bumped pin downloaded over an older
+    # tree all leave a directory that looks installed. The marker is written last, so matching it
+    # is what distinguishes a complete, expected snapshot from a plausible-looking one.
+    SNAPSHOT_REVISIONS = {
+        "pixal3d": "0b31f9160aa400719af409098bff7936a932f726",
+        "moge": "39c4d5e957afe587e04eec59dc2bcc3be5ecd968",
+        "dinov3": "ea8dc2863c51be0a264bab82070e3e8836b02d51",
+    }
+    REVISION_MARKER = ".simfoundry-revision"
+    # Upstream loads NAF with an UNREVISIONED torch.hub.load("valeoai/NAF", trust_repo=True)
+    # (deps/Pixal3D/.../image_conditioned_proj.py:_load_naf). Left alone, that clones and executes
+    # whatever GitHub serves at call time. install_pixal3d.sh pre-populates a pinned, checksummed
+    # copy, but only in the invoking user's torch hub dir - a different user, a changed TORCH_HOME,
+    # or a cleared cache silently restores the live-fetch behavior. create_pipelines redirects the
+    # call to a local checkout and fails closed when none is present.
+    NAF_DIR_ENV_VAR = "SIMFOUNDRY_NAF_DIR"
+    NAF_HUB_DIRNAME = "valeoai_NAF_main"
 
     @classmethod
     def resolve_model_source(cls, key, repo_id):
@@ -820,6 +844,31 @@ class Pixal3D(MeshGenerator):
         candidate = os.path.join(weights_dir, cls.SNAPSHOT_SUBDIRS[key])
         if not os.path.isdir(candidate):
             return repo_id
+
+        # A snapshot only counts as pinned if it carries the revision we expect. Otherwise treat
+        # it as absent, so the caller's unpinned-weights guard decides rather than this silently
+        # loading whatever happens to be on disk.
+        expected = cls.SNAPSHOT_REVISIONS.get(key)
+        marker_path = os.path.join(candidate, cls.REVISION_MARKER)
+        if expected is not None:
+            try:
+                with open(marker_path, "r", encoding="utf-8") as f:
+                    found = f.read().strip()
+            except OSError:
+                print(
+                    f"WARNING: {candidate} has no {cls.REVISION_MARKER}; treating it as not "
+                    f"installed. An interrupted download leaves exactly this state — re-run "
+                    f"install_pixal3d.sh, or delete the directory first to force a clean fetch."
+                )
+                return repo_id
+            if found != expected:
+                print(
+                    f"WARNING: {candidate} is at revision {found or '<empty>'} but this build "
+                    f"expects {expected}; treating it as not installed. Delete the directory and "
+                    f"re-run install_pixal3d.sh (it will not re-download over a stale tree)."
+                )
+                return repo_id
+
         inner_file = cls.SNAPSHOT_FILES.get(key)
         if inner_file is not None:
             inner_path = os.path.join(candidate, inner_file)
@@ -862,6 +911,63 @@ class Pixal3D(MeshGenerator):
             return
         # Record only; sys.path is mutated in create_pipelines. See Hunyuan.set_repo_path.
         cls.REPO_PATH = repo_path
+
+    @classmethod
+    def resolve_naf_dir(cls):
+        """
+        Returns a local pinned NAF checkout containing hubconf.py, or None if none is installed.
+
+        Search order: $SIMFOUNDRY_NAF_DIR, the weights dir install_pixal3d.sh writes, then torch's
+        hub cache (where the installer also places a pinned, checksummed copy).
+        """
+        import torch.hub
+
+        candidates = []
+        env_dir = os.environ.get(cls.NAF_DIR_ENV_VAR)
+        if env_dir:
+            candidates.append(env_dir)
+        if cls.REPO_PATH is not None:
+            weights_dir = os.environ.get(cls.WEIGHTS_DIR_ENV_VAR) or os.path.join(
+                os.path.dirname(os.path.abspath(cls.REPO_PATH)), "pixal3d-weights"
+            )
+            candidates.append(os.path.join(weights_dir, "NAF"))
+        candidates.append(os.path.join(torch.hub.get_dir(), cls.NAF_HUB_DIRNAME))
+
+        for candidate in candidates:
+            if os.path.isfile(os.path.join(candidate, "hubconf.py")):
+                return candidate
+        return None
+
+    def _guarded_hub_load(self, original_load):
+        """
+        Builds a torch.hub.load replacement that never reaches the network for NAF.
+
+        Calls for any other repo are delegated to @original_load untouched.
+        """
+        import torch.hub
+
+        naf_dir = self.resolve_naf_dir()
+        env_var = self.NAF_DIR_ENV_VAR
+
+        def guarded_load(repo_or_dir, model, *args, **kwargs):
+            if "NAF" not in str(repo_or_dir):
+                return original_load(repo_or_dir, model, *args, **kwargs)
+            if naf_dir is None:
+                raise RuntimeError(
+                    "Pixal3D needs the NAF feature upsampler, and SimFoundry will not let it "
+                    "clone and execute unpinned code from GitHub at generation time. No pinned "
+                    "checkout was found - run scripts/installation/install_pixal3d.sh without "
+                    f"--skip-weights, or point {env_var} at a checkout containing hubconf.py. "
+                    "NOTE: that checkout vendors src/layers/rope.py under Meta's DINOv3 License; "
+                    "see THIRD_PARTY_LICENSES.md item 13c."
+                )
+            # Meaningless (and rejected) for a local-directory load.
+            kwargs.pop("trust_repo", None)
+            kwargs.pop("source", None)
+            print(f"[Pixal3D] NAF loaded from pinned local checkout: {naf_dir}")
+            return torch.hub._load_local(naf_dir, model, *args, **kwargs)
+
+        return guarded_load
 
     def create_pipelines(self, create_shape_pipeline, create_texture_pipeline):
         # Local import now to avoid dependency crashing depending on environment being run currently
@@ -932,8 +1038,14 @@ class Pixal3D(MeshGenerator):
         # executed. Patching the factory is the only point at which that is avoidable.
         import pixal3d.pipelines.rembg as pixal3d_rembg
 
+        # NAF is fetched during init_pipeline (low_vram pre-loads the upsampler) and again lazily
+        # on first use, so the guard has to cover both. Patch torch.hub.load for the duration.
+        import torch.hub
+
         original_birefnet = pixal3d_rembg.BiRefNet
+        original_hub_load = torch.hub.load
         pixal3d_rembg.BiRefNet = _RejectingBackgroundRemover
+        torch.hub.load = self._guarded_hub_load(original_hub_load)
         try:
             # init_pipeline, not Pixal3DImageTo3DPipeline.from_pretrained: the latter leaves the
             # four image_cond_model_* attributes as None and run() then asserts on them. Also not
@@ -943,6 +1055,7 @@ class Pixal3D(MeshGenerator):
             )
         finally:
             pixal3d_rembg.BiRefNet = original_birefnet
+            torch.hub.load = original_hub_load
 
         # RuntimeError, not assert: `python -O` strips asserts, and this is the control that
         # keeps gated, non-commercial (CC-BY-NC-4.0) BRIA weights from being downloaded and their
@@ -1010,12 +1123,28 @@ class Pixal3D(MeshGenerator):
         if not out_fpath.endswith(".glb"):
             raise ValueError(f"out_fpath must end with .glb, got: {out_fpath}")
 
-        # Upstream only defines the cascade for these two (pixal3d_image_to_3d.py run(): options
-        # '1024_cascade', '1536_cascade'); anything else builds a pipeline_type string that does
-        # not exist and fails deep inside run().
+        # Upstream only defines the cascade for two values (pixal3d_image_to_3d.py run():
+        # '1024_cascade', '1536_cascade'); anything else fails deep inside run().
+        #
+        # Resolve ONE effective pipeline_type and validate that, rather than validating
+        # `resolution` and separately defaulting `pipeline_type`. Two holes made the previous
+        # form unsafe, and they compounded:
+        #   * `if "pipeline_type" not in kwargs` skipped the resolution check whenever the key was
+        #     merely present — including `pipeline_type: null`, trivial to write in YAML.
+        #   * kwargs.get("pipeline_type", <default>) returns a stored None rather than the
+        #     default, so that same null was passed to run(), where
+        #     `pipeline_type = pipeline_type or self.default_pipeline_type` selects the
+        #     checkpoint's default. TencentARC/Pixal3D's pipeline.json sets that to
+        #     "1536_cascade", so asking for resolution=1024 could silently run at 1536 and OOM a
+        #     24 GiB card. `or` collapses null to the resolution-derived value.
         resolution = int(kwargs.get("resolution", 1024 if self.low_vram else 1536))
-        if "pipeline_type" not in kwargs and resolution not in (1024, 1536):
-            raise ValueError(f"resolution must be 1024 or 1536, got: {resolution}")
+        pipeline_type = kwargs.get("pipeline_type") or f"{resolution}_cascade"
+        if pipeline_type not in _PIXAL3D_PIPELINE_TYPES:
+            raise ValueError(
+                f"pipeline_type resolved to {pipeline_type!r}, but upstream defines only "
+                f"{sorted(_PIXAL3D_PIPELINE_TYPES)}. Set resolution to 1024 or 1536, or pass an "
+                f"explicit pipeline_type."
+            )
 
         mesh_scale = float(kwargs.get("mesh_scale", 1.0))
         if not math.isfinite(mesh_scale) or mesh_scale <= 0.0:
@@ -1069,7 +1198,8 @@ class Pixal3D(MeshGenerator):
         image = self.pipeline.preprocess_image(source_image)
 
         if fov is not None:
-            # Inlined from inference.py:200-209 — upstream has no reusable helper for this path,
+            # Adapted from Pixal3D inference.py:200-209 (MIT, Copyright (c) 2026 Tencent; see
+            # THIRD_PARTY_LICENSES.md item 0f) — upstream has no reusable helper for this path,
             # only the manual-FOV branch of run_inference().
             camera_angle_x = float(fov)
             grid_point = torch.tensor([-1.0, 0.0, 0.0])
@@ -1125,7 +1255,7 @@ class Pixal3D(MeshGenerator):
         run_kwargs = dict(
             seed=seed,
             camera_params=camera_params,
-            pipeline_type=kwargs.get("pipeline_type", f"{resolution}_cascade"),
+            pipeline_type=pipeline_type,
             preprocess_image=False,   # already done above; run() would otherwise redo it
             return_latent=True,       # required: to_glb's grid_size comes from the returned res
         )
@@ -1174,7 +1304,8 @@ class Pixal3D(MeshGenerator):
             use_tqdm            =   kwargs.get('use_tqdm', True),
         )
 
-        # Axis conversion, from inference.py:272-278. to_glb does not apply it.
+        # Axis conversion, adapted from Pixal3D inference.py:272-278 (MIT, Copyright (c) 2026
+        # Tencent; see THIRD_PARTY_LICENSES.md item 0f). to_glb does not apply it.
         axis_transform = np.array([
             [-1.0,  0.0,  0.0, 0.0],
             [ 0.0,  0.0, -1.0, 0.0],
