@@ -334,7 +334,16 @@ python -c 'import evdev' >/dev/null 2>&1 || missing_python_packages+=("evdev==1.
 if (( ${#missing_python_packages[@]} )); then
   echo "Installing missing mesh/input packages: ${missing_python_packages[*]}"
   echo "Package install deadline: ${PYTHON_PACKAGE_TIMEOUT}s"
+  # evdev builds a C extension. Its build_ecodes step generates ecodes.c by scanning
+  # /usr/include/linux/, but the conda gcc-13 toolchain installed above compiles against
+  # conda's sysroot (kernel-headers_linux-64 5.14.0). Distro headers that define
+  # KEY_LINK_PHONE -- e.g. Ubuntu 22.04's linux-libc-dev 5.15.0-187 -- therefore emit a
+  # reference the conda headers cannot resolve:
+  #   src/evdev/ecodes.c: error: 'KEY_LINK_PHONE' undeclared
+  # Forcing the system toolchain keeps generation and compilation on the same headers.
+  # evdev is pure C and needs no conda-specific linkage; pymeshlab installs as a wheel.
   if timeout --signal=TERM --kill-after=30s "${PYTHON_PACKAGE_TIMEOUT}s" \
+      env CC=/usr/bin/gcc CFLAGS= LDFLAGS= CPPFLAGS= \
       python -m pip install --timeout 30 --retries 3 "${missing_python_packages[@]}"; then
     echo "Installed missing mesh/input packages"
   else
@@ -462,7 +471,16 @@ cd .. # back to deps directory
 
 # step 2.17: install LeRobot
 mamba install --freeze-installed ffmpeg=7.1.1 -c conda-forge -y
-pip install --no-deps lerobot@git+https://github.com/huggingface/lerobot.git@577cd10974b84bea1f06b6472eb9e5e74e07f77a
+# DISABLED: this clobbered the lerobot that OmniGibson requires.
+# Step 2.12 above installs OmniGibson, whose setup.py:58 pins
+#   lerobot[dataset] @ git+https://github.com/wensi-ai/lerobot@release/b1k
+# Reinstalling upstream huggingface/lerobot over it with --no-deps silently replaced
+# that fork (pip cannot flag the conflict because dependency resolution is skipped).
+# Upstream ships no lerobot/configs/__init__.py, so DepthEncoderConfig disappears and
+# omnigibson/envs/__init__.py fails to import -- killing the very next step, the
+# download_omnigibson_robot_assets() call below. The b1k fork is a superset of what
+# both consumers need, so we let OmniGibson's own pin stand.
+# pip install --no-deps lerobot@git+https://github.com/huggingface/lerobot.git@577cd10974b84bea1f06b6472eb9e5e74e07f77a
 pip install \
   "datasets>=2.19.0,<3" \
   jsonlines \

@@ -396,6 +396,17 @@ def main(cfg):
     articulate_cfg.gcloud_project = cfg.gcloud_project
     articulate_cfg.verbose = True
     articulate_cfg.objects = objects_list
+    # P3-SAM's peak allocation scales with point_num x prompt_num: auto_mask.py's segmentation
+    # MLP materializes an [N, K] tensor. articulate-anything's template ships point_num: 500000,
+    # five times P3-SAM's own default of 100000, which tries to allocate ~7.6 GiB and OOMs a
+    # 24 GiB card. The template lives in the gitignored deps/ checkout and is overwritten on
+    # reinstall, so the override belongs here rather than in that file.
+    segment_overrides = cfg.s8b_articulate_objects.get("segment_overrides", None)
+    if segment_overrides and "s3_segment_mesh" in articulate_cfg:
+        for key, value in OmegaConf.to_container(segment_overrides, resolve=True).items():
+            logger.info("Overriding s3_segment_mesh.%s = %s (template had %s)",
+                        key, value, articulate_cfg.s3_segment_mesh.get(key, "<unset>"))
+            articulate_cfg.s3_segment_mesh[key] = value
     tree_model = cfg.s8b_articulate_objects.get("tree_model", None)
     if tree_model and "s2_generate_articulation_tree" in articulate_cfg:
         articulate_cfg.s2_generate_articulation_tree.model_name = tree_model

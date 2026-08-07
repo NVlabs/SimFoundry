@@ -28,6 +28,8 @@ def main():
     parser.add_argument("--exec-mode", choices=["mamba", "direct"], default="mamba")
     parser.add_argument("--python-bin", default="python")
     parser.add_argument("--env-simfoundry", default="simfoundry")
+    parser.add_argument("--env-da3", default="da3")
+    parser.add_argument("--env-mesh", default="hunyuan")
     parser.add_argument("--env-b1k", default="simfoundry")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("overrides", nargs="*", help="Additional overrides forwarded to each stage")
@@ -42,7 +44,7 @@ def main():
         exclude_ids_csv=args.exclude,
         exec_mode=args.exec_mode,
         python_bin=args.python_bin,
-        env_map={"simfoundry": args.env_simfoundry, "b1k": args.env_b1k, "mesh": "hunyuan", "da3": "da3"},
+        env_map={"simfoundry": args.env_simfoundry, "b1k": args.env_b1k, "mesh": args.env_mesh, "da3": args.env_da3},
         dry_run=args.dry_run,
         stream_subseq_enabled=False,
         stream_start_stage=5,

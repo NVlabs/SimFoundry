@@ -160,11 +160,24 @@ s7_mesh:          # env: mesh
   out_dir: "${root_dir}/${scene_name}/${s7_mesh.out_dirname}"
   generate_shape: true
   generate_texture: true
-  shape_model: hunyuan #hunyuan #trellis2 #direct3d
-  texture_model: hunyuan #hunyuan #trellis2
+  shape_model: hunyuan #hunyuan #trellis2 #pixal3d #direct3d
+  texture_model: hunyuan #hunyuan #trellis2 #pixal3d
   save_intermediates: true
   low_vram: false        # If true, enable CPU offloading to reduce GPU VRAM (~29GB -> ~6GB for shape gen)
   object_indices: null   # null = process all, or set [3, 7] to process specific objects
+  # Backend-specific generation options, forwarded to the generator. Keys the selected backend
+  # cannot accept are dropped with a warning. `seed` defaults to the global `seed` above.
+  # NOTE: this dict starts empty, so adding a key from the CLI needs Hydra's `+` prefix
+  # (`+s7_mesh.generation_kwargs.resolution=1024`); keys listed here are overridden normally.
+  # Examples for pixal3d:
+  #   resolution: 1536     # 1024 or 1536; 1024 is the low_vram default
+  #   fov: 0.2             # radians; skips MoGe-2 camera estimation. Try this if output is distorted
+  #   num_faces: 300000    # decimation target
+  #   remesh: true
+  #   remesh_project: 0     # 0 = upstream default; trellis2 uses 0.9
+  #   max_num_tokens: 49152
+  #   shape_slat_sampling_steps: 12   # ss_ / shape_slat_ / tex_slat_ prefixes route to samplers
+  generation_kwargs: {}
 stage_review:
   mode: upsample   # options: depth, upsample, mesh
 stream_subseq:
@@ -186,6 +199,23 @@ stream_subseq:
   vram_wait_log_interval_s: 60.0   # How often to log why a stage is paused waiting for VRAM
   vram_wait_timeout_s: null        # Give up after this many seconds waiting; null = wait forever
   analytics_path: null
+  # Per-stage VRAM estimates used to admit stages into the streaming budget. Stage 7's value
+  # depends on which mesh backend s7_mesh selects; the value below is sized for `hunyuan` and is
+  # NOT correct for every backend. Raise it when switching, or stage 7 is admitted alongside
+  # stage 6 and then OOMs:
+  #   hunyuan  ~16 (or ~6 with s7_mesh.low_vram=true)
+  #   trellis2 ~16
+  #   pixal3d  ~15 MEASURED with s7_mesh.low_vram=true (resolution 1024): 14.22 GiB peak on an
+  #            RTX 4090, 409x409 input, torch.cuda.max_memory_allocated. Larger inputs cost more.
+  #            ~20 at the resolution-1536 default is still an ESTIMATE from upstream's figures,
+  #            not measured here.
+  #            Peak briefly exceeds the pipeline itself because MoGe-2 is moved onto the GPU for
+  #            camera estimation while the pipeline is resident (it is parked on CPU otherwise).
+  # An estimate larger than the budget (max_vram_frac * total, default 0.9) is rejected outright,
+  # so on a 24 GiB card pixal3d at 1536 needs max_vram_frac raised or low_vram=true.
+  # NOTE for pixal3d: streaming relaunches stage 7 per object, reloading ~18 GiB of models every
+  # time, so `--no-stream` (or `--include 7`) is an operational requirement there, not a tuning
+  # suggestion. Leaving streaming on is slow enough to look like a hang.
   stage_vram_gb:
     5: 18
     6: 4
@@ -222,6 +252,13 @@ s8b_articulate_objects:
   vlm_model: gemini-3.1-pro-preview
   vlm_backend: vertex                 # [vertex] — routes all articulation VLM calls (classifier + s2/s4/s5) through Vertex AI Gemini using gcloud_project
   method: hunyuan # options : [hunyuan, partfield]
+  # Forwarded into articulate-anything's s3_segment_mesh block (method: hunyuan / P3-SAM).
+  # P3-SAM allocates roughly O(point_num x prompt_num) in its segmentation MLP. The upstream
+  # template ships point_num: 500000 — 5x P3-SAM's own default — which asks for ~7.6 GiB in one
+  # tensor and OOMs a 24 GiB GPU. 100000 matches upstream's default and fits comfortably;
+  # raise it on a larger card if segmentation looks too coarse.
+  segment_overrides:
+    point_num: 100000
   tree_model: gemini-3.1-pro-preview       # articulate-anything s2 VLM model
   merge_model: gemini-3.1-pro-preview        # articulate-anything s4 VLM model
   s5_model: gemini-3.1-pro-preview           # articulate-anything joint-refinement VLM model
@@ -596,9 +633,12 @@ cousin_generation:    # env: mesh
   out_dir: "${root_dir}/${scene_name}/cousin_generation"
   generate_shape: true
   generate_texture: true
-  shape_model: hunyuan #direct3d
-  texture_model: hunyuan
+  shape_model: hunyuan #hunyuan #trellis2 #pixal3d #direct3d
+  texture_model: hunyuan #hunyuan #trellis2 #pixal3d
   keep_original_mass_friction: true  # If true, copy mass/friction from original source object instead of querying VLM
+  low_vram: false        # If true, enable CPU offloading to reduce GPU VRAM
+  # See s7_mesh.generation_kwargs above for the available keys.
+  generation_kwargs: {}
 sim:          # env: simfoundry
   rerun: true
   out_dirname: sim_cousins

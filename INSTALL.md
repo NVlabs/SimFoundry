@@ -9,7 +9,7 @@ This guide covers the standard SimFoundry setup: environments, checkpoints, serv
 - Mamba or Conda with `mamba`
 - `ffmpeg`
 - Git submodules enabled
-- Hugging Face account for gated models such as SAM3
+- Hugging Face account for gated models such as SAM3, and DINOv3 for the optional `pixal3d` mesh backend
 - Google Cloud project with the Vertex AI API and billing enabled — the pipeline's VLM stages (reconstruction, articulation, and B augmentation) run on Vertex AI (Gemini). Authenticate with `gcloud auth application-default login`
 - ZED SDK only if you plan to use ZED capture
 
@@ -70,7 +70,86 @@ Optional environments:
 |---|---|---|
 | `3dgrut` | Convert Gaussian splats to USDZ for auto-background scenes. | `install_3dgrut.sh` |
 | `articulate` | Articulation generation dependencies (stage 8b). | `install_articulate.sh` |
-| `openpi` | OpenPI policy evaluation. | `install_openpi.sh` |
+
+Optional mesh-generation backends. Pass the env they live in to the pipeline with
+`--env-mesh NAME`, and select the backend with `s7_mesh.shape_model` / `s7_mesh.texture_model`.
+The two installers behave differently:
+
+- `install_trellis.sh` installs **into** an existing env (default `simfoundry`) and pins shared
+  packages there; if that env is missing it offers to create it via `install_simfoundry.sh --trellis`.
+- `install_pixal3d.sh` defaults to a dedicated **`pixal3d`** env, requires it to already exist
+  (build it with `install_trellis.sh --env-name pixal3d`), and refuses `simfoundry` outright
+  unless `--allow-shared-env` is passed.
+
+| Backend | Purpose | Script |
+|---|---|---|
+| `trellis2` | TRELLIS.2 mesh generation, an alternative to the default `hunyuan`. | `install_trellis.sh` |
+| `pixal3d` | Pixal3D pixel-aligned mesh generation. Builds on the TRELLIS.2 stack, so run `install_trellis.sh` into the same env first. Pulls gated DINOv3 weights at runtime. | `install_pixal3d.sh` |
+
+`pixal3d` generates shape and texture in a single pipeline, so it must be set as **both**
+`shape_model` and `texture_model`. Its requirements conflict with the `simfoundry` env's pins,
+so install it into a dedicated env:
+
+```bash
+cd scripts/installation
+bash install_trellis.sh --project-root ../.. --env-name pixal3d
+bash install_pixal3d.sh --project-root ../.. --env-name pixal3d
+```
+
+Then run stage 7 with it — but note that **stages 5-8 streaming is enabled by default and
+relaunches stage 7 once per object**, which reloads Pixal3D, four DINOv3 encoders, MoGe-2 and
+NAF every time. Until stage 7 gains a persistent worker, use `--include 7` or `--no-stream`:
+
+```bash
+# stage 7 only
+scripts/pipeline/A_reconstruction/run.sh --env-mesh pixal3d --include 7 \
+    s7_mesh.shape_model=pixal3d s7_mesh.texture_model=pixal3d
+
+# full pipeline, streaming off
+scripts/pipeline/A_reconstruction/run.sh --env-mesh pixal3d --no-stream \
+    s7_mesh.shape_model=pixal3d s7_mesh.texture_model=pixal3d
+```
+
+Backend options go through `s7_mesh.generation_kwargs` (and `cousin_generation.generation_kwargs`).
+Because that dict starts empty, adding a key from the CLI needs Hydra's `+` prefix:
+
+```bash
+scripts/pipeline/A_reconstruction/run.sh --env-mesh pixal3d --include 7 \
+    s7_mesh.shape_model=pixal3d s7_mesh.texture_model=pixal3d \
+    +s7_mesh.generation_kwargs.resolution=1024 \
+    +s7_mesh.generation_kwargs.fov=0.2
+```
+
+(Set them in the YAML instead and plain `key=value` overrides work.) Keys the selected backend
+cannot accept are dropped with a warning. `seed` defaults to the global `seed`.
+
+Caveats, in rough order of how likely they are to bite:
+
+- **Validated on exactly one object.** `trashcan_closed` completed stages 7 → 12 plus 8b
+  articulation on an RTX 4090 at `low_vram=true` / resolution 1024 (stage 7 ≈ 133 s; 281k verts,
+  4096² PBR). Multi-object scenes, resolution 1536, and cousin generation are **unexercised** —
+  treat `pixal3d` as experimental outside that envelope.
+- **`--no-stream` (or `--include 7`) is a requirement, not a tuning tip.** Streaming relaunches
+  stage 7 per object and reloads ~18 GiB of models each time.
+- **Orientation is unvalidated.** Pixal3D generates in the input view's frame rather than a
+  canonical one, so stage 8 pose matching needs checking before relying on it for a full scene.
+- **Cousin generation (stage B/3) is experimental with this backend.** B only rescales the cousin
+  and then reuses the original object's stage-8 pose, so a view-aligned mesh is not registered to
+  it. Prefer `hunyuan`/`trellis2` for cousins until registration exists or same-view input is
+  enforced.
+- **RGBA inputs are required.** The alpha channel must already isolate the object (stage 6
+  produces exactly this), because SimFoundry does not load Pixal3D's gated, non-commercial
+  background-removal model. Other inputs are rejected with an explanatory error.
+- **VRAM.** Measured **14.2 GiB peak** with `s7_mesh.low_vram=true` (resolution 1024) on an
+  RTX 4090. The resolution-1536 default is estimated at ~20 GiB and has not been measured here.
+  Update `stream_subseq.stage_vram_gb[7]` if you use streaming anyway.
+
+The `hunyuan` backend is installed by `install_hunyuan.sh` as part of the standard setup above.
+The `direct3d` and `trellis` backend names are also registered but have no install script; you
+must set them up yourself.
+
+OpenPI policy evaluation has no install script either: point `openpi_project_dir` at your own
+OpenPI checkout and run it with your own environment (see `scripts/cfg/eval_sweeps/openpi_example.yaml`).
 
 ## 3. Log In To Services
 
@@ -283,9 +362,9 @@ installing; if you do not accept them, do not run these scripts.
 
 | Accepted by | Flag / variable | What it accepts |
 |---|---|---|
-| `install_simfoundry.sh:306`, `install_openpi.sh:78` | `--accept-nvidia-eula` | [NVIDIA Omniverse License Agreement](https://docs.isaacsim.omniverse.nvidia.com/latest/common/NVIDIA_Omniverse_License_Agreement.html) — covers Isaac Sim, the Omniverse Kit runtime, the Kit USD libraries (`pxr`), and NuRec |
-| `install_simfoundry.sh:306`, `install_openpi.sh:78` | `--accept-dataset-tos` | BEHAVIOR-1K / OmniGibson dataset terms |
-| `install_simfoundry.sh:306`, `install_openpi.sh:78` | `--accept-conda-tos` | Anaconda / conda channel Terms of Service |
+| `install_simfoundry.sh:306` | `--accept-nvidia-eula` | [NVIDIA Omniverse License Agreement](https://docs.isaacsim.omniverse.nvidia.com/latest/common/NVIDIA_Omniverse_License_Agreement.html) — covers Isaac Sim, the Omniverse Kit runtime, the Kit USD libraries (`pxr`), and NuRec |
+| `install_simfoundry.sh:306` | `--accept-dataset-tos` | BEHAVIOR-1K / OmniGibson dataset terms |
+| `install_simfoundry.sh:306` | `--accept-conda-tos` | Anaconda / conda channel Terms of Service |
 | `install_simfoundry.sh:509`, `reparent_usd_joints.py:21` | `OMNI_KIT_ACCEPT_EULA=YES` | NVIDIA Omniverse Kit EULA, set so Kit can start headless |
 
 SimFoundry's own Apache 2.0 licence does **not** cover any of the above. The NVIDIA

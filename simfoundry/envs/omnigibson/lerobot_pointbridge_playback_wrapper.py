@@ -11,10 +11,13 @@ import omnigibson as og
 import omnigibson.utils.transform_utils as T
 from omnigibson.macros import gm
 
-from omnigibson.envs.data_wrapper import LeRobotPlaybackWrapper
+# LeRobotPlaybackWrapper lives in lerobot_data_wrapper, not data_wrapper -- see
+# omnigibson/envs/__init__.py, which re-exports it from there.
+from omnigibson.envs.lerobot_data_wrapper import LeRobotPlaybackWrapper
 from omnigibson.sensors.vision_sensor import VisionSensor
 
-from lerobot.datasets.lerobot_dataset import HF_LEROBOT_HOME
+# The b1k lerobot fork that OmniGibson pins exposes HF_LEROBOT_HOME from utils.constants.
+from lerobot.utils.constants import HF_LEROBOT_HOME
 
 
 class LeRobotPlaybackWrapperWithTransforms(LeRobotPlaybackWrapper):
