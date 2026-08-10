@@ -254,14 +254,30 @@ def select_stages(
 ) -> list[StageSpec]:
     plan = list(plan)
     known_ids = {spec.stage_id for spec in plan}
-    # An unrecognised id silently selected nothing and the run exited 0 having done no work,
-    # which reads exactly like success. Typos and stage ids that have been retired (2c) both
-    # land here, so say so instead.
-    unknown = (include_ids | exclude_ids) - known_ids
-    if unknown:
+
+    # The two flags fail differently, so they are handled differently.
+    #
+    # --include <unknown> is unsatisfiable: the user asked to RUN something this pipeline does
+    # not have. Left alone it filtered the plan to nothing and the run exited 0 having done no
+    # work, which is indistinguishable from success. Raise.
+    unknown_includes = include_ids - known_ids
+    if unknown_includes:
         raise ValueError(
-            f"Unknown stage id(s): {', '.join(sorted(unknown))}. "
+            f"Unknown stage id(s) in --include: {', '.join(sorted(unknown_includes))}. "
             f"Available for this pipeline: {', '.join(spec.stage_id for spec in plan)}"
+        )
+
+    # --exclude <unknown> is already satisfied: the user asked for it NOT to run, and it is not
+    # running. Erroring would break commands that are still correct in intent — `--exclude 2c`
+    # was the standard way to skip that stage before it was retired from the plan, so it lives
+    # in saved scripts and muscle memory. Warn so a typo is still visible, then continue.
+    unknown_excludes = exclude_ids - known_ids
+    if unknown_excludes:
+        print(
+            f"WARNING: --exclude names stage id(s) not in this pipeline: "
+            f"{', '.join(sorted(unknown_excludes))}. They are already not scheduled; continuing. "
+            f"Available: {', '.join(spec.stage_id for spec in plan)}",
+            file=sys.stderr,
         )
 
     out = []

@@ -45,18 +45,26 @@ def test_detects_the_installed_gpu(stage, monkeypatch):
 
 def test_falls_back_when_no_device_is_visible(stage, monkeypatch):
     monkeypatch.delenv("SIMFOUNDRY_CUDA_ARCH", raising=False)
+    torch = pytest.importorskip("torch")
+    # Force the no-GPU branch. Without this the test passes on a GPU host without ever
+    # reaching the fallback, which is exactly the kind of test that proves nothing.
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
 
-    # Simulate a machine with torch present but no usable GPU.
-    assert stage.resolve_cuda_arch(fallback="7.5") == "7.5" or _has_cuda()
+    assert stage.resolve_cuda_arch(fallback="7.5") == "7.5"
 
 
-def _has_cuda():
-    try:
-        import torch
+def test_falls_back_when_detection_raises(stage, monkeypatch):
+    monkeypatch.delenv("SIMFOUNDRY_CUDA_ARCH", raising=False)
+    torch = pytest.importorskip("torch")
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
 
-        return torch.cuda.is_available()
-    except Exception:
-        return False
+    def boom(_index):
+        raise RuntimeError("driver unavailable")
+
+    monkeypatch.setattr(torch.cuda, "get_device_capability", boom)
+
+    # A driver error must not propagate out of env setup; it degrades to the fallback.
+    assert stage.resolve_cuda_arch(fallback="7.5") == "7.5"
 
 
 def test_empty_override_does_not_win(stage, monkeypatch):
