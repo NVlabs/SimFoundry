@@ -532,6 +532,9 @@ validate_robot_asset_file() {
 }
 
 export OMNI_KIT_ACCEPT_EULA=YES
+# XET-backed transfers intermittently stall on the OmniGibson robot assets; the classic HTTP
+# path is slower but completes reliably.
+export HF_HUB_DISABLE_XET=1
 echo "Ensuring OmniGibson robot assets are installed..."
 python -c "from omnigibson.utils.asset_utils import download_omnigibson_robot_assets; download_omnigibson_robot_assets()"
 ROBOT_ASSETS_DIR="${PROJECT_ROOT}/deps/BEHAVIOR-1K/datasets/omnigibson-robot-assets"
