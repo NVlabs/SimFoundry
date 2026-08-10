@@ -16,6 +16,7 @@ from simfoundry.pipeline.orchestrator import (
     get_stage_plan,
     run_pipeline,
     run_stage_subsequence_streaming,
+    select_stages,
 )
 
 
@@ -219,3 +220,25 @@ def test_streaming_stage_cmds_forward_overrides(monkeypatch):
 
     assert s5_cmd[-2:] == ["scene_name=dining_1", "root_dir=/tmp/Data"]
     assert s6_cmd[-2:] == ["scene_name=dining_1", "root_dir=/tmp/Data"]
+
+
+def test_retired_exclude_is_scoped_to_the_pipeline_that_had_the_stage():
+    # "2c" was retired from reconstruction, so --exclude 2c there is a legacy command that
+    # should keep working.
+    recon = get_stage_plan("video", pipeline_name="reconstruction")
+    assert len(select_stages(recon, include_ids=set(), exclude_ids={"2c"}, pipeline_name="reconstruction")) == len(recon)
+
+    # It was never part of augmentation or application, so the same flag there is a
+    # wrong-pipeline mistake and must fail rather than be waved through.
+    for name in ("augmentation", "application"):
+        plan = get_stage_plan("video", pipeline_name=name)
+        with pytest.raises(ValueError, match="2c"):
+            select_stages(plan, include_ids=set(), exclude_ids={"2c"}, pipeline_name=name)
+
+
+def test_retired_exclude_scoping_handles_pipeline_aliases():
+    # The CLI accepts A / A_reconstruction / reconstruction for the same pipeline; a lookup
+    # keyed by name silently misses for two of the three unless aliases are normalised.
+    recon = get_stage_plan("video", pipeline_name="reconstruction")
+    for alias in ("reconstruction", "A_reconstruction", "A"):
+        assert len(select_stages(recon, include_ids=set(), exclude_ids={"2c"}, pipeline_name=alias)) == len(recon)

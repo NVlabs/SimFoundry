@@ -105,6 +105,13 @@ def main(cfg):
     if not video_path.exists():
         raise FileNotFoundError(f"Video not found: {video_path}")
 
+    # Preflight the GPU BEFORE any expensive work. Step 1 below is ns-process-data + COLMAP,
+    # which runs for hours and leaves partial output behind; discovering an unhealthy driver
+    # after that wastes the run and makes the real error hard to find in the log. Resolving
+    # here means an unusable machine fails in seconds, with the driver's own message.
+    cuda_arch = resolve_cuda_arch()
+    logger.info("Building CUDA extensions for arch(s): %s", cuda_arch)
+
     # Step 1: process video with nerfstudio (skip if processed dir already exists)
     if processed_dir.exists() and (processed_dir / "transforms.json").exists():
         logger.info("Processed data already exists at %s, skipping ns-process-data", processed_dir)
@@ -147,7 +154,7 @@ def main(cfg):
     # died at first kernel launch with "no kernel image is available for execution on the
     # device". Verified on this workstation: arch 12.0 reproduces that error, arch 8.6 builds
     # and runs. SIMFOUNDRY_CUDA_ARCH overrides for cross-compiling or multi-GPU hosts.
-    env["TORCH_CUDA_ARCH_LIST"] = resolve_cuda_arch()
+    env["TORCH_CUDA_ARCH_LIST"] = cuda_arch  # resolved in the preflight above, before COLMAP
 
     # Set CUDA environment variables to help gsplat find CUDA libraries during compilation
     # First check conda environment for CUDA libraries (prioritize these)

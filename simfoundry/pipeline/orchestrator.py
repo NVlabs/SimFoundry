@@ -42,11 +42,19 @@ class PipelineTimingResult:
 
 TIMING_LOG_ENV_VAR = "SIMFOUNDRY_PIPELINE_TIMING_LOG"
 
-# Stage ids that were once schedulable and no longer are. `--exclude <id>` for these is
-# accepted with a note rather than an error, so commands written before the stage was retired
-# keep working. Anything not listed here is treated as a typo. Keep this list short: an entry
-# is a promise that the stage is genuinely gone, not merely broken.
-RETIRED_STAGE_IDS = frozenset({"2c"})
+# Stage ids that were once schedulable and no longer are, PER PIPELINE. `--exclude <id>` for
+# one of these is accepted with a note rather than an error, so commands written before the
+# stage was retired keep working. Anything not listed is treated as a typo.
+#
+# Keyed by pipeline because the exemption is only truthful for the pipeline that actually had
+# the stage: "2c" was never part of augmentation or application, so `--exclude 2c` there is a
+# wrong-pipeline mistake and must still fail. Keep these lists short — an entry is a promise
+# that the stage is genuinely gone, not merely broken.
+RETIRED_STAGE_IDS: dict[str, frozenset[str]] = {
+    "reconstruction": frozenset({"2c"}),
+    "augmentation": frozenset(),
+    "application": frozenset(),
+}
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CFG_PATH = REPO_ROOT / "scripts" / "cfg" / "real2sim_cfg.yaml"
 
@@ -224,6 +232,30 @@ def get_application_stage_plan() -> list[StageSpec]:
     ]
 
 
+def _canonical_pipeline_name(pipeline_name: str) -> str:
+    """
+    Maps a pipeline's accepted aliases onto its canonical name.
+
+    The CLI accepts "A", "A_reconstruction" and "reconstruction" for the same pipeline, so any
+    lookup keyed by pipeline name has to normalise first or it silently misses for two of the
+    three spellings.
+
+    Args:
+        pipeline_name (str): Any accepted spelling
+
+    Returns:
+        str: "reconstruction", "augmentation", "application", or @pipeline_name unchanged if
+            it matches none of them (the caller raises on unknown names)
+    """
+    if pipeline_name in {"reconstruction", "A_reconstruction", "A"}:
+        return "reconstruction"
+    if pipeline_name in {"augmentation", "B_augmentation", "B"}:
+        return "augmentation"
+    if pipeline_name in {"application", "C_application", "C"}:
+        return "application"
+    return pipeline_name
+
+
 def get_stage_plan(
     input_mode: str,
     *,
@@ -257,9 +289,14 @@ def select_stages(
     *,
     include_ids: set[str],
     exclude_ids: set[str],
+    pipeline_name: str = "reconstruction",
 ) -> list[StageSpec]:
     plan = list(plan)
     known_ids = {spec.stage_id for spec in plan}
+    # Retired ids are per-pipeline: "2c" is retired from reconstruction, but was never part of
+    # augmentation or application, so `--exclude 2c` against those is a wrong-pipeline mistake
+    # and must still fail rather than be waved through with a misleading note.
+    retired_ids = RETIRED_STAGE_IDS.get(_canonical_pipeline_name(pipeline_name), frozenset())
 
     # The two flags fail differently, so they are handled differently.
     #
@@ -278,7 +315,7 @@ def select_stages(
     # before it left the plan, so it survives in saved scripts; breaking it buys nothing.
     # Only ids on RETIRED_STAGE_IDS get this pass.
     unknown_excludes = exclude_ids - known_ids
-    retired_excludes = unknown_excludes & RETIRED_STAGE_IDS
+    retired_excludes = unknown_excludes & retired_ids
     if retired_excludes:
         print(
             f"NOTE: --exclude {', '.join(sorted(retired_excludes))} is no longer needed — "
@@ -289,7 +326,7 @@ def select_stages(
     # Anything else in --exclude is a typo, and forgiving it is dangerous in the opposite
     # direction: `--exclude 7x` would leave stage 7 scheduled, so an unattended run does the
     # expensive work the caller was trying to skip and still exits 0. Raise.
-    bad_excludes = unknown_excludes - RETIRED_STAGE_IDS
+    bad_excludes = unknown_excludes - retired_ids
     if bad_excludes:
         raise ValueError(
             f"Unknown stage id(s) in --exclude: {', '.join(sorted(bad_excludes))}. "
@@ -466,7 +503,12 @@ def run_pipeline(
         include_p2p=include_p2p,
         detect_articulation=detect_articulation,
     )
-    selected = select_stages(plan, include_ids=_parse_csv_set(include_ids_csv), exclude_ids=_parse_csv_set(exclude_ids_csv))
+    selected = select_stages(
+        plan,
+        include_ids=_parse_csv_set(include_ids_csv),
+        exclude_ids=_parse_csv_set(exclude_ids_csv),
+        pipeline_name=pipeline_name,
+    )
 
     durations: dict[str, float] = {}
     memory_samples: dict[str, dict[str, float | None]] = {}
