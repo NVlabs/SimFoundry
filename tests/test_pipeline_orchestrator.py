@@ -242,3 +242,13 @@ def test_retired_exclude_scoping_handles_pipeline_aliases():
     recon = get_stage_plan("video", pipeline_name="reconstruction")
     for alias in ("reconstruction", "A_reconstruction", "A"):
         assert len(select_stages(recon, include_ids=set(), exclude_ids={"2c"}, pipeline_name=alias)) == len(recon)
+
+
+def test_select_stages_requires_an_explicit_pipeline_name():
+    # A default would silently apply reconstruction's retired-id exemptions to whatever plan
+    # was passed, which is the wrong-pipeline hole the scoping exists to close. Omitting the
+    # argument must fail loudly at the call site instead.
+    plan = get_stage_plan("video", pipeline_name="augmentation")
+
+    with pytest.raises(TypeError, match="pipeline_name"):
+        select_stages(plan, include_ids=set(), exclude_ids={"2c"})

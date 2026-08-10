@@ -289,13 +289,18 @@ def select_stages(
     *,
     include_ids: set[str],
     exclude_ids: set[str],
-    pipeline_name: str = "reconstruction",
+    pipeline_name: str,
 ) -> list[StageSpec]:
     plan = list(plan)
     known_ids = {spec.stage_id for spec in plan}
     # Retired ids are per-pipeline: "2c" is retired from reconstruction, but was never part of
     # augmentation or application, so `--exclude 2c` against those is a wrong-pipeline mistake
     # and must still fail rather than be waved through with a misleading note.
+    #
+    # pipeline_name is REQUIRED, deliberately. Defaulting it to "reconstruction" would mean a
+    # caller who forgot the argument silently got reconstruction's exemptions applied to some
+    # other pipeline's plan — reopening exactly the hole this scoping closes. A missing
+    # argument should be a TypeError at the call site, not a wrong answer at runtime.
     retired_ids = RETIRED_STAGE_IDS.get(_canonical_pipeline_name(pipeline_name), frozenset())
 
     # The two flags fail differently, so they are handled differently.
