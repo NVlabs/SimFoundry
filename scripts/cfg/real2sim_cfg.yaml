@@ -172,7 +172,14 @@ s7_mesh:          # env: mesh
   # Examples for pixal3d:
   #   resolution: 1536     # 1024 or 1536; 1024 is the low_vram default
   #   fov: 0.2             # radians; skips MoGe-2 camera estimation. Try this if output is distorted
-  #   num_faces: 300000    # decimation target
+  #   num_faces: 300000    # decimation target; this default matches the trellis2 backend.
+  #                        # Raising it is measurably not worth it: at 1000000 the mesh differs
+  #                        # from the 300000 one by 0.002-0.006% of the object's bounding
+  #                        # diagonal (p95 0.007-0.021%, max 0.17%) — microns on a 30cm object,
+  #                        # with no visible difference — while the GLB grows ~75%, a cost then
+  #                        # carried through physics and USD conversion. Measured on a smooth
+  #                        # object (cup) and a hard-edged one (stepped pyramid); the hard-edged
+  #                        # case deviated LESS, so sharp edges are not a reason to raise it.
   #   remesh: true
   #   remesh_project: 0     # 0 = upstream default; trellis2 uses 0.9
   #   max_num_tokens: 49152

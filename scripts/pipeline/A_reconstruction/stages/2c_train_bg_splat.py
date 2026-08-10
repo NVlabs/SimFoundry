@@ -37,6 +37,44 @@ from simfoundry.pipeline.stage_utils import bootstrap_hydra_workdir
 
 bootstrap_hydra_workdir(__file__)
 
+# Fallback used only when no GPU is visible to this process — the build then targets a
+# recent datacentre arch rather than guessing. Any real run detects the installed GPU.
+DEFAULT_CUDA_ARCH = "8.6"
+
+
+def resolve_cuda_arch(env_var="SIMFOUNDRY_CUDA_ARCH", fallback=DEFAULT_CUDA_ARCH):
+    """
+    Returns the CUDA arch string to build gsplat's extension for, e.g. "8.6".
+
+    Detects the installed GPU rather than assuming one. A hardcoded value is the failure
+    this exists to prevent: building for sm_120 on an sm_86 card compiles cleanly and then
+    dies at the first kernel launch with "no kernel image is available for execution on the
+    device", long after the expensive COLMAP preprocessing has run.
+
+    Args:
+        env_var (str): Environment variable that overrides detection, for cross-compiling
+            or hosts with mixed GPUs
+        fallback (str): Arch to use when no CUDA device is visible
+
+    Returns:
+        str: Arch string suitable for TORCH_CUDA_ARCH_LIST
+    """
+    override = os.environ.get(env_var)
+    if override:
+        return override
+    try:
+        import torch
+
+        if torch.cuda.is_available():
+            major, minor = torch.cuda.get_device_capability(0)
+            return f"{major}.{minor}"
+    except Exception as exc:  # torch missing, driver error, no device
+        logging.getLogger(__name__).warning(
+            "Could not detect GPU compute capability (%s); falling back to arch %s. "
+            "Set %s if that is wrong for this machine.", exc, fallback, env_var
+        )
+    return fallback
+
 
 @hydra.main(config_name="real2sim_cfg", config_path=CFG_DIR, version_base="1.3")
 def main(cfg):
@@ -83,12 +121,17 @@ def main(cfg):
     # Disable torch dynamo/compile to avoid JIT compilation issues
     env["TORCHDYNAMO_DISABLE"] = "1"  # Note: no underscore, this is the correct variable name
     env["TORCH_COMPILE_DISABLE"] = "1"
-    # Limit gsplat JIT compilation to the current GPU only (sm_120 = RTX 5090).
-    # Without this, PyTorch adds gencode targets for sm_50/52/60/61 (pre-Volta),
-    # which don't define _CG_HAS_MATCH_COLLECTIVE, making cg::labeled_partition
-    # unavailable and breaking gsplat's Projection*.cu compilation.
-    env["TORCH_CUDA_ARCH_LIST"] = "12.0"
-    
+    # Limit gsplat JIT compilation to one arch: without this, PyTorch adds gencode targets
+    # for sm_50/52/60/61 (pre-Volta), which don't define _CG_HAS_MATCH_COLLECTIVE, making
+    # cg::labeled_partition unavailable and breaking gsplat's Projection*.cu compilation.
+    #
+    # Build for THIS machine's GPU. Hardcoding an arch is what broke this before: the value
+    # was "12.0" (Blackwell), so on an A6000 (sm_86) the extension compiled cleanly and then
+    # died at first kernel launch with "no kernel image is available for execution on the
+    # device". Verified on this workstation: arch 12.0 reproduces that error, arch 8.6 builds
+    # and runs. SIMFOUNDRY_CUDA_ARCH overrides for cross-compiling or multi-GPU hosts.
+    env["TORCH_CUDA_ARCH_LIST"] = resolve_cuda_arch()
+
     # Set CUDA environment variables to help gsplat find CUDA libraries during compilation
     # First check conda environment for CUDA libraries (prioritize these)
     conda_prefix = os.environ.get("CONDA_PREFIX", "")
@@ -187,7 +230,7 @@ def main(cfg):
         new_ld_path = ":".join(lib_paths)
         env["LD_LIBRARY_PATH"] = f"{new_ld_path}:{existing_ld_path}" if existing_ld_path else new_ld_path
         logger.info("Updated LD_LIBRARY_PATH with CUDA library paths: %s", ":".join(lib_paths))
-        
+
         # Set LDFLAGS for linker - PyTorch's build system should respect this
         existing_ldflags = env.get("LDFLAGS", "")
         ldflags_paths = " ".join([f"-L{path}" for path in lib_paths])
