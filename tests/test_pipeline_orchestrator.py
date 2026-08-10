@@ -74,6 +74,22 @@ def test_reconstruction_stage_plan_can_insert_articulation():
     assert articulation_ids[articulation_ids.index("8b") + 1] == "9"
 
 
+def test_reconstruction_stage_plan_excludes_bg_splat():
+    # Stage 2c is not scheduled: it costs hours in ns-process-data/COLMAP on every run, and it
+    # cannot succeed as configured because ns-process-data lives only in the nerfstudio env,
+    # which env_map cannot resolve. Nothing downstream requires its output.
+    for input_mode in ("video", "stereo"):
+        ids = [spec.stage_id for spec in get_stage_plan(input_mode, pipeline_name="reconstruction")]
+
+        assert "2c" not in ids
+        assert ids[1] == "2", f"stage after step 1 should be depth, got {ids[1]} ({input_mode})"
+
+    video_ids = [spec.stage_id for spec in get_stage_plan("video", pipeline_name="reconstruction")]
+    assert video_ids[0] == "1b"
+    stereo_ids = [spec.stage_id for spec in get_stage_plan("stereo", pipeline_name="reconstruction")]
+    assert stereo_ids[0] == "1a"
+
+
 def test_run_pipeline_partial_multi_step(tmp_path, monkeypatch):
     cwd = tmp_path
     out_dir = tmp_path / "out"

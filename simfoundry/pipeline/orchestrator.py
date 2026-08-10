@@ -131,9 +131,32 @@ def get_reconstruction_stage_plan(input_mode: str, *, detect_articulation: bool 
     if input_mode == "stereo":
         step1 = StageSpec("1a", f"{base}/1a_take_stereo_images.py", "s1_zed", "simfoundry", "Capture stereo images")
 
+    # Stage 2c (background Gaussian splat) is deliberately NOT in this plan.
+    #
+    # Two reasons. It shells straight out to `ns-process-data` + COLMAP, which costs hours on
+    # every default run. And it cannot currently succeed anyway: it was scheduled with env role
+    # "simfoundry", but `ns-process-data` is only installed in the `nerfstudio_simfoundry` env,
+    # and `env_map` has no role that resolves there — so it died with "command not found" the
+    # moment it was reached.
+    #
+    # Nothing downstream depends on it: 13_create_og_scene.py prefers the auto_bg_reconstruction
+    # USDZ and only warns-and-skips when no splat is present, so stages 1-13 complete without it.
+    #
+    # To re-enable, provision its environment FIRST, in this order — doing it the other way
+    # round fails mid-run with a bare KeyError from env_map[spec.env], after stage 1 has
+    # already burned its time:
+    #   1. add a "nerfstudio_simfoundry" entry to the env_map built in the runners
+    #      (scripts/pipeline/A_reconstruction/run_reconstruction.py), plus a --env-nerfstudio
+    #      flag if it should be overridable;
+    #   2. only then re-add the stage with that env role:
+    #      StageSpec("2c", f"{base}/2c_train_bg_splat.py", "s2c_gs", "nerfstudio_simfoundry", "Train background GS splat")
+    #
+    # Note it is video-only. s2c_gs.video_fpath interpolates from ${s1_video.video_fpath}, so on
+    # a stereo run it still RESOLVES — to s1_video's default path, which that run never wrote.
+    # The failure is therefore a missing file, or worse, a stale unrelated video reconstructed
+    # silently. Guard on input_mode when re-adding.
     plan = [
         step1,
-        StageSpec("2c", f"{base}/2c_train_bg_splat.py", "s2c_gs", "simfoundry", "Train background GS splat"),
         StageSpec("2", f"{base}/2_run_depth.py", "s2_depth", "da3", "Run depth backend"),
         StageSpec("3", f"{base}/3_segment_ground_plane.py", "s3_ground", "simfoundry", "Segment ground plane"),
         StageSpec("4", f"{base}/4_unify_world_frame.py", "s4_frame", "simfoundry", "Unify world frame"),
@@ -229,6 +252,18 @@ def select_stages(
     include_ids: set[str],
     exclude_ids: set[str],
 ) -> list[StageSpec]:
+    plan = list(plan)
+    known_ids = {spec.stage_id for spec in plan}
+    # An unrecognised id silently selected nothing and the run exited 0 having done no work,
+    # which reads exactly like success. Typos and stage ids that have been retired (2c) both
+    # land here, so say so instead.
+    unknown = (include_ids | exclude_ids) - known_ids
+    if unknown:
+        raise ValueError(
+            f"Unknown stage id(s): {', '.join(sorted(unknown))}. "
+            f"Available for this pipeline: {', '.join(spec.stage_id for spec in plan)}"
+        )
+
     out = []
     for spec in plan:
         if include_ids and spec.stage_id not in include_ids:
