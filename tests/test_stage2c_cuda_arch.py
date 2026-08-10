@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Stage 2c builds gsplat's CUDA extension for one arch. Getting that arch wrong is silent at
-build time and fatal at run time ("no kernel image is available for execution on the device"),
-after COLMAP has already run — so the selection logic is worth pinning down.
+Stage 2c builds gsplat's CUDA extension for a specific architecture. A wrong value is silent
+at build time and fatal at the first kernel launch ("no kernel image is available for
+execution on the device"), so the selection must reflect the machine or refuse to answer.
 """
 
 import importlib.util
@@ -31,7 +31,7 @@ def test_env_override_wins(stage, monkeypatch):
     assert stage.resolve_cuda_arch() == "9.0"
 
 
-def test_detects_the_installed_gpu(stage, monkeypatch):
+def test_reports_the_installed_gpu(stage, monkeypatch):
     monkeypatch.delenv("SIMFOUNDRY_CUDA_ARCH", raising=False)
     torch = pytest.importorskip("torch")
     if not torch.cuda.is_available():
@@ -39,37 +39,65 @@ def test_detects_the_installed_gpu(stage, monkeypatch):
 
     major, minor = torch.cuda.get_device_capability(0)
 
-    # The whole point: the arch tracks the actual device, not a constant.
-    assert stage.resolve_cuda_arch() == f"{major}.{minor}"
+    assert f"{major}.{minor}" in stage.resolve_cuda_arch().split(";")
 
 
-def test_falls_back_when_no_device_is_visible(stage, monkeypatch):
-    monkeypatch.delenv("SIMFOUNDRY_CUDA_ARCH", raising=False)
-    torch = pytest.importorskip("torch")
-    # Force the no-GPU branch. Without this the test passes on a GPU host without ever
-    # reaching the fallback, which is exactly the kind of test that proves nothing.
-    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
-
-    assert stage.resolve_cuda_arch(fallback="7.5") == "7.5"
-
-
-def test_falls_back_when_detection_raises(stage, monkeypatch):
+def test_covers_every_visible_gpu_not_just_device_zero(stage, monkeypatch):
     monkeypatch.delenv("SIMFOUNDRY_CUDA_ARCH", raising=False)
     torch = pytest.importorskip("torch")
     monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch.cuda, "device_count", lambda: 3)
+    # A mixed host: building only for device 0 yields a binary that dies on the others.
+    caps = {0: (8, 6), 1: (9, 0), 2: (8, 6)}
+    monkeypatch.setattr(torch.cuda, "get_device_capability", lambda i: caps[i])
+
+    assert stage.resolve_cuda_arch() == "8.6;9.0"
+
+
+def test_raises_when_no_device_is_visible(stage, monkeypatch):
+    monkeypatch.delenv("SIMFOUNDRY_CUDA_ARCH", raising=False)
+    torch = pytest.importorskip("torch")
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+
+    # Must NOT guess an architecture: a guess only relocates the failure to first kernel launch.
+    with pytest.raises(RuntimeError, match="no CUDA device available"):
+        stage.resolve_cuda_arch()
+
+
+def test_raises_when_the_driver_query_fails(stage, monkeypatch):
+    monkeypatch.delenv("SIMFOUNDRY_CUDA_ARCH", raising=False)
+    torch = pytest.importorskip("torch")
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch.cuda, "device_count", lambda: 1)
 
     def boom(_index):
-        raise RuntimeError("driver unavailable")
+        raise RuntimeError("CUDA driver version is insufficient")
 
     monkeypatch.setattr(torch.cuda, "get_device_capability", boom)
 
-    # A driver error must not propagate out of env setup; it degrades to the fallback.
-    assert stage.resolve_cuda_arch(fallback="7.5") == "7.5"
+    with pytest.raises(RuntimeError) as excinfo:
+        stage.resolve_cuda_arch()
+
+    # The driver's own message must survive — it is the actionable part.
+    assert "CUDA driver version is insufficient" in str(excinfo.value)
+
+
+def test_failure_message_names_the_override(stage, monkeypatch):
+    monkeypatch.delenv("SIMFOUNDRY_CUDA_ARCH", raising=False)
+    torch = pytest.importorskip("torch")
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+
+    with pytest.raises(RuntimeError, match="SIMFOUNDRY_CUDA_ARCH"):
+        stage.resolve_cuda_arch()
 
 
 def test_empty_override_does_not_win(stage, monkeypatch):
-    # An unset-but-exported variable (SIMFOUNDRY_CUDA_ARCH="") must not select "" as the arch,
-    # which would produce an empty TORCH_CUDA_ARCH_LIST and a confusing build failure.
+    # An exported-but-empty variable must not select "" as the arch, which would produce an
+    # empty TORCH_CUDA_ARCH_LIST and a confusing build failure.
     monkeypatch.setenv("SIMFOUNDRY_CUDA_ARCH", "")
+    torch = pytest.importorskip("torch")
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch.cuda, "device_count", lambda: 1)
+    monkeypatch.setattr(torch.cuda, "get_device_capability", lambda i: (8, 6))
 
-    assert stage.resolve_cuda_arch(fallback="7.5") != ""
+    assert stage.resolve_cuda_arch() == "8.6"

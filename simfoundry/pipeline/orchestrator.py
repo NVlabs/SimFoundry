@@ -41,6 +41,12 @@ class PipelineTimingResult:
 
 
 TIMING_LOG_ENV_VAR = "SIMFOUNDRY_PIPELINE_TIMING_LOG"
+
+# Stage ids that were once schedulable and no longer are. `--exclude <id>` for these is
+# accepted with a note rather than an error, so commands written before the stage was retired
+# keep working. Anything not listed here is treated as a typo. Keep this list short: an entry
+# is a promise that the stage is genuinely gone, not merely broken.
+RETIRED_STAGE_IDS = frozenset({"2c"})
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CFG_PATH = REPO_ROOT / "scripts" / "cfg" / "real2sim_cfg.yaml"
 
@@ -267,17 +273,28 @@ def select_stages(
             f"Available for this pipeline: {', '.join(spec.stage_id for spec in plan)}"
         )
 
-    # --exclude <unknown> is already satisfied: the user asked for it NOT to run, and it is not
-    # running. Erroring would break commands that are still correct in intent — `--exclude 2c`
-    # was the standard way to skip that stage before it was retired from the plan, so it lives
-    # in saved scripts and muscle memory. Warn so a typo is still visible, then continue.
+    # --exclude names a RETIRED stage: already satisfied, since the user asked for it not to
+    # run and it is not scheduled. `--exclude 2c` was the standard way to skip that stage
+    # before it left the plan, so it survives in saved scripts; breaking it buys nothing.
+    # Only ids on RETIRED_STAGE_IDS get this pass.
     unknown_excludes = exclude_ids - known_ids
-    if unknown_excludes:
+    retired_excludes = unknown_excludes & RETIRED_STAGE_IDS
+    if retired_excludes:
         print(
-            f"WARNING: --exclude names stage id(s) not in this pipeline: "
-            f"{', '.join(sorted(unknown_excludes))}. They are already not scheduled; continuing. "
-            f"Available: {', '.join(spec.stage_id for spec in plan)}",
+            f"NOTE: --exclude {', '.join(sorted(retired_excludes))} is no longer needed — "
+            f"that stage was retired from this pipeline and is already not scheduled.",
             file=sys.stderr,
+        )
+
+    # Anything else in --exclude is a typo, and forgiving it is dangerous in the opposite
+    # direction: `--exclude 7x` would leave stage 7 scheduled, so an unattended run does the
+    # expensive work the caller was trying to skip and still exits 0. Raise.
+    bad_excludes = unknown_excludes - RETIRED_STAGE_IDS
+    if bad_excludes:
+        raise ValueError(
+            f"Unknown stage id(s) in --exclude: {', '.join(sorted(bad_excludes))}. "
+            f"Nothing was excluded for those, so the stages you meant to skip would have run. "
+            f"Available for this pipeline: {', '.join(spec.stage_id for spec in plan)}"
         )
 
     out = []

@@ -37,43 +37,60 @@ from simfoundry.pipeline.stage_utils import bootstrap_hydra_workdir
 
 bootstrap_hydra_workdir(__file__)
 
-# Fallback used only when no GPU is visible to this process — the build then targets a
-# recent datacentre arch rather than guessing. Any real run detects the installed GPU.
-DEFAULT_CUDA_ARCH = "8.6"
-
-
-def resolve_cuda_arch(env_var="SIMFOUNDRY_CUDA_ARCH", fallback=DEFAULT_CUDA_ARCH):
+def resolve_cuda_arch(env_var="SIMFOUNDRY_CUDA_ARCH"):
     """
-    Returns the CUDA arch string to build gsplat's extension for, e.g. "8.6".
+    Returns the CUDA arch string to build gsplat's extension for, e.g. "8.6" or "8.6;9.0".
 
-    Detects the installed GPU rather than assuming one. A hardcoded value is the failure
-    this exists to prevent: building for sm_120 on an sm_86 card compiles cleanly and then
-    dies at the first kernel launch with "no kernel image is available for execution on the
-    device", long after the expensive COLMAP preprocessing has run.
+    Reports what the driver actually says, and refuses to guess. A wrong arch is silent at
+    build time and fatal at first kernel launch ("no kernel image is available for execution
+    on the device"), so a guess buys nothing — it only moves the failure somewhere harder to
+    read. If the GPUs cannot be enumerated, that is a real problem with this machine and the
+    caller is told to fix it or state the arch explicitly.
+
+    Every visible device is included, not just device 0: on a host with mixed GPUs, building
+    only for the first one produces a binary that fails on the others.
 
     Args:
-        env_var (str): Environment variable that overrides detection, for cross-compiling
-            or hosts with mixed GPUs
-        fallback (str): Arch to use when no CUDA device is visible
+        env_var (str): Environment variable that overrides detection. This is the escape
+            hatch for cross-compiling, or for building on a machine without the target GPU.
 
     Returns:
-        str: Arch string suitable for TORCH_CUDA_ARCH_LIST
+        str: Arch list suitable for TORCH_CUDA_ARCH_LIST, e.g. "8.6" or "8.6;9.0"
+
+    Raises:
+        RuntimeError: If no override is set and the GPUs cannot be enumerated
     """
     override = os.environ.get(env_var)
     if override:
         return override
+
+    hint = (
+        f"Set {env_var} (e.g. {env_var}=8.6) to build for a specific architecture without "
+        f"querying the driver."
+    )
     try:
         import torch
+    except ImportError as exc:
+        raise RuntimeError(f"Cannot determine the GPU architecture: torch is not importable ({exc}). {hint}") from exc
 
-        if torch.cuda.is_available():
-            major, minor = torch.cuda.get_device_capability(0)
-            return f"{major}.{minor}"
-    except Exception as exc:  # torch missing, driver error, no device
-        logging.getLogger(__name__).warning(
-            "Could not detect GPU compute capability (%s); falling back to arch %s. "
-            "Set %s if that is wrong for this machine.", exc, fallback, env_var
+    if not torch.cuda.is_available():
+        raise RuntimeError(
+            f"Cannot determine the GPU architecture: torch reports no CUDA device available. "
+            f"Check the driver and CUDA_VISIBLE_DEVICES. {hint}"
         )
-    return fallback
+
+    try:
+        caps = {torch.cuda.get_device_capability(i) for i in range(torch.cuda.device_count())}
+    except Exception as exc:  # driver present but unhealthy
+        raise RuntimeError(
+            f"Cannot determine the GPU architecture: querying the driver failed ({exc}). {hint}"
+        ) from exc
+
+    if not caps:
+        raise RuntimeError(f"Cannot determine the GPU architecture: no CUDA devices enumerated. {hint}")
+
+    # Sorted so the value is stable across runs — it is used as part of the build identity.
+    return ";".join(f"{major}.{minor}" for major, minor in sorted(caps))
 
 
 @hydra.main(config_name="real2sim_cfg", config_path=CFG_DIR, version_base="1.3")
