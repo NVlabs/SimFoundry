@@ -30,12 +30,12 @@ Unlike prior scene reconstruction approaches, SimFoundry is fully modular: each 
 
 ## Table of Contents
 
+- [Quick Start](#quick-start)
+- [Common Examples](#common-examples)
 - [Pipeline Overview](#pipeline-overview)
 - [Scene Gallery](#scene-gallery)
 - [Digital Cousins](#digital-cousins)
 - [Sim-to-Real Policy Training](#sim-to-real-policy-training)
-- [Quick Start](#quick-start)
-- [Common Examples](#common-examples)
 - [Outputs](#outputs)
 - [What's Included](#whats-included)
 - [Documentation](#documentation)
@@ -43,6 +43,99 @@ Unlike prior scene reconstruction approaches, SimFoundry is fully modular: each 
 - [Acknowledgments](#acknowledgments)
 - [License](#license)
 - [Contact](#contact)
+
+## Quick Start
+
+**1.** Build the conda environments (takes a while):
+
+```bash
+bash scripts/installation/install_everything.sh
+```
+
+**2.** Set up service access. Request access to these gated Hugging Face models (approval can take time):
+
+- [facebook/sam3](https://huggingface.co/facebook/sam3)
+- [facebook/dinov3-vitl16-pretrain-lvd1689m](https://huggingface.co/facebook/dinov3-vitl16-pretrain-lvd1689m)
+- [briaai/RMBG-2.0](https://huggingface.co/briaai/RMBG-2.0)
+- Optional: [black-forest-labs/FLUX.1-Kontext-dev](https://huggingface.co/black-forest-labs/FLUX.1-Kontext-dev)
+
+VLM stages run on **Google Cloud Vertex AI (Gemini)**. Set up a [gcloud project](https://console.cloud.google.com/welcome/new) with [Vertex AI enabled](https://docs.vectorize.io/build-deploy/external-service-setup/how-to/google-vertex-ai/create-a-gcp-service-account-for-google-vertex-ai/), then authenticate:
+
+```bash
+export GCLOUD_PROJECT=<your-gcp-project>
+gcloud auth application-default login
+huggingface-cli login
+```
+
+> **No GCP project?** Generate a Gemini API key at [AI Studio](https://aistudio.google.com/api-keys) and run `export GEMINI_API_KEY=<your-key>` instead.
+
+Alternatively, run the interactive login helper which covers all services at once:
+
+```bash
+bash scripts/installation/login_services.sh
+```
+
+**3.** Download model checkpoints:
+
+```bash
+bash scripts/installation/download_checkpoints.sh --default
+```
+
+> Already logged in to Hugging Face? Fold this into step 1 with `bash scripts/installation/install_everything.sh --checkpoints`.
+
+**4.** (Optional) Install the articulation pipeline:
+
+```bash
+bash scripts/installation/install_articulate.sh
+```
+
+Full installation details: [INSTALL.md](docs/INSTALL.md)
+
+## Common Examples
+
+Reconstruct a scene from video:
+
+```bash
+bash scripts/pipeline/A_reconstruction/run.sh \
+  --scene-name my_scene \
+  --video-fpath /path/to/video.mov
+```
+
+The streamed stages budget VRAM as a fraction of the card's total memory (90% by default), so this command works unchanged on a 24 GiB or 96 GiB GPU. Add `--max-vram-gb N` only to pin an absolute cap.
+
+Enable automatic articulation decomposition (requires the optional `articulate` environments — see [INSTALL.md](docs/INSTALL.md)):
+
+```bash
+bash scripts/pipeline/A_reconstruction/run.sh \
+  --scene-name my_scene \
+  --video-fpath /path/to/video.mov \
+  --detect-articulation
+```
+
+Generate digital cousins, scene variants, and task proposals:
+
+```bash
+bash scripts/pipeline/B_augmentation/run.sh \
+  --scene-name my_scene \
+  -- prompt_cousin_structured.max_objects=2 \
+       prompt_cousin_structured.max_generated_images_per_object=1
+```
+
+Smoke-test the reconstructed scene in OmniGibson:
+
+```bash
+bash scripts/pipeline/C_application/run.sh \
+  --scene-name my_scene \
+  --mode smoke-random
+```
+
+You can also use the unified dispatcher:
+
+```bash
+scripts/pipeline/run.sh A_reconstruction --help
+scripts/pipeline/run.sh B_augmentation --help
+scripts/pipeline/run.sh C_application --help
+```
 
 ## Pipeline Overview
 
@@ -141,99 +234,6 @@ Policies trained entirely on SimFoundry data transfer zero-shot to real-world ta
     <td align="center"><img src="docs/gallery/yam_real_cousin.gif" width="220" alt="YAM Real Evaluation with Unseen Objects"></td>
   </tr>
 </table>
-
-## Quick Start
-
-**1.** Build the conda environments (takes a while):
-
-```bash
-bash scripts/installation/install_everything.sh
-```
-
-**2.** Set up service access. Request access to these gated Hugging Face models (approval can take time):
-
-- [facebook/sam3](https://huggingface.co/facebook/sam3)
-- [facebook/dinov3-vitl16-pretrain-lvd1689m](https://huggingface.co/facebook/dinov3-vitl16-pretrain-lvd1689m)
-- [briaai/RMBG-2.0](https://huggingface.co/briaai/RMBG-2.0)
-- Optional: [black-forest-labs/FLUX.1-Kontext-dev](https://huggingface.co/black-forest-labs/FLUX.1-Kontext-dev)
-
-VLM stages run on **Google Cloud Vertex AI (Gemini)**. Set up a [gcloud project](https://console.cloud.google.com/welcome/new) with [Vertex AI enabled](https://docs.vectorize.io/build-deploy/external-service-setup/how-to/google-vertex-ai/create-a-gcp-service-account-for-google-vertex-ai/), then authenticate:
-
-```bash
-export GCLOUD_PROJECT=<your-gcp-project>
-gcloud auth application-default login
-huggingface-cli login
-```
-
-> **No GCP project?** Generate a Gemini API key at [AI Studio](https://aistudio.google.com/api-keys) and run `export GEMINI_API_KEY=<your-key>` instead.
-
-Alternatively, run the interactive login helper which covers all services at once:
-
-```bash
-bash scripts/installation/login_services.sh
-```
-
-**3.** Download model checkpoints:
-
-```bash
-bash scripts/installation/download_checkpoints.sh --default
-```
-
-> Already logged in to Hugging Face? Fold this into step 1 with `bash scripts/installation/install_everything.sh --checkpoints`.
-
-**4.** (Optional) Install the articulation pipeline:
-
-```bash
-bash scripts/installation/install_articulate.sh
-```
-
-Full installation details: [INSTALL.md](docs/INSTALL.md)
-
-## Common Examples
-
-Reconstruct a scene from video:
-
-```bash
-bash scripts/pipeline/A_reconstruction/run.sh \
-  --scene-name my_scene \
-  --video-fpath /path/to/video.mov
-```
-
-The streamed stages budget VRAM as a fraction of the card's total memory (90% by default), so this command works unchanged on a 24 GiB or 96 GiB GPU. Add `--max-vram-gb N` only to pin an absolute cap.
-
-Enable automatic articulation decomposition (requires the optional `articulate` environments — see [INSTALL.md](docs/INSTALL.md)):
-
-```bash
-bash scripts/pipeline/A_reconstruction/run.sh \
-  --scene-name my_scene \
-  --video-fpath /path/to/video.mov \
-  --detect-articulation
-```
-
-Generate digital cousins, scene variants, and task proposals:
-
-```bash
-bash scripts/pipeline/B_augmentation/run.sh \
-  --scene-name my_scene \
-  -- prompt_cousin_structured.max_objects=2 \
-       prompt_cousin_structured.max_generated_images_per_object=1
-```
-
-Smoke-test the reconstructed scene in OmniGibson:
-
-```bash
-bash scripts/pipeline/C_application/run.sh \
-  --scene-name my_scene \
-  --mode smoke-random
-```
-
-You can also use the unified dispatcher:
-
-```bash
-scripts/pipeline/run.sh A_reconstruction --help
-scripts/pipeline/run.sh B_augmentation --help
-scripts/pipeline/run.sh C_application --help
-```
 
 ## Outputs
 
