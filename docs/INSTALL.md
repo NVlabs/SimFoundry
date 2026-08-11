@@ -22,8 +22,21 @@ Recommended VRAM:
 
 ## 1. Clone And Prepare Submodules
 
+This repo uses **Git LFS** for binary assets (PNGs, GIFs) in `docs/`. Install it before cloning:
+
 ```bash
+# Install Git LFS (once per machine)
+git lfs install
+
+# Then clone normally — LFS files are fetched automatically
+git clone <repo-url>
 git submodule update --init --recursive
+```
+
+If you already cloned without LFS, fetch the assets with:
+
+```bash
+git lfs pull
 ```
 
 If a dependency is not a submodule on your checkout, use the matching install script in `scripts/installation/`.

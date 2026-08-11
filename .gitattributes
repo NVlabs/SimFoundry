@@ -1,0 +1,5 @@
+# Git LFS tracking rules
+# Binary media assets in docs/ are tracked via LFS to keep clone size small.
+# MP4s are committed directly (not in LFS) following the same convention as GR00T-WBC.
+docs/**/*.png filter=lfs diff=lfs merge=lfs -text
+docs/**/*.gif filter=lfs diff=lfs merge=lfs -text

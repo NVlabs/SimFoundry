@@ -16,6 +16,14 @@
 *.egg-info
 *code-workspace*
 api_keys.txt
+GEMINI_API_KEY.txt
+# Windows zone identifier / DLP metadata files
+*:Zone.Identifier
+*:sec.endpointdlp
+# Original uncompressed teaser video
+docs/teaser_video.mp4
+# Local input videos
+input videos/
 *.deb
 *.log
 *core*
