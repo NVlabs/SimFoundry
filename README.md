@@ -48,11 +48,7 @@ Unlike prior scene reconstruction approaches, SimFoundry is fully modular: each 
 
 ## SimFoundry
 
-<div align="center">
-
-![SimFoundry Demo](docs/teaser_video_compressed.mp4)
-
-</div>
+<!-- TODO: Replace with a 10-15s GIF showing the full SimFoundry pipeline (real video → segmentation → mesh → OmniGibson scene). Pick the most visually complete moment from teaser_video_compressed.mp4. Target: ~480px wide, under 10MB. -->
 
 *SimFoundry reconstructs a real tabletop scene into a physics-ready simulation in under an hour, with no manual annotation required.*
 
