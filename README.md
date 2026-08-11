@@ -54,11 +54,11 @@ SimFoundry extracts per-object relevant information (segmentation masks, depth, 
 
 SimFoundry is organized into three modular pipelines:
 
-**A: Reconstruction** (`scripts/pipeline/A_reconstruction/`) reconstructs a simulation-ready scene from a real video across 13 stages: video processing, depth estimation, ground segmentation, object decomposition, mesh generation, pose estimation, physics compilation, and USD/OmniGibson export.
-
-**B: Augmentation** (`scripts/pipeline/B_augmentation/`) generates digital cousin variations of the reconstructed objects spanning geometry, topology, and visual appearance, and proposes manipulation tasks for each scene.
-
-**C: Application** (`scripts/pipeline/C_application/`) loads the scene into OmniGibson for robot policy evaluation, teleoperation data collection, and pipeline smoke testing.
+| Pipeline | Description |
+|---|---|
+| **A: Reconstruction** | Reconstructs a simulation-ready scene from a real video across 13 stages: video processing, depth estimation, ground segmentation, object decomposition, mesh generation, pose estimation, physics compilation, and USD/OmniGibson export. |
+| **B: Augmentation** | Generates digital cousin variations of the reconstructed objects spanning geometry, topology, and visual appearance, and proposes manipulation tasks for each scene. |
+| **C: Application** | Loads the scene into OmniGibson for robot policy evaluation, teleoperation data collection, and pipeline smoke testing. |
 
 ## Scene Gallery
 
@@ -124,21 +124,21 @@ Policies trained entirely on SimFoundry data transfer zero-shot to real-world ta
 <table>
   <tr>
     <th align="center"></th>
-    <th align="center">Sim Eval</th>
-    <th align="center">Real World Eval</th>
-    <th align="center">Real World (Unseen Objects)</th>
+    <th align="center">Simulated Evaluation</th>
+    <th align="center">Real World Evaluation</th>
+    <th align="center">Real World Evaluation (Unseen Objects)</th>
   </tr>
   <tr>
     <td align="center"><b>DROID</b></td>
-    <td align="center"><img src="docs/gallery/droid_sim.gif" width="220" alt="DROID Sim Eval"></td>
-    <td align="center"><img src="docs/gallery/droid_real.gif" width="220" alt="DROID Real Eval"></td>
-    <td align="center"><img src="docs/gallery/droid_real_cousin.gif" width="220" alt="DROID Real Unseen Objects"></td>
+    <td align="center"><img src="docs/gallery/droid_sim.gif" width="220" alt="DROID Simulated Evaluation"></td>
+    <td align="center"><img src="docs/gallery/droid_real.gif" width="220" alt="DROID Real Evaluation"></td>
+    <td align="center"><img src="docs/gallery/droid_real_cousin.gif" width="220" alt="DROID Real Evaluation with Unseen Objects"></td>
   </tr>
   <tr>
     <td align="center"><b>YAM (Bimanual)</b></td>
-    <td align="center"><img src="docs/gallery/yam_sim.gif" width="220" alt="YAM Sim Eval"></td>
-    <td align="center"><img src="docs/gallery/yam_real_twin.gif" width="220" alt="YAM Real Eval"></td>
-    <td align="center"><img src="docs/gallery/yam_real_cousin.gif" width="220" alt="YAM Real Unseen Objects"></td>
+    <td align="center"><img src="docs/gallery/yam_sim.gif" width="220" alt="YAM Simulated Evaluation"></td>
+    <td align="center"><img src="docs/gallery/yam_real_twin.gif" width="220" alt="YAM Real Evaluation"></td>
+    <td align="center"><img src="docs/gallery/yam_real_cousin.gif" width="220" alt="YAM Real Evaluation with Unseen Objects"></td>
   </tr>
 </table>
 
