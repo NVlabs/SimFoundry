@@ -56,9 +56,30 @@ def test_named_stage_plans_use_new_subdirectories():
     application = get_stage_plan("video", pipeline_name="application")
 
     assert reconstruction[0].script == "scripts/pipeline/A_reconstruction/stages/1b_process_raw_video.py"
+    stage_2c = next(spec for spec in reconstruction if spec.stage_id == "2c")
+    assert stage_2c.env == "nerfstudio"
     assert any(spec.script.endswith("B_augmentation/stages/8_match_cousin_p2p.py") for spec in augmentation)
     assert application[0].stage_id == "smoke"
     assert application[1].script.endswith("C_application/stages/1_eval_policy_og_scene.py")
+
+
+def test_stage_2c_uses_dedicated_nerfstudio_environment():
+    stage_2c = next(
+        spec
+        for spec in get_stage_plan("video", pipeline_name="reconstruction")
+        if spec.stage_id == "2c"
+    )
+
+    cmd = build_cmd(
+        stage_2c,
+        env_map={"nerfstudio": "custom-nerfstudio"},
+        exec_mode="mamba",
+        python_bin="python",
+        extra_overrides=[],
+    )
+
+    assert cmd[:4] == ["mamba", "run", "-n", "custom-nerfstudio"]
+    assert cmd[5] == "scripts/pipeline/A_reconstruction/stages/2c_train_bg_splat.py"
 
 
 @pytest.mark.skipif(

@@ -288,7 +288,10 @@ def main(cfg):
             scheduler=scheduler,
         )
         with completed_artifacts_lock:
-            expected_indices = set(discover_ready_artifact_mtimes(cfg, stages[0]))
+            # The producer has exited, so everything it wrote is complete -- skip the settle
+            # window here, or an artifact finished in its last seconds would be left out of
+            # expected_indices and the subsequence would call itself done without it.
+            expected_indices = set(discover_ready_artifact_mtimes(cfg, stages[0], settle_s=0))
             completed_artifacts[stages[0]].update(expected_indices)
         with last_activity_lock:
             last_activity_ref["t"] = time.time()

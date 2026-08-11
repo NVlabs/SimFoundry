@@ -29,6 +29,7 @@ import json
 import hydra
 from omegaconf import OmegaConf
 from simfoundry.pipeline.stage_utils import StageResult, bootstrap_hydra_workdir, finalize_stage
+from simfoundry.pipeline.frame_selection import resolve_img_idx
 from simfoundry.utils.og_utils import set_obj_materials
 import numpy as np
 import sys
@@ -376,7 +377,7 @@ def main(cfg):
         # Preferred: USDZ produced by the auto_bg_reconstruction pipeline (script 7).
         # Fallback: nerfstudio-trained splat from stage 2c (splat.ply) — stored as a
         # reference path only; full OG integration still requires the USDZ conversion.
-        cam2world_tf_fpath = f"{cfg.s4_frame.out_dir}/image_{cfg.s3_ground.img_idx}_cam2world.npy"
+        cam2world_tf_fpath = f"{cfg.s4_frame.out_dir}/image_{resolve_img_idx(cfg)}_cam2world.npy"
         cam2world_tf = th.from_numpy(np.load(cam2world_tf_fpath)).float()
         gs_path_da3 = os.path.abspath(f"{cfg.s2_da.out_dir}/gs_outputs/gaussian_da3.usdz")
         gs_path_2c_ply = os.path.abspath(f"{cfg.s2c_gs.out_dir}/export/splat.ply")

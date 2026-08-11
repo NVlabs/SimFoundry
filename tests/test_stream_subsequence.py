@@ -63,10 +63,43 @@ def test_discover_ready_indices(tmp_path):
         s8_pose=_Node(out_dir=str(scene / "s8_pose")),
     )
 
-    assert discover_ready_indices(cfg, 5) == [0, 2]
-    assert discover_ready_indices(cfg, 6) == [1, 3]
-    assert discover_ready_indices(cfg, 7) == [2, 4]
-    assert discover_ready_indices(cfg, 8) == [2, 4]
-    mtimes = discover_ready_artifact_mtimes(cfg, 6)
+    # settle_s=0 so freshly written fixtures are visible; the settle window has its own tests.
+    assert discover_ready_indices(cfg, 5, settle_s=0) == [0, 2]
+    assert discover_ready_indices(cfg, 6, settle_s=0) == [1, 3]
+    assert discover_ready_indices(cfg, 7, settle_s=0) == [2, 4]
+    assert discover_ready_indices(cfg, 8, settle_s=0) == [2, 4]
+    mtimes = discover_ready_artifact_mtimes(cfg, 6, settle_s=0)
     assert sorted(mtimes) == [1, 3]
     assert all(value > 0 for value in mtimes.values())
+
+
+def _mesh_cfg(tmp_path):
+    scene = tmp_path / "scene"
+    (scene / "s7_mesh" / "textured_mesh" / "trellis2").mkdir(parents=True)
+    return _Node(s7_mesh=_Node(out_dir=str(scene / "s7_mesh"), texture_model="trellis2"))
+
+
+def test_discovery_hides_an_artifact_still_being_written(tmp_path):
+    # A producer that opened the file and is still appending keeps bumping its mtime. Handing
+    # that path to a consumer is what made stage 8 read a partial .glb as zero triangles.
+    cfg = _mesh_cfg(tmp_path)
+    mesh = Path(cfg.s7_mesh.out_dir) / "textured_mesh" / "trellis2" / "iter_0_mesh.glb"
+    mesh.write_bytes(b"partial")
+    assert discover_ready_indices(cfg, 7, settle_s=5.0) == []
+
+
+def test_discovery_releases_an_artifact_once_writes_stop(tmp_path):
+    cfg = _mesh_cfg(tmp_path)
+    mesh = Path(cfg.s7_mesh.out_dir) / "textured_mesh" / "trellis2" / "iter_0_mesh.glb"
+    mesh.write_bytes(b"complete")
+    settled = mesh.stat().st_mtime + 6.0
+    assert discover_ready_indices(cfg, 7, settle_s=5.0, now=settled) == [0]
+
+
+def test_artifact_settle_s_defaults_and_reads_config(tmp_path):
+    from simfoundry.pipeline.stream_subsequence import DEFAULT_ARTIFACT_SETTLE_S, artifact_settle_s
+
+    assert artifact_settle_s(_Node()) == DEFAULT_ARTIFACT_SETTLE_S
+    assert artifact_settle_s(_Node(stream_subseq=_Node(artifact_settle_s=2.5))) == pytest.approx(2.5)
+    # 0 must survive rather than falling back to the default.
+    assert artifact_settle_s(_Node(stream_subseq=_Node(artifact_settle_s=0))) == pytest.approx(0.0)

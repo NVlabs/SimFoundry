@@ -26,3 +26,18 @@ api_keys.txt
 /scripts/cfg/outputs
 /scripts/pipeline/A_reconstruction/stages/auto_bg_reconstruction/_2e_logs
 Miniforge3-Linux-x86_64.sh
+
+# Local shell / editor / tooling config (not part of the project)
+.bash_profile
+.bashrc
+.claude/
+.gitconfig
+.gitmodules
+.idea
+.mcp.json
+.profile
+.ripgreprc
+.vscode
+.zprofile
+.zshrc
+scripts/experiments/

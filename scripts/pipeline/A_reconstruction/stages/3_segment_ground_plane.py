@@ -19,6 +19,11 @@ import hydra
 import os
 from copy import deepcopy
 from simfoundry.pipeline.stage_utils import StageResult, bootstrap_hydra_workdir, finalize_stage
+from simfoundry.pipeline.frame_selection import (
+    is_auto_img_idx,
+    select_canonical_frame,
+    write_selection,
+)
 from simfoundry import CFG_DIR
 import logging
 import einops
@@ -176,11 +181,32 @@ def main(cfg):
     out_dir = cfg.s3_ground.out_dir
     Path(out_dir).mkdir(parents=True, exist_ok=True)
 
-    img_idx = cfg.s3_ground.img_idx
-    
+    use_interactive = cfg.s3_ground.get("use_interactive_segmentation", False)
+
+    # Create sam3. Built before the frame is picked because automatic selection segments the
+    # support surface in every candidate to score it.
+    sam3 = SAM3(
+        confidence_threshold=0.50,
+        device="cuda",
+        video=False,
+        enable_inst_interactivity=use_interactive,
+    )
+
+    # Every stage from here to 13 reconstructs the scene from this one frame, so a bad choice
+    # (blurry, shot from far away, objects occluding each other) caps the quality of all of
+    # them. `img_idx: auto` scores the candidates and commits the winner to disk for the
+    # downstream stages; an explicit integer still pins the frame.
+    if is_auto_img_idx(cfg.s3_ground.img_idx):
+        selection = select_canonical_frame(cfg, sam3)
+        img_idx = selection.selected_idx
+        logger.info("Wrote frame selection to %s", write_selection(cfg, selection))
+    else:
+        img_idx = int(cfg.s3_ground.img_idx)
+        logger.info("Using the frame pinned by s3_ground.img_idx: %s", img_idx)
+
     # Check if we should use FoundationStereo or Depth Anything output
     use_fs = cfg.s3_ground.get("use_fs", False)
-    
+
     if use_fs:
         logger.info("Using FoundationStereo output")
         fs_dir = cfg.s2_fs.out_dir
@@ -198,16 +224,6 @@ def main(cfg):
         rgb = results["image"][img_idx]
         depth = results["depth"][img_idx]
         K = results["intrinsics"][img_idx]
-
-    use_interactive = cfg.s3_ground.get("use_interactive_segmentation", False)
-
-    # Create sam3
-    sam3 = SAM3(
-        confidence_threshold=0.50,
-        device="cuda",
-        video=False,
-        enable_inst_interactivity=use_interactive,
-    )
 
     # Copy raw RGB image
     rgb_fpath = f"{out_dir}/raw_img.png"
@@ -333,7 +349,7 @@ def main(cfg):
     finalize_stage(
         stage_cfg=cfg.s3_ground,
         out_dir=cfg.s3_ground.out_dir,
-        result=StageResult(success=True),
+        result=StageResult(success=True, additional_info={"resolved_img_idx": int(img_idx)}),
     )
 
 

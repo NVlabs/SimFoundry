@@ -88,13 +88,14 @@ Recommended pinned `nerfstudio_simfoundry` versions:
 - `torchvision==0.16.2`
 - `gsplat==1.4.0`
 - `nerfstudio==1.1.5`
+- `hydra-core>=1.3,<1.4` (required by the canonical Stage 2c entrypoint)
 
 Create it manually:
 
 ```bash
 mamba create -n nerfstudio_simfoundry python=3.10 -y
 mamba run -n nerfstudio_simfoundry pip install torch==2.1.2 torchvision==0.16.2 --index-url https://download.pytorch.org/whl/cu121
-mamba run -n nerfstudio_simfoundry pip install gsplat==1.4.0 nerfstudio==1.1.5
+mamba run -n nerfstudio_simfoundry pip install gsplat==1.4.0 nerfstudio==1.1.5 "hydra-core>=1.3,<1.4"
 ```
 
 The depth-loss patch in `patches/splatfacto_depth_loss.patch` must be applied to the installed `nerfstudio` package if you use depth-supervised training.

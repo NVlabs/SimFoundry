@@ -62,6 +62,7 @@ if hydra.core.global_hydra.GlobalHydra.instance().is_initialized():
         hydra.core.global_hydra.GlobalHydra.instance().clear()
 
 from simfoundry import CFG_DIR
+from simfoundry.pipeline.frame_selection import resolve_img_idx
 
 ### At the start of every script, we cd into the scripts/config directory
 scripts_dir = os.path.dirname(os.path.abspath(__file__))
@@ -752,7 +753,7 @@ def main(cfg):
     source_padded_resized = np.array(Image.open(f"{scene_dir}/source_padded_resized.png"))
     resolution = (source_padded_resized.shape[1], source_padded_resized.shape[0])
 
-    img_idx = cfg.s3_ground.img_idx
+    img_idx = resolve_img_idx(cfg)
     
     # Check if using FoundationStereo or Depth Anything
     use_fs = cfg.s3_ground.get("use_fs", False)

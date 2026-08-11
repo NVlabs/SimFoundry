@@ -8,7 +8,7 @@
 # If you have established your own right to use TeleMoMa, install it separately:
 #     pip install --no-deps telemoma==0.3.0
 #
-# See THIRD_PARTY_LICENSES.md and INSTALL.md.
+# See THIRD_PARTY_LICENSES.md and docs/INSTALL.md.
 
 mediapipe<=0.10.9
 pyspacemouse

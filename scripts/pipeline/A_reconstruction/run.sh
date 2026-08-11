@@ -30,6 +30,7 @@ Options:
   --no-env-switch                 Alias for --exec-mode direct.
   --python-bin PATH               Python executable inside each target env. Default: python
   --env-simfoundry NAME           Mamba env for SimFoundry stages. Default: simfoundry
+  --env-nerfstudio NAME           Mamba env for stage 2c. Default: nerfstudio_simfoundry
   --env-da3 NAME                  Mamba env for depth stage. Default: da3
   --env-mesh NAME                 Mamba env for mesh generation. Default: hunyuan (use simfoundry for trellis.2 if installed)
   --env-b1k NAME                  Mamba env for OmniGibson stages. Default: b1k
@@ -39,6 +40,7 @@ Options:
   --max-vram-frac F               Streaming VRAM budget as a fraction of total GPU memory. Default: stream_subseq.max_vram_frac (0.9)
   --max-vram-gb N                 Opt-in absolute hard VRAM budget for streaming, in GiB. Default: unset (uses the fraction)
   --detect-articulation           Run automated articulation decomposition stage 8b after stage 8.
+  --bg-splat                      Include stage 2c (nerfstudio background Gaussian splat). Opt-in only — not run by default.
   --cache-mode                    Cache raw remote model responses.
   --test-mode                     Replay remote model responses from cache.
   --model-cache-dir DIR           Cache root. Default: .cache/simfoundry/model_calls
@@ -56,6 +58,7 @@ VIDEO_FPATH="${VIDEO_FPATH:-${ROOT_DIR}/${SCENE_NAME}/s1_video/video/scene.mp4}"
 EXEC_MODE="${EXEC_MODE:-mamba}"
 PYTHON_BIN="${PYTHON_BIN:-python}"
 ENV_SIMFOUNDRY="${ENV_SIMFOUNDRY:-simfoundry}"
+ENV_NERFSTUDIO="${ENV_NERFSTUDIO:-nerfstudio_simfoundry}"
 ENV_DA3="${ENV_DA3:-da3}"
 ENV_MESH="${ENV_MESH:-hunyuan}"
 ENV_B1K="${ENV_B1K:-b1k}"
@@ -69,6 +72,7 @@ STREAM_END_STAGE="${STREAM_END_STAGE:-8}"
 MAX_VRAM_FRAC="${MAX_VRAM_FRAC:-}"
 MAX_VRAM_GB="${MAX_VRAM_GB:-}"
 DETECT_ARTICULATION="${DETECT_ARTICULATION:-0}"
+BG_SPLAT="${BG_SPLAT:-0}"
 CACHE_MODE_ENABLED=0
 TEST_MODE_ENABLED=0
 MODEL_CACHE_DIR="${SIMFOUNDRY_MODEL_CACHE_DIR:-}"
@@ -119,6 +123,10 @@ while [[ $# -gt 0 ]]; do
       ENV_SIMFOUNDRY="$2"
       shift 2
       ;;
+    --env-nerfstudio)
+      ENV_NERFSTUDIO="$2"
+      shift 2
+      ;;
     --env-da3|--env-da)
       ENV_DA3="$2"
       shift 2
@@ -157,6 +165,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --detect-articulation)
       DETECT_ARTICULATION=1
+      shift
+      ;;
+    --bg-splat)
+      BG_SPLAT=1
       shift
       ;;
     --cache-mode)
@@ -239,6 +251,7 @@ CMD=(
   "--exec-mode" "${EXEC_MODE}"
   "--python-bin" "${PYTHON_BIN}"
   "--env-simfoundry" "${ENV_SIMFOUNDRY}"
+  "--env-nerfstudio" "${ENV_NERFSTUDIO}"
   "--env-da3" "${ENV_DA3}"
   "--env-mesh" "${ENV_MESH}"
   "--env-b1k" "${ENV_B1K}"
@@ -262,6 +275,9 @@ if [[ "${STREAM_ENABLED}" == "1" ]]; then
 fi
 if [[ "${DETECT_ARTICULATION}" == "1" ]]; then
   CMD+=("--detect-articulation")
+fi
+if [[ "${BG_SPLAT}" == "1" ]]; then
+  CMD+=("--bg-splat")
 fi
 
 CMD+=(

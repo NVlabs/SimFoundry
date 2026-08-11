@@ -7,12 +7,20 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import time
 from typing import Callable
 
 from simfoundry.pipeline.stage_utils import list_object_iteration_indices
 
 
 SUPPORTED_STAGES = (5, 6, 7, 8)
+
+#: Seconds an artifact must go without being written to before a downstream stage may open it.
+#: Discovery matches on filename, which appears as soon as the producer opens the file -- a
+#: multi-hundred-MB mesh keeps being written for seconds afterwards. Without this, a consumer
+#: can open a half-written file: stage 8 read a partial .glb as a mesh with zero triangles and
+#: killed the run two seconds before stage 7 logged that it had finished writing it.
+DEFAULT_ARTIFACT_SETTLE_S = 5.0
 
 
 @dataclass(frozen=True)
@@ -45,22 +53,46 @@ def subsequence_complete(stages: list[int], expected_indices: set[int], complete
     return expected_indices.issubset(completed_artifacts[stages[-1]])
 
 
-def discover_ready_indices(cfg, stage: int) -> list[int]:
-    return sorted(discover_ready_artifact_mtimes(cfg, stage))
+def artifact_settle_s(cfg) -> float:
+    stream_cfg = getattr(cfg, "stream_subseq", None)
+    if stream_cfg is None:
+        return DEFAULT_ARTIFACT_SETTLE_S
+    if hasattr(stream_cfg, "get"):
+        value = stream_cfg.get("artifact_settle_s", None)
+    else:
+        value = getattr(stream_cfg, "artifact_settle_s", None)
+    return DEFAULT_ARTIFACT_SETTLE_S if value is None else float(value)
 
 
-def discover_ready_artifact_mtimes(cfg, stage: int) -> dict[int, float]:
+def discover_ready_indices(cfg, stage: int, *, settle_s: float | None = None, now: float | None = None) -> list[int]:
+    return sorted(discover_ready_artifact_mtimes(cfg, stage, settle_s=settle_s, now=now))
+
+
+def discover_ready_artifact_mtimes(
+    cfg, stage: int, *, settle_s: float | None = None, now: float | None = None,
+) -> dict[int, float]:
+    """Indices whose artifact exists and has stopped being written to.
+
+    An artifact is only reported once `settle_s` has passed since its last write, so a
+    downstream stage never opens a file the producer is still appending to.
+    """
     info = STAGE_IO[stage]
     watch_dir = info.watch_dir_fn(cfg)
     if not Path(watch_dir).is_dir():
         return {}
+    settle_s = artifact_settle_s(cfg) if settle_s is None else float(settle_s)
+    now = time.time() if now is None else now
     mtimes: dict[int, float] = {}
     for path in Path(watch_dir).iterdir():
         if not path.is_file() or not path.name.endswith(info.artifact_suffix):
             continue
         indices = list_object_iteration_indices([path.name], suffix=info.artifact_suffix)
-        if indices:
-            mtimes[indices[0]] = path.stat().st_mtime
+        if not indices:
+            continue
+        mtime = path.stat().st_mtime
+        if now - mtime < settle_s:
+            continue
+        mtimes[indices[0]] = mtime
     return mtimes
 
 

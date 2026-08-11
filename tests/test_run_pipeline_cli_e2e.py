@@ -27,6 +27,25 @@ def test_run_pipeline_cli_dry_run_smoke():
     assert "WALL:" in out
 
 
+def test_reconstruction_cli_routes_stage_2c_to_nerfstudio_env():
+    cmd = [
+        sys.executable,
+        str(REPO_ROOT / "scripts/pipeline/A_reconstruction/run_reconstruction.py"),
+        "--dry-run",
+        "--exec-mode",
+        "mamba",
+        "--include",
+        "2c",
+        "--env-nerfstudio",
+        "custom-nerfstudio",
+        "scene_name=droid_desk_1",
+    ]
+    proc = subprocess.run(cmd, check=True, capture_output=True, text=True, cwd=str(REPO_ROOT))
+
+    assert "mamba run -n custom-nerfstudio python" in proc.stdout
+    assert "A_reconstruction/stages/2c_train_bg_splat.py" in proc.stdout
+
+
 def test_augmentation_cli_dry_run_smoke():
     cmd = [
         sys.executable,

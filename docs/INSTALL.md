@@ -220,6 +220,13 @@ The auto-background flow adds a 3D Gaussian Splat background to an existing reco
 - `nerfstudio_simfoundry`
 - CUDA 12.x toolchain for `gsplat`
 
+Stage 2c runs directly in `nerfstudio_simfoundry` and requires Hydra there. The
+current installer includes it; update an environment created by an older checkout with:
+
+```bash
+mamba run -n nerfstudio_simfoundry pip install "hydra-core>=1.3,<1.4"
+```
+
 See [scripts/pipeline/A_reconstruction/stages/auto_bg_reconstruction/README.md](scripts/pipeline/A_reconstruction/stages/auto_bg_reconstruction/README.md).
 
 ## Articulation Dependencies

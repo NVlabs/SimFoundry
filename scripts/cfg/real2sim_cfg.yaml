@@ -79,7 +79,7 @@ s2_da:      # env: da3
   heavy_exports: false  # mesh/gs/colmap exports (not consumed downstream)
 s2_depth:    # unified stage-2 backend selector (used by 2_run_depth.py)
   backend: da3   # options: da3, fs
-s2c_gs:  # env: simfoundry (nerfstudio); process video with ns-process-data and train splatfacto-big
+s2c_gs:  # env: nerfstudio_simfoundry; process video with ns-process-data and train splatfacto-big
   out_dirname: s2c_gs
   out_dir: "${root_dir}/${scene_name}/${s2c_gs.out_dirname}"
   # Inherit the same source video as stage 1b so a single --video-fpath (which sets
@@ -101,7 +101,37 @@ s3_ground:    # env: simfoundry
   floor_categories: [desk, table, counter]
   floor_threshold: 0.5
   floor_tilt_threshold: 0.125
-  img_idx: 0
+  # The canonical frame the whole reconstruction is built from: stage 3 fits the support plane
+  # in it, stage 4 makes its camera the world frame, and stage 5 crops every object out of it.
+  # `auto` lets stage 3 score the candidates (see frame_selection below); an integer pins a
+  # frame, which is what the pipeline used to do unconditionally. Stage 3 records the resolved
+  # index in s3_ground/frame_selection.json and stages 4-13 read it back from there.
+  img_idx: auto
+  frame_selection:
+    # heuristic -- geometry/sharpness scoring only, no remote calls
+    # vlm       -- VLM chooses among every frame that passes the gates
+    # hybrid    -- heuristic short-lists vlm_top_k frames, VLM makes the final call
+    # The VLM step is fail-soft: without credentials it falls back to the heuristic winner.
+    mode: hybrid
+    max_candidates: 24            # cap on frames scored (evenly strided) to bound SAM3 cost
+    min_object_height: 0.015      # m above the support plane before geometry counts as an object
+    max_object_height: 0.6        # m above the plane, to exclude walls/people behind the surface
+    min_component_px: 50          # ignore object blobs smaller than this when counting objects
+    max_tilt: null                # null -> inherit floor_tilt_threshold; reject rolled frames
+    min_plane_inlier_ratio: 0.6   # reject frames whose support surface does not fit a plane
+    min_support_coverage: 0.05    # reject frames where the support surface barely appears
+    max_clipped_frac: 0.5         # reject frames with more than this share of object area cut off
+    clipped_penalty: 0.35         # score penalty per unit fraction of object area cut off
+    vlm_top_k: 4                  # frames sent to the VLM in hybrid mode
+    vlm_max_side: 1024            # candidate images are downscaled to this before upload
+    vlm_model: null               # null -> inherit s3_ground.detection_model
+    write_debug_sheet: true       # s3_ground/frame_selection.png, scored contact sheet
+    weights:
+      object_coverage: 0.40       # image fraction filled by objects on the support surface
+      object_separation: 0.20     # distinct object blobs; occluding objects merge into one
+      sharpness: 0.20             # Laplacian variance around the objects, at source resolution
+      support_coverage: 0.10      # how much of the frame the support surface fills
+      plane_quality: 0.10         # RANSAC inlier ratio of the support plane fit
   use_fs: false  # Set to true to use FoundationStereo output (s2_fs) instead of Depth Anything (s2_da)
   detection_model: gemini-3.1-pro-preview   # options: gemini-2.5-pro, gemini-2.5-flash, gemini-3.1-pro-preview, gemini-3-flash-preview
 s4_frame:     # env: simfoundry
@@ -172,6 +202,11 @@ stream_subseq:
   end_stage: 8          # end stage in contiguous subsequence (5-8)
   poll_interval_s: 3.0
   idle_timeout_s: 120.0
+  # Seconds an artifact must go unwritten before the next stage may open it. Discovery matches
+  # on filename, which appears as soon as the producer opens the file, so without this a
+  # consumer can read a partially written mesh (stage 8 saw a half-written .glb as a mesh with
+  # zero triangles). Raise it if a producer stalls mid-write for longer than this.
+  artifact_settle_s: 5.0
   # VRAM budget for streamed stages, as a fraction of the GPU's TOTAL memory. Sizing it
   # relative to the card means one setting works on a 24 GiB and a 96 GiB GPU.
   max_vram_frac: 0.9
@@ -232,7 +267,7 @@ s8b_articulate_objects:
   s5_actor_only: false
   s5_max_iter: 5
   s5_num_seeds: 1
-  merge_interactive_correction: true # Keep the generated articulation workflow unattended by default
+  merge_interactive_correction: false # Keep the generated articulation workflow unattended by default
   # Classification review options:
   classification_only: false          # If true, stop after writing object_classification.json
   interactive_review: false          # If true, prompt user to review/modify VLM classification
@@ -623,7 +658,7 @@ application_smoke:
   out_dirname: application_smoke
   out_dir: "${root_dir}/${scene_name}/${application_smoke.out_dirname}"
 
-# s2c_gs:  # env: simfoundry (nerfstudio); process video with ns-process-data and train splatfacto-big
+# s2c_gs:  # env: nerfstudio_simfoundry; process video with ns-process-data and train splatfacto-big
 #   out_dirname: s2c_gs
 #   out_dir: "${root_dir}/${scene_name}/${s2c_gs.out_dirname}"
 #   video_fpath: "${root_dir}/Scene_Video/${scene_name}.MOV"

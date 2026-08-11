@@ -82,13 +82,31 @@ CUDA_VERSION=${CUDA_VERSION:-${DEFAULT_CUDA_VERSION}}  # Use default version if 
 export CUDA_HOME=/usr/local/cuda-${CUDA_VERSION}
 export LIBRARY_PATH=$CUDA_HOME/lib64/stubs:$LIBRARY_PATH
 
+_check_nvcc_version() {
+  local nvcc_bin="$1"
+  local found
+  found=$("$nvcc_bin" --version 2>/dev/null | grep -oE 'release [0-9]+\.[0-9]+' | sed 's/release //')
+  if [[ -z "$found" ]]; then
+    echo "WARNING: could not parse CUDA version from $nvcc_bin --version" >&2
+    return
+  fi
+  if [[ "$found" != "$CUDA_VERSION" ]]; then
+    echo "Error: nvcc at $nvcc_bin reports CUDA ${found}, but CUDA_VERSION=${CUDA_VERSION} was requested." >&2
+    echo "Re-run with --cuda-version ${found} to match your installed toolkit, or install CUDA ${CUDA_VERSION}." >&2
+    exit 1
+  fi
+}
+
 ensure_cuda_toolkit() {
   if [[ -x "${CUDA_HOME}/bin/nvcc" ]]; then
+    _check_nvcc_version "${CUDA_HOME}/bin/nvcc"
     return
   fi
 
-  if command -v nvcc >/dev/null 2>&1; then
-    CUDA_HOME="$(dirname "$(dirname "$(command -v nvcc)")")"
+  local nvcc_path
+  if nvcc_path="$(command -v nvcc 2>/dev/null)"; then
+    _check_nvcc_version "$nvcc_path"
+    CUDA_HOME="$(dirname "$(dirname "$nvcc_path")")"
     export CUDA_HOME
     export LIBRARY_PATH="${CUDA_HOME}/lib64/stubs:${LIBRARY_PATH:-}"
     return
@@ -244,7 +262,25 @@ pip install nvdiffrast/ --no-build-isolation
 cd ..
 mamba install boost -y > /dev/null
 mamba install -c conda-forge eigen=3.4.0 -y > /dev/null
-CMAKE_PREFIX_PATH=$CONDA_PREFIX/lib/python3.11/site-packages/pybind11/share/cmake/pybind11:$CONDA_PREFIX/include/eigen3 bash build_all_conda.sh > /dev/null
+
+EIGEN_INCLUDE="${CONDA_PREFIX}/include/eigen3"
+if [[ ! -f "${EIGEN_INCLUDE}/Eigen/Dense" ]]; then
+  echo "ERROR: Conda Eigen headers not found at ${EIGEN_INCLUDE}" >&2
+  exit 1
+fi
+PYBIND11_CMAKE_DIR="$(python -m pybind11 --cmakedir)"
+export CPLUS_INCLUDE_PATH="${EIGEN_INCLUDE}${CPLUS_INCLUDE_PATH:+:${CPLUS_INCLUDE_PATH}}"
+export CMAKE_PREFIX_PATH="${PYBIND11_CMAKE_DIR}:${CONDA_PREFIX}${CMAKE_PREFIX_PATH:+:${CMAKE_PREFIX_PATH}}"
+
+# FoundationPose's helper does not enable errexit and ends with a successful cd,
+# which otherwise masks failed CMake, NVCC, or pip extension builds.
+bash -e build_all_conda.sh
+python -c "import torch, common, gridencoder"
+FOUNDATIONPOSE_MYCPP_MODULES=(mycpp/build/mycpp*.so)
+if [[ ! -s "${FOUNDATIONPOSE_MYCPP_MODULES[0]}" ]]; then
+  echo "ERROR: FoundationPose mycpp extension was not produced" >&2
+  exit 1
+fi
 echo "Installed FoundationPose"
 cd ..
 

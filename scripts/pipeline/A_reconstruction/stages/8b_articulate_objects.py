@@ -21,6 +21,7 @@ import json
 import hydra
 import os
 from simfoundry import CFG_DIR
+from simfoundry.pipeline.frame_selection import resolve_img_idx
 
 logger = logging.getLogger(__name__)
 
@@ -77,13 +78,15 @@ def parse_articulated_object_selection(
 
 def get_articulation_query_image_path(cfg) -> str | None:
     """Use the same source scene frame that stage 5 uses for VLM scene decomposition."""
-    raw_img_dir = Path(cfg.s1_video.out_dir) / "frames_all"
+    # img_idx indexes the subsampled frame set, which is what stage 5 reads -- indexing
+    # frames_all instead only happened to agree with stage 5 when img_idx was 0.
+    raw_img_dir = Path(cfg.s1_video.out_dir) / f"frames_subsampled_{cfg.s1_video.n_subsampled_frames}"
     if not raw_img_dir.exists():
         return None
     raw_imgs = sorted(path for path in raw_img_dir.iterdir() if path.suffix.lower() == ".png")
     if not raw_imgs:
         return None
-    img_idx = int(cfg.s5_scene.get("img_idx", 0))
+    img_idx = resolve_img_idx(cfg, stage_key="s5_scene")
     if img_idx < 0 or img_idx >= len(raw_imgs):
         logger.warning("Stage 8b articulation image index %s is out of range for %s frames; using frame 0", img_idx, len(raw_imgs))
         img_idx = 0

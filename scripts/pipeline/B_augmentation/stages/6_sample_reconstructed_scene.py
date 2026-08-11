@@ -35,6 +35,7 @@ import subprocess
 import hydra
 from omegaconf import OmegaConf
 from simfoundry import CFG_DIR as SIMFOUNDRY_CFG_DIR
+from simfoundry.pipeline.frame_selection import resolve_img_idx
 from simfoundry.utils.processing_utils import dump_json
 from simfoundry.utils.og_utils import set_obj_materials
 import numpy as np
@@ -1097,7 +1098,7 @@ def main(cfg):
     # Include 3DGS background if specified
     if include_gs:
         # TODO: Make not hardcoded, just sanity checking for now
-        cam2world_tf_fpath = f"{cfg.s4_frame.out_dir}/image_{cfg.s3_ground.img_idx}_cam2world.npy"
+        cam2world_tf_fpath = f"{cfg.s4_frame.out_dir}/image_{resolve_img_idx(cfg)}_cam2world.npy"
         cam2world_tf = th.from_numpy(np.load(cam2world_tf_fpath)).float()
         gs_path = os.path.abspath(f"{cfg.s2_da.out_dir}/gs_outputs/gaussian.usdz")
         gs_path_da3 = os.path.abspath(f"{cfg.s2_da.out_dir}/gs_outputs/gaussian_da3.usdz")

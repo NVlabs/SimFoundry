@@ -19,6 +19,7 @@ from scipy.spatial.transform import Rotation as R
 from simfoundry.utils.asset_conversion_utils import import_custom_object
 import hydra
 from simfoundry.pipeline.stage_utils import StageResult, bootstrap_hydra_workdir, finalize_stage
+from simfoundry.pipeline.frame_selection import resolve_img_idx
 import logging
 import os
 
@@ -117,7 +118,7 @@ def stabilize_all_objects(obj_ids, pos_delta_threshold=1e-4, quat_delta_threshol
 
 @hydra.main(config_name="real2sim_cfg", config_path=CFG_DIR, version_base="1.3")
 def main(cfg):
-    ground_img_idx = cfg.s3_ground.img_idx
+    ground_img_idx = resolve_img_idx(cfg)
     frame_dir = cfg.s4_frame.out_dir
     if cfg.s9_compile.use_interactive_pose:
         pose_dir = cfg.s8_pose.out_dir + f"/info_interactive{cfg.s9_compile.interactive_suffix}"

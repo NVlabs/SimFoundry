@@ -69,7 +69,7 @@ mamba run -n "${env_name}" pip install torch==2.7.1 torchvision==0.22.1 \
 # HARD-pinned gsplat==1.4.0 (pure-python). gsplat is the one package we must
 # install-then-override, since 1.4.0 has no sm_120 kernels — done in Step 3.
 # ------------------------------------------------------------------------------
-mamba run -n "${env_name}" pip install nerfstudio==1.1.5
+mamba run -n "${env_name}" pip install nerfstudio==1.1.5 "hydra-core>=1.3,<1.4"
 
 # ------------------------------------------------------------------------------
 # Step 1b: apply the env-var-gated depth-loss patch to the installed nerfstudio.
@@ -102,6 +102,6 @@ mamba run -n "${env_name}" pip install gsplat==1.5.3
 mamba install -y -n "${env_name}" -c nvidia cuda-toolkit=12.8
 
 echo "Verifying nerfstudio_simfoundry env..."
-mamba run -n "${env_name}" python -c "import torch, gsplat; print('ns env OK: torch', torch.__version__, '| gsplat', gsplat.__version__, '| cuda', torch.cuda.is_available())"
+mamba run -n "${env_name}" python -c "import hydra, torch, gsplat; print('ns env OK: torch', torch.__version__, '| gsplat', gsplat.__version__, '| cuda', torch.cuda.is_available())"
 
 echo "Completed installation of nerfstudio_simfoundry environment: ${env_name}"

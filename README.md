@@ -1,6 +1,40 @@
+<div align="center">
+
+  <img src="docs/banner.png" alt="SimFoundry — Modular and Automated Scene Generation for Policy Learning and Evaluation" width="100%">
+
+</div>
+
+<div align="center">
+
+[![License](https://img.shields.io/badge/License-Apache%202.0-76B900.svg)](LICENSE)
+[![Project Website](https://img.shields.io/badge/Project-Website-blue.svg)](https://research-staging.nvidia.com/labs/gear/simfoundry/)
+[![Paper](https://img.shields.io/badge/arXiv-2606.28276-b31b1b.svg)](https://arxiv.org/abs/2606.28276)
+
+</div>
+
+---
+
 # SimFoundry
 
-SimFoundry builds simulation-ready OmniGibson scenes from real video or ZED captures. The pipeline can reconstruct a scene, generate object-level "digital cousin" variations, and run evaluation or data-collection workflows on the resulting scene.
+SimFoundry builds simulation-ready scenes from real videos. The pipeline can reconstruct a scene, generate object-level "digital cousin" variations, and run evaluation or data-collection workflows on the resulting scene. The entire system is modular and allows users to pick which models to use according to their requirements and budget.
+
+## Table of Contents
+
+- [News](#news)
+- [Quick Start](#quick-start)
+- [Main Entrypoints](#main-entrypoints)
+- [Common Examples](#common-examples)
+- [Outputs](#outputs)
+- [Related Docs](#related-docs)
+- [License](#license)
+
+## Release Tracker
+
+| Date | Update |
+|------|--------|
+| **2026-08-13** | 🚀 Initial open-source release. V0 rigid-body and articulation generation |
+| **Coming Soon** | Automated Background Generation |
+| **Coming Soon** | Robotics Data Generation, Training and Evaluation |  
 
 ## Quick Start
 
@@ -10,7 +44,12 @@ SimFoundry builds simulation-ready OmniGibson scenes from real video or ZED capt
 bash scripts/installation/install_everything.sh
 ```
 
-2. Set up service access — the pipeline's VLM stages run on **Google Cloud Vertex AI (Gemini)**. First, setup a [gcloud project](https://console.cloud.google.com/welcome/new) and then enable [Vertex AI](https://docs.vectorize.io/build-deploy/external-service-setup/how-to/google-vertex-ai/create-a-gcp-service-account-for-google-vertex-ai/). A Hugging Face account is also required before downloading the gated VOID weights:
+2. Set up service access — the pipeline's VLM stages run on **Google Cloud Vertex AI (Gemini)**. First, setup a [gcloud project](https://console.cloud.google.com/welcome/new) and then enable [Vertex AI](https://docs.vectorize.io/build-deploy/external-service-setup/how-to/google-vertex-ai/create-a-gcp-service-account-for-google-vertex-ai/). A Hugging Face account is also required. Log in, then request access to these gated models (approval can take a while):
+
+   - [facebook/sam3](https://huggingface.co/facebook/sam3)
+   - [facebook/dinov3-vitl16-pretrain-lvd1689m](https://huggingface.co/facebook/dinov3-vitl16-pretrain-lvd1689m)
+   - [briaai/RMBG-2.0](https://huggingface.co/briaai/RMBG-2.0)
+   - Optional: [black-forest-labs/FLUX.1-Kontext-dev](https://huggingface.co/black-forest-labs/FLUX.1-Kontext-dev)
 
 ```bash
 export GCLOUD_PROJECT=<your-gcp-project>   # or: bash scripts/installation/login_services.sh
@@ -18,7 +57,9 @@ gcloud auth application-default login
 huggingface-cli login
 ```
 
-3. Download model checkpoints (needs the Hugging Face login from step 2):
+**Note:** if you would prefer to run the pipeline with a Gemini API key, generate one through [AI Studio](https://aistudio.google.com/api-keys) and then run `export GEMINI_API_KEY=<Your Key>`.
+
+3. Download model checkpoints (needs the Hugging Face login and model access from step 2):
 
 ```bash
 bash scripts/installation/download_checkpoints.sh --default
@@ -35,7 +76,7 @@ bash scripts/installation/install_articulate.sh
 
 All VLM stages — reconstruction (stages 3, 5, 6, 10) and the B augmentation pipeline — run on **Google Vertex AI (Gemini)**. Set `gcloud_project` in `scripts/cfg/real2sim_cfg.yaml` (or `export GCLOUD_PROJECT`) and authenticate with `login_services.sh` or `gcloud auth application-default login`. Make sure the Gemini model IDs referenced in the configs are enabled in your GCP project and region.
 
-More installation detail: [INSTALL.md](INSTALL.md)
+More installation detail: [INSTALL.md](docs/INSTALL.md)
 
 ## Main Entrypoints
 
@@ -73,7 +114,7 @@ unchanged on a 24 GiB or a 96 GiB GPU. Add `--max-vram-gb N` only to pin an abso
 Note: all VLM stages run on Google Cloud (Vertex AI Gemini), so `gcloud_project` must be set — including for the B augmentation pipeline below.
 
 Automatic articulation is available via `--detect-articulation` (stage 8b). It needs the optional
-`articulate` environments — see [INSTALL.md](INSTALL.md). If they are not installed, the flag is
+`articulate` environments — see [INSTALL.md](docs/INSTALL.md). If they are not installed, the flag is
 ignored with a warning and the rest of the pipeline runs normally.
 
 Generate bounded digital cousins, scene variants, and task proposals:
@@ -121,7 +162,7 @@ Important outputs include:
 
 ## Related Docs
 
-- [INSTALL.md](INSTALL.md): installation and service setup
+- [INSTALL.md](docs/INSTALL.md): installation and service setup
 - [scripts/pipeline/README.md](scripts/pipeline/README.md): stage-by-stage pipeline reference
 - [Auto-background README](scripts/pipeline/A_reconstruction/stages/auto_bg_reconstruction/README.md): optional 3D Gaussian Splat background flow
 
@@ -145,4 +186,4 @@ See:
 - [Third-Party Licenses](THIRD_PARTY_LICENSES.md)
 - [Third-Party Notices](THIRD_PARTY_NOTICES.md)
 - [Patch Provenance](PATCH_PROVENANCE.md)
-- [Installation and optional component boundaries](INSTALL.md)
+- [Installation and optional component boundaries](docs/INSTALL.md)

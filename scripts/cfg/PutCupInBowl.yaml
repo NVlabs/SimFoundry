@@ -455,7 +455,7 @@ generate_cousins_combination: # env: simfoundry
   num_obj_to_swap: 3
   num_variations_used_per_object: 2
 
-s2c_gs:  # env: simfoundry (nerfstudio); process video with ns-process-data and train splatfacto-big
+s2c_gs:  # env: nerfstudio_simfoundry; process video with ns-process-data and train splatfacto-big
   out_dirname: s2c_gs
   out_dir: "${root_dir}/${scene_name}/${s2c_gs.out_dirname}"
   video_fpath: "${root_dir}/Scene_Video/${scene_name}.MOV"

@@ -25,8 +25,9 @@ class StageSpec:
     stage_id: str
     script: str
     cfg_key: str
-    # Env role key ("simfoundry", "da3", "mesh", "b1k"), resolved through env_map to a
-    # concrete mamba env: "mesh" runs in hunyuan or simfoundry depending on the backend.
+    # Env role key ("simfoundry", "nerfstudio", "da3", "mesh", "b1k"), resolved
+    # through env_map to a concrete mamba env. "mesh" runs in hunyuan or simfoundry
+    # depending on the backend.
     env: str
     description: str
 
@@ -121,7 +122,7 @@ def append_timing_log(log_path: Path, *, stage_id: str, description: str, elapse
         )
 
 
-def get_reconstruction_stage_plan(input_mode: str, *, detect_articulation: bool = False) -> list[StageSpec]:
+def get_reconstruction_stage_plan(input_mode: str, *, detect_articulation: bool = False, bg_splat: bool = False) -> list[StageSpec]:
     """Return ordered stage plan for the real2sim reconstruction pipeline."""
     if input_mode not in {"video", "stereo"}:
         raise ValueError(f"Unsupported input_mode={input_mode}")
@@ -131,9 +132,10 @@ def get_reconstruction_stage_plan(input_mode: str, *, detect_articulation: bool 
     if input_mode == "stereo":
         step1 = StageSpec("1a", f"{base}/1a_take_stereo_images.py", "s1_zed", "simfoundry", "Capture stereo images")
 
-    plan = [
-        step1,
-        StageSpec("2c", f"{base}/2c_train_bg_splat.py", "s2c_gs", "simfoundry", "Train background GS splat"),
+    plan = [step1]
+    if bg_splat:
+        plan.append(StageSpec("2c", f"{base}/2c_train_bg_splat.py", "s2c_gs", "nerfstudio", "Train background GS splat"))
+    plan += [
         StageSpec("2", f"{base}/2_run_depth.py", "s2_depth", "da3", "Run depth backend"),
         StageSpec("3", f"{base}/3_segment_ground_plane.py", "s3_ground", "simfoundry", "Segment ground plane"),
         StageSpec("4", f"{base}/4_unify_world_frame.py", "s4_frame", "simfoundry", "Unify world frame"),
@@ -201,10 +203,11 @@ def get_stage_plan(
     pipeline_name: str = "reconstruction",
     include_p2p: bool = False,
     detect_articulation: bool = False,
+    bg_splat: bool = False,
 ) -> list[StageSpec]:
     """Return ordered stage plan for a named sub-pipeline."""
     if pipeline_name in {"reconstruction", "A_reconstruction", "A"}:
-        return get_reconstruction_stage_plan(input_mode, detect_articulation=detect_articulation)
+        return get_reconstruction_stage_plan(input_mode, detect_articulation=detect_articulation, bg_splat=bg_splat)
     if pipeline_name in {"augmentation", "B_augmentation", "B"}:
         return get_augmentation_stage_plan(include_p2p=include_p2p)
     if pipeline_name in {"application", "C_application", "C"}:
@@ -388,6 +391,7 @@ def run_pipeline(
     extra_overrides: list[str],
     include_p2p: bool = False,
     detect_articulation: bool = False,
+    bg_splat: bool = False,
 ) -> PipelineTimingResult:
     wall_start = time.perf_counter()
     timing_log_path = None if dry_run else resolve_scene_timing_log_path(extra_overrides)
@@ -397,6 +401,7 @@ def run_pipeline(
         pipeline_name=pipeline_name,
         include_p2p=include_p2p,
         detect_articulation=detect_articulation,
+        bg_splat=bg_splat,
     )
     selected = select_stages(plan, include_ids=_parse_csv_set(include_ids_csv), exclude_ids=_parse_csv_set(exclude_ids_csv))
 

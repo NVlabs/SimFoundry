@@ -204,6 +204,34 @@ index 97974d2..0b592f9 100644
    {
      rayColorToTextureImageKernel<scalar_t><<<blocks,threads>>>(F.packed_accessor32<long,2,torch::RestrictPtrTraits>(), V.packed_accessor32<scalar_t,2,torch::RestrictPtrTraits>(), hit_locations.packed_accessor32<scalar_t,2,torch::RestrictPtrTraits>(), hit_face_ids.packed_accessor32<long,1,torch::RestrictPtrTraits>(), uvs_tex.packed_accessor32<scalar_t,2,torch::RestrictPtrTraits>(), uvs.packed_accessor32<scalar_t,2,torch::RestrictPtrTraits>());
    }));
+diff --git a/foundationpose/bundlesdf/mycuda/setup.py b/foundationpose/bundlesdf/mycuda/setup.py
+index 55fa596..1cc8a43 100644
+--- a/foundationpose/bundlesdf/mycuda/setup.py
++++ b/foundationpose/bundlesdf/mycuda/setup.py
+@@ -18,7 +18,10 @@ code_dir = os.path.dirname(os.path.realpath(__file__))
+ nvcc_flags = ['-Xcompiler', '-O3', '-std=c++17', '-U__CUDA_NO_HALF_OPERATORS__', '-U__CUDA_NO_HALF_CONVERSIONS__', '-U__CUDA_NO_HALF2_OPERATORS__']
+ c_flags = ['-O3', '-std=c++17']
+-
++eigen_include_dirs = ["/usr/local/include/eigen3", "/usr/include/eigen3"]
++if os.environ.get("CONDA_PREFIX"):
++    eigen_include_dirs.insert(0, os.path.join(os.environ["CONDA_PREFIX"], "include", "eigen3"))
++
+ setup(
+     name='common',
+     extra_cflags=c_flags,
+     extra_cuda_cflags=nvcc_flags,
+@@ -32,10 +35,7 @@ setup(
+             f"{code_dir}/torch_ngp_grid_encoder/bindings.cpp",
+         ],extra_compile_args={'gcc': c_flags, 'nvcc': nvcc_flags}),
+     ],
+-    include_dirs=[
+-        "/usr/local/include/eigen3",
+-        "/usr/include/eigen3",
+-    ],
++    include_dirs=eigen_include_dirs,
+     cmdclass={
+         'build_ext': BuildExtension
+ })
 diff --git a/requirements.txt b/requirements.txt
 index d9364df..27565dd 100644
 --- a/requirements.txt

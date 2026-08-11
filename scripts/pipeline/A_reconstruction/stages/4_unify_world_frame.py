@@ -24,6 +24,7 @@ from pathlib import Path
 import hydra
 from simfoundry.utils.processing_utils import compute_point_cloud_from_depth
 from simfoundry.pipeline.stage_utils import StageResult, bootstrap_hydra_workdir, finalize_stage
+from simfoundry.pipeline.frame_selection import resolve_img_idx
 import logging
 logger = logging.getLogger(__name__)
 
@@ -39,7 +40,7 @@ bootstrap_hydra_workdir(__file__)
 @hydra.main(config_name="real2sim_cfg", config_path=CFG_DIR, version_base="1.3")
 def main(cfg):
     planes_dir = cfg.s3_ground.out_dir
-    img_idx = cfg.s3_ground.img_idx
+    img_idx = resolve_img_idx(cfg)
     floor_info_fpath = f"{planes_dir}/image_{img_idx}_floor_info.json"
     out_dir = cfg.s4_frame.out_dir
     Path(out_dir).mkdir(parents=True, exist_ok=True)

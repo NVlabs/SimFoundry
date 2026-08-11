@@ -32,6 +32,7 @@ from simfoundry.utils.processing_utils import compute_point_cloud_from_depth, pa
     dilate_mask, erode_mask, extract_numbers_from_str, denoise_obj_point_cloud
 from simfoundry.utils.prompt_utils import prompt_topk_image_select
 from simfoundry.pipeline.stage_utils import StageResult, bootstrap_hydra_workdir, finalize_stage
+from simfoundry.pipeline.frame_selection import resolve_img_idx
 import multiprocessing
 from tqdm import trange
 import logging
@@ -276,6 +277,19 @@ def sample_fits(source, target, n_samples=10, update_scale=True, return_inverse=
     return info_sorted
 
 
+# Minimum number of finite source points required to attempt pose matching.
+# Open3D's OBB needs ≥4; CPD needs enough for a meaningful registration.
+_MIN_SOURCE_POINTS = 10
+
+
+def _write_object_failure(out_dir: str, img_name: str, reason: str, **counts) -> None:
+    """Write a failure record to the per-object info JSON and log a warning."""
+    info = {"error": "pose_matching_skipped", "reason": reason, **counts}
+    with open(f"{out_dir}/info/{img_name}.json", "w") as f:
+        json.dump(info, f, indent=4)
+    logger.warning("Skipping pose matching for %s: %s", img_name, reason)
+
+
 @hydra.main(config_name="real2sim_cfg", config_path=CFG_DIR, version_base="1.3")
 def main(cfg):
     source_dir = cfg.s2_da.out_dir
@@ -300,7 +314,7 @@ def main(cfg):
     source_padded_resized = np.array(Image.open(f"{scene_dir}/source_padded_resized.png"))
     resolution = (source_padded_resized.shape[1], source_padded_resized.shape[0])
 
-    img_idx = cfg.s3_ground.img_idx
+    img_idx = resolve_img_idx(cfg)
     
     # Check if using FoundationStereo or Depth Anything
     use_fs = cfg.s3_ground.get("use_fs", False)
@@ -390,6 +404,15 @@ def main(cfg):
         obj_pcd.points = o3d.utility.Vector3dVector(obj_pc)
         obj_pcd.colors = o3d.utility.Vector3dVector(obj_rgb)
 
+        if len(obj_pc) == 0:
+            _write_object_failure(
+                out_dir, img_name,
+                "Depth map produced 0 points in the masked region — "
+                "depth estimation likely failed for this object (too small or specular surface).",
+                mask_pixels=int(mask_resized_unpadded_eroded.sum()),
+            )
+            continue
+
         # Prune outlier / noisy values
         # TODO: Can try either (a) o3d denoise or (b) depth map gradient-based pruning
         obj_pcd, indices = denoise_obj_point_cloud(pcd_obj=obj_pcd)
@@ -404,6 +427,18 @@ def main(cfg):
         source = o3d.io.read_point_cloud(obj_pc_path)
         source = source.remove_non_finite_points()
         # o3d.visualization.draw_geometries([source])
+
+        n_source_pts = len(source.points)
+        if n_source_pts < _MIN_SOURCE_POINTS:
+            _write_object_failure(
+                out_dir, img_name,
+                f"Only {n_source_pts} finite point(s) remain after denoising — "
+                f"too few for pose matching (need ≥ {_MIN_SOURCE_POINTS}). "
+                "Depth values in the masked region may be unreliable (small or specular object).",
+                mask_pixels=int(mask_resized_unpadded_eroded.sum()),
+                source_points_after_denoise=n_source_pts,
+            )
+            continue
 
         # Grab oriented bounding box so we know how to (partially) normalize the target mesh initially with the same
         # rough voxel density
@@ -647,12 +682,12 @@ def main(cfg):
             "z_up": {
                 "trans": top_info["tf_z_up"].t.tolist(),
                 "rot": top_info["tf_z_up"].rot.tolist(),
-                "scale": top_info["tf_z_up"].scale.tolist(),
+                "scale": np.asarray(top_info["tf_z_up"].scale).tolist(),
             },
             "y_up": {
                 "trans": top_info["tf_y_up"].t.tolist(),
                 "rot": top_info["tf_y_up"].rot.tolist(),
-                "scale": top_info["tf_y_up"].scale.tolist(),
+                "scale": np.asarray(top_info["tf_y_up"].scale).tolist(),
             },
             # Total scale = pre_scale_factor * tf_scale
             "pre_scale_factor": float(pre_scale_factor),

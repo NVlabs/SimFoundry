@@ -17,7 +17,7 @@ transforms.json only lists frames that COLMAP successfully registered. Use
 matching_method=vocab_tree (default here) so most frames get poses; sequential
 often registers only a few.
 
-Should be run from `simfoundry` env (nerfstudio installed).
+Should be run from the `nerfstudio_simfoundry` environment.
 """
 import logging
 import os
@@ -26,16 +26,15 @@ import subprocess
 from pathlib import Path
 
 import hydra
-from omegaconf import OmegaConf
 
 logger = logging.getLogger(__name__)
 
 # Resolve scripts/cfg the same way the sibling stages do (location-independent,
-# replaces the old hand-rolled "../cfg" chdir that only worked from scripts/pipeline/).
+# without importing stage_utils and its image-processing dependencies into the
+# intentionally minimal Nerfstudio environment.
 from simfoundry import CFG_DIR
-from simfoundry.pipeline.stage_utils import bootstrap_hydra_workdir
 
-bootstrap_hydra_workdir(__file__)
+os.chdir(CFG_DIR)
 
 
 @hydra.main(config_name="real2sim_cfg", config_path=CFG_DIR, version_base="1.3")

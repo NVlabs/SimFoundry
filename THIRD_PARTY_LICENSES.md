@@ -23,7 +23,7 @@ Scope and method:
   project.
 - Several components are **non-commercial, research-only, or otherwise
   restricted**, and several model weights carry terms separate from their source
-  code. See [INSTALL.md](INSTALL.md) for the optional-component boundaries.
+  code. See [INSTALL.md](docs/INSTALL.md) for the optional-component boundaries.
 - **License links** are commit-pinned (`/blob/<sha>/`) for components fetched at a
   pinned commit. PyPI packages link to the default branch, since no single commit
   applies — the governing terms are those of the version `requirements*.txt` resolves.

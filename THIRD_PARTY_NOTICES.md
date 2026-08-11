@@ -161,7 +161,7 @@ terms and not by SimFoundry's Apache-2.0 licence. Not distributed by SimFoundry.
 - NGC container registry, `nvcr.io` — optional (NVIDIA NGC Terms of Use)
 
 The installer accepts these terms on your behalf via `--accept-nvidia-eula` and
-`OMNI_KIT_ACCEPT_EULA=YES`; see [INSTALL.md](INSTALL.md).
+`OMNI_KIT_ACCEPT_EULA=YES`; see [INSTALL.md](docs/INSTALL.md).
 
 ## NVIDIA-origin open components (for completeness — not third-party)
 

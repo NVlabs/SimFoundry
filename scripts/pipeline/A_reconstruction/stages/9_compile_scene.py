@@ -16,6 +16,7 @@ import json
 from scipy.spatial.transform import Rotation as R
 import hydra
 from simfoundry.pipeline.stage_utils import StageResult, bootstrap_hydra_workdir, finalize_stage
+from simfoundry.pipeline.frame_selection import resolve_img_idx
 import logging
 import os
 # see https://github.com/facebookresearch/hydra/issues/2949#issue-2516892001
@@ -30,7 +31,7 @@ bootstrap_hydra_workdir(__file__)
 
 @hydra.main(config_name="real2sim_cfg", config_path=CFG_DIR, version_base="1.3")
 def main(cfg):
-    ground_img_idx = cfg.s3_ground.img_idx
+    ground_img_idx = resolve_img_idx(cfg)
     pc_dir = cfg.s4_frame.out_dir
     pc_fpath = f"{pc_dir}/image_{ground_img_idx}_pc_raw_rotated.ply"
     mesh_dir = cfg.s8_pose.out_dir + "/canonical_mesh"

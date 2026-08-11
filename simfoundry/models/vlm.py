@@ -12,12 +12,12 @@ from openai import OpenAI
 from PIL import Image as PILImage
 import torch
 try:
-    from diffusers import FluxPipeline
+    from diffusers import FluxKontextPipeline
     from diffusers.pipelines.flux.pipeline_flux_kontext import PREFERRED_KONTEXT_RESOLUTIONS
     from diffusers.utils import load_image
-except RuntimeError as e:
+except (ImportError, RuntimeError) as e:
     print(f"Error importing diffusers, due to error: \n\n{e}\n")
-    FluxPipeline = None
+    FluxKontextPipeline = None
     PREFERRED_KONTEXT_RESOLUTIONS = dict()
 
 from simfoundry.utils.python_utils import assert_valid_key
@@ -1062,14 +1062,17 @@ class FLUX1(VLM_API):
     Class for interfacing with Flux Kontext model
     """
     VERSIONS = {
-        "FLUX.1-Kontext": FluxPipeline,
+        "FLUX.1-Kontext-dev": FluxKontextPipeline,
+    }
+    MODEL_IDS = {
+        "FLUX.1-Kontext-dev": "black-forest-labs/FLUX.1-Kontext-dev",
     }
 
     IMAGE_SHAPES = {res for res in PREFERRED_KONTEXT_RESOLUTIONS}
 
     def __init__(
         self,
-        model="FLUX.1-Kontext",
+        model="FLUX.1-Kontext-dev",
         dtype=torch.bfloat16,
         device="cuda",
         enable_cpu_offload=True,
@@ -1082,7 +1085,13 @@ class FLUX1(VLM_API):
             enable_cpu_offload (bool): Whether to enable CPU offloading to save on VRAM usage
         """
         assert_valid_key(key=model, valid_keys=self.VERSIONS, name="FLUX.1 model")
-        self.pipeline = self.VERSIONS[model].from_pretrained(f"black-forest-labs/{model}", torch_dtype=dtype)
+        pipeline_cls = self.VERSIONS[model]
+        if pipeline_cls is None:
+            raise ImportError(
+                "The Flux backend requires a diffusers version that provides "
+                "FluxKontextPipeline. Install or upgrade the project's diffusers dependency."
+            )
+        self.pipeline = pipeline_cls.from_pretrained(self.MODEL_IDS[model], torch_dtype=dtype)
         if enable_cpu_offload:
             self.pipeline.enable_model_cpu_offload()
         self.device = device

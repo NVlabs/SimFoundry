@@ -46,6 +46,7 @@ from prior_depth_anything import PriorDepthAnything, Arguments
 from sentence_transformers import SentenceTransformer
 from simfoundry.utils.python_utils import assert_valid_key
 from simfoundry.pipeline.stage_utils import StageResult, bootstrap_hydra_workdir, finalize_stage
+from simfoundry.pipeline.frame_selection import resolve_img_idx
 import hydra
 import logging
 import os
@@ -621,6 +622,52 @@ def delete_iteration_data(out_dir: str, start_iter: int, end_iter: int = None):
     logger.info(f"Deleted {deleted_count} files for iterations {start_iter} to {end_iter}")
 
 
+DECOMPOSITION_FRAME_FILENAME = "decomposition_frame.json"
+
+
+def read_decomposition_frame(out_dir: str) -> int | None:
+    """Frame index the artifacts already in `out_dir` were decomposed from, if recorded."""
+    fpath = os.path.join(out_dir, DECOMPOSITION_FRAME_FILENAME)
+    if not os.path.isfile(fpath):
+        return None
+    try:
+        with open(fpath, "r") as f:
+            return int(json.load(f)["img_idx"])
+    except Exception as e:
+        logger.warning(f"Could not read {fpath}: {e}")
+        return None
+
+
+def write_decomposition_frame(out_dir: str, img_idx: int) -> None:
+    with open(os.path.join(out_dir, DECOMPOSITION_FRAME_FILENAME), "w") as f:
+        json.dump({"img_idx": int(img_idx)}, f, indent=4)
+
+
+def check_resume_frame_matches(out_dir: str, img_idx: int) -> None:
+    """Refuse to resume on top of a decomposition taken from a different frame.
+
+    infer_resume_state below decides where to resume purely from filenames, so it cannot tell
+    that the existing iterations came from another viewpoint. With s3_ground.img_idx: auto the
+    canonical frame can change between runs, and resuming across that change silently mixes
+    object crops from two viewpoints -- or, when the old run consumed every category, skips
+    decomposition altogether and leaves the previous frame's crops for stages 6-8 to build on.
+    """
+    previous = read_decomposition_frame(out_dir)
+    if previous is not None and previous != int(img_idx):
+        raise RuntimeError(
+            f"{out_dir} holds a decomposition of frame {previous}, but this run is built on "
+            f"frame {img_idx}. Resuming would mix object crops from two viewpoints. Move or "
+            f"delete {out_dir} (and the s6-s13 outputs derived from it) and rerun, or pin "
+            f"s3_ground.img_idx={previous} to keep the existing decomposition."
+        )
+    if previous is None and infer_resume_state(out_dir)[0] > 0:
+        logger.warning(
+            "%s holds a previous decomposition with no recorded frame index, so it cannot be "
+            "checked against the current frame (%s). If it predates frame selection and was "
+            "built from a different frame, clear it before rerunning.", out_dir, img_idx,
+        )
+
+
 def infer_resume_state(out_dir: str) -> tuple:
     """
     Infer where to resume the decomposition pipeline based on existing outputs.
@@ -775,17 +822,26 @@ def main(cfg):
     Path(out_dir).mkdir(parents=True, exist_ok=True)
 
     # Other hyperparams we need
-    scene_img_idx = cfg.s5_scene.img_idx
-    ground_img_idx = cfg.s3_ground.img_idx
-
-    # Other hyperparams we need
-    scene_img_idx = cfg.s5_scene.img_idx
-    ground_img_idx = cfg.s3_ground.img_idx
+    scene_img_idx = resolve_img_idx(cfg, stage_key="s5_scene")
+    ground_img_idx = resolve_img_idx(cfg)
+    if scene_img_idx != ground_img_idx:
+        # This stage indexes object masks taken from the scene frame into the point cloud of the
+        # ground frame, so the two only line up when they are the same frame.
+        logger.warning(
+            "s5_scene.img_idx (%s) differs from s3_ground.img_idx (%s); object masks and the "
+            "point cloud come from different viewpoints and will not align.",
+            scene_img_idx, ground_img_idx,
+        )
 
     dirs_to_create = ["masked_object", "masked_object_focus", "masked_object_background", "detected_phrases", "gemini_detected_phrases", "removal_mask", "removal_mask_resized",
     "pre_object_removal", "post_object_removal", "metric_depth", "obj_cat_list"]
     for dir_name in dirs_to_create:
         Path(f"{out_dir}/{dir_name}").mkdir(parents=True, exist_ok=True)
+
+    # Checked before the expensive source-image upsample below, so a stale output dir fails
+    # fast rather than after a remote image call.
+    check_resume_frame_matches(out_dir, scene_img_idx)
+    write_decomposition_frame(out_dir, scene_img_idx)
 
     # Set hyperparams
     RATIO = cfg.s5_scene.ratio

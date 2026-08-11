@@ -2,6 +2,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import omnigibson as og
+
+_OG_REQUIRED = "3.8.0"
+if og.__version__ != _OG_REQUIRED:
+    raise ImportError(
+        f"OmniGibson {_OG_REQUIRED} is required but {og.__version__} is installed. "
+        f"Run the SimFoundry installer to get the correct version (BEHAVIOR-1K commit d89aae4e)."
+    )
+
 from omnigibson.macros import gm
 import omnigibson.lazy as lazy
 from omnigibson.scenes import Scene

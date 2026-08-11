@@ -347,6 +347,22 @@ def prompt_topk_image_select(n_candidates):
 
 # , making sure they match as much as possible to the reference image
 
+def prompt_canonical_frame_select(n_candidates):
+    return f"""Above shown are {n_candidates} images, labelled OPTION 1 through OPTION {n_candidates} in the top-left corner. They are frames of the same real-world scene captured from different camera viewpoints.
+
+Exactly one of them will be used to reconstruct the whole scene in simulation: every object visible on the support surface (table, desk, counter, floor) will be cropped out of that single frame and turned into a 3D mesh, and that frame's camera will define the world frame.
+
+Pick the option that would reconstruct best, judging in this order of priority:
+
+1. Every object resting on the support surface is fully visible, and none is hidden behind or underneath another object.
+2. The objects occupy as many pixels as possible -- prefer closer viewpoints, because a small object rendered at a low pixel count reconstructs into a poor mesh. Pay particular attention to the SMALLEST object in the scene.
+3. The image is sharp and in focus, with no motion blur, especially on the objects.
+4. No object is clipped by the edge of the frame.
+5. The support surface is clearly visible, with a large part of its extent in view.
+
+Please think through your process first via chain-of-thought, explicitly comparing how large and how occluded the smallest object is in each option. Then provide your final answer as the option number, in the format: ANSWER: <option number between 1 and {n_candidates}>"""
+
+
 def prompt_object_mass_friction(obj_phrase, bounding_box_cm, volume_cm):
     bbox_str = f" x ".join([f"{val:.2f}cm" for val in bounding_box_cm])
     return f"""Shown is a picture of a {obj_phrase}. Please give the estimated mass (kg) and friction (unitless) of the shown object, given that its bounding box dimensions are {bbox_str} and corresponding volume is {volume_cm:.2f}cm^3. Use chain of thought to think through the predicted material and physical properties of the shown object before deciding on the mass and friction. 

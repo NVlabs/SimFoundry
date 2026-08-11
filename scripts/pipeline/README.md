@@ -37,6 +37,7 @@ Useful options:
 - `--max-vram-frac F`: VRAM budget for streamed stages as a fraction of total GPU memory. Default `0.9`, so the same setting works across card sizes.
 - `--max-vram-gb N`: opt-in absolute hard budget in GiB, overriding the fraction. Leave unset unless you need to pin it — with `hard_vram_cap` the budget counts *total* GPU usage, so a value too small for the card stalls stages.
 - `--detect-articulation`: run stage 8b for automatic articulated-object generation. Requires the optional `articulate` environments; ignored with a warning if they are absent.
+- `--env-nerfstudio NAME`: select the Nerfstudio environment used by stage 2c. Default: `nerfstudio_simfoundry`.
 - `--env-b1k simfoundry`: use this if OmniGibson is installed in the `simfoundry` env.
 
 ### Stages
@@ -45,8 +46,9 @@ Useful options:
 |---|---|---|---|---|
 | `1a` | `A_reconstruction/stages/1a_take_stereo_images.py` | `simfoundry` | Capture ZED stereo images. | `s1_zed/` |
 | `1b` | `A_reconstruction/stages/1b_process_raw_video.py` | `simfoundry` | Convert and sample a video. | `s1_video/frames_*`, `input_video.mp4` |
+| `2c` | `A_reconstruction/stages/2c_train_bg_splat.py` | `nerfstudio_simfoundry` (`--env-nerfstudio`) | Train and export the background Gaussian splat. | `s2c_gs/` |
 | `2` | `A_reconstruction/stages/2_run_depth.py` | `da3` or `simfoundry` | Run the selected depth backend. | `s2_da/` or `s2_fs/` |
-| `3` | `A_reconstruction/stages/3_segment_ground_plane.py` | `simfoundry` | Find the support plane. | `s3_ground/` |
+| `3` | `A_reconstruction/stages/3_segment_ground_plane.py` | `simfoundry` | Pick the canonical frame and find the support plane. | `s3_ground/` |
 | `4` | `A_reconstruction/stages/4_unify_world_frame.py` | `simfoundry` | Align the scene to a stable world frame. | `s4_frame/` |
 | `5` | `A_reconstruction/stages/5_decompose_scene.py` | `simfoundry` | Detect objects and create object-removal crops. | `s5_scene/` |
 | `6` | `A_reconstruction/stages/6_upsample_object_images.py` | `simfoundry` | Create cleaner object images for mesh generation. | `s6_upsample/` |
@@ -58,6 +60,34 @@ Useful options:
 | `11` | `A_reconstruction/stages/11_stabilize_physics.py` | `simfoundry` | Settle objects in physics. | `s11_physics/` |
 | `12` | `A_reconstruction/stages/12_import_usd.py` | `simfoundry` | Import assets into USD datasets. | dataset USD assets |
 | `13` | `A_reconstruction/stages/13_create_og_scene.py` | `simfoundry` | Create the final OG scene JSON and preview. | `s13_og/reconstructed_og_scene.json`, `reconstructed_scene.png` |
+
+### Canonical Frame Selection
+
+Stages 3-13 reconstruct the scene from a *single* frame of the capture: stage 3 fits the
+support plane in it, stage 4 makes its camera the world frame, and stage 5 crops every object
+out of it for stages 6-8. A bad frame therefore caps the quality of everything downstream — a
+blurry frame produces blurry meshes, and a frame shot from far away leaves small objects at too
+few pixels to reconstruct.
+
+By default `s3_ground.img_idx: auto`, so stage 3 scores the candidate frames and picks one.
+
+`frame_selection.mode` controls the last step:
+
+- `heuristic`: scoring only, no remote calls.
+- `hybrid` (default): the heuristic short-lists `vlm_top_k` frames and a VLM makes the final
+  call.
+- `vlm`: the VLM chooses among every frame that passes the gates.
+
+Pin a frame instead  with an integer:
+
+```bash
+bash scripts/pipeline/A_reconstruction/run.sh --scene-name pull_scene_2 \
+  -- s3_ground.img_idx=4
+```
+
+If every candidate is rejected, stage 3 fails with the per-frame reasons; loosen the gate it
+names or pin a frame. Changing the selection after a run invalidates the `image_<idx>_*`
+artifacts stages 4-13 wrote for the previous frame, so rerun from stage 3.
 
 ### Inputs And Outputs
 
