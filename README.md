@@ -49,7 +49,9 @@ Unlike prior scene reconstruction approaches, SimFoundry is fully modular: each 
 ## SimFoundry
 
 <div align="center">
-  <video src="docs/teaser_video_compressed.mp4" controls width="100%"></video>
+
+![SimFoundry Demo](docs/teaser_video_compressed.mp4)
+
 </div>
 
 *SimFoundry reconstructs a real tabletop scene into a physics-ready simulation in under an hour, with no manual annotation required.*
