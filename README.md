@@ -7,8 +7,6 @@
 <div align="center">
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-76B900.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/Python-3.11-76B900.svg)](https://www.python.org/)
-[![OmniGibson](https://img.shields.io/badge/OmniGibson-3.9.1-orange.svg)](https://github.com/StanfordVL/OmniGibson)
 [![Project Website](https://img.shields.io/badge/Project-Website-blue.svg)](https://research-staging.nvidia.com/labs/gear/simfoundry/)
 [![Paper](https://img.shields.io/badge/arXiv-2606.28276-b31b1b.svg)](https://arxiv.org/abs/2606.28276)
 
@@ -32,7 +30,6 @@ Unlike prior scene reconstruction approaches, SimFoundry is fully modular: each 
 
 ## Table of Contents
 
-- [SimFoundry](#simfoundry-1)
 - [Pipeline Overview](#pipeline-overview)
 - [Scene Gallery](#scene-gallery)
 - [Digital Cousins](#digital-cousins)
@@ -45,12 +42,6 @@ Unlike prior scene reconstruction approaches, SimFoundry is fully modular: each 
 - [Acknowledgments](#acknowledgments)
 - [License](#license)
 - [Contact](#contact)
-
-## SimFoundry
-
-<!-- TODO: Replace with a 10-15s GIF showing the full SimFoundry pipeline (real video → segmentation → mesh → OmniGibson scene). Pick the most visually complete moment from teaser_video_compressed.mp4. Target: ~480px wide, under 10MB. -->
-
-*SimFoundry reconstructs a real tabletop scene into a physics-ready simulation in under an hour, with no manual annotation required.*
 
 ## Pipeline Overview
 
@@ -281,4 +272,4 @@ See [Third-Party Licenses](THIRD_PARTY_LICENSES.md), [Third-Party Notices](THIRD
 
 ## Contact
 
-For questions or support, reach out to the SimFoundry team at [simfoundry@nvidia.com](mailto:simfoundry@nvidia.com).
+For questions or support, reach out to Nadun Ranawaka at [nadun.ranawaka@gatech.edu](mailto:nadun.ranawaka@gatech.edu) or Josiah Wong at [jdwong@alumni.stanford.edu](mailto:jdwong@alumni.stanford.edu).
