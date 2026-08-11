@@ -33,6 +33,7 @@ Unlike prior scene reconstruction approaches, SimFoundry is fully modular: each 
 - [Pipeline Overview](#pipeline-overview)
 - [Scene Gallery](#scene-gallery)
 - [Digital Cousins](#digital-cousins)
+- [Sim-to-Real Policy Training](#sim-to-real-policy-training)
 - [Quick Start](#quick-start)
 - [Common Examples](#common-examples)
 - [Outputs](#outputs)
@@ -113,6 +114,31 @@ SimFoundry generates **digital cousin** variations — objects with differing ge
     <td align="center" valign="top"><b>Digital Cousins</b><br><img src="docs/gallery/dining_1_cousin_static.png" width="240" alt="Dining Room — Digital Cousins"></td>
     <td align="center" valign="top"><b>Digital Cousins</b><br><img src="docs/gallery/home_coffee_4_cousin_static.png" width="240" alt="Home Coffee — Digital Cousins"></td>
     <td align="center" valign="top"><b>Digital Cousins</b><br><img src="docs/gallery/toys_1_cousin_static.png" width="240" alt="Toys — Digital Cousins"></td>
+  </tr>
+</table>
+
+## Sim-to-Real Policy Training
+
+Policies trained entirely on SimFoundry data transfer zero-shot to real-world tasks. The table below shows simulation evaluation, real-world evaluation, and generalization to unseen digital cousin objects for two robot platforms:
+
+<table>
+  <tr>
+    <th align="center"></th>
+    <th align="center">Sim Eval</th>
+    <th align="center">Real World Eval</th>
+    <th align="center">Real World (Unseen Objects)</th>
+  </tr>
+  <tr>
+    <td align="center"><b>DROID</b></td>
+    <td align="center"><img src="docs/gallery/droid_sim.gif" width="220" alt="DROID Sim Eval"></td>
+    <td align="center"><img src="docs/gallery/droid_real.gif" width="220" alt="DROID Real Eval"></td>
+    <td align="center"><img src="docs/gallery/droid_real_cousin.gif" width="220" alt="DROID Real Unseen Objects"></td>
+  </tr>
+  <tr>
+    <td align="center"><b>YAM (Bimanual)</b></td>
+    <td align="center"><img src="docs/gallery/yam_sim.gif" width="220" alt="YAM Sim Eval"></td>
+    <td align="center"><img src="docs/gallery/yam_real_twin.gif" width="220" alt="YAM Real Eval"></td>
+    <td align="center"><img src="docs/gallery/yam_real_cousin.gif" width="220" alt="YAM Real Unseen Objects"></td>
   </tr>
 </table>
 
