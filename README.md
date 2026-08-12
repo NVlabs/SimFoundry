@@ -44,9 +44,18 @@ Unlike prior scene reconstruction approaches, SimFoundry is fully modular: each 
 - [License](#license)
 - [Contact](#contact)
 
+## Requirements
+
+- Linux with an NVIDIA GPU and CUDA
+- Mamba or Conda with `mamba`
+- `ffmpeg`
+- ~250 GB of free disk space for a full install
+- Hugging Face account
+- Google Cloud project or Gemini API key
+
 ## Quick Start
 
-**1.** Build the conda environments (takes a while):
+**1.** Build the conda environments (takes a while) or ask your agent to do with [AGENT_INSTALL.md](docs/AGENT_INSTALL.md):
 
 ```bash
 bash scripts/installation/install_everything.sh
@@ -64,7 +73,7 @@ VLM stages run on **Google Cloud Vertex AI (Gemini)**. Set up a [gcloud project]
 ```bash
 export GCLOUD_PROJECT=<your-gcp-project>
 gcloud auth application-default login
-huggingface-cli login
+hf auth login
 ```
 
 > **No GCP project?** Generate a Gemini API key at [AI Studio](https://aistudio.google.com/api-keys) and run `export GEMINI_API_KEY=<your-key>` instead.
@@ -101,7 +110,10 @@ bash scripts/pipeline/A_reconstruction/run.sh \
   --video-fpath /path/to/video.mov
 ```
 
-The streamed stages budget VRAM as a fraction of the card's total memory (90% by default), so this command works unchanged on a 24 GiB or 96 GiB GPU. Add `--max-vram-gb N` only to pin an absolute cap.
+The streamed stages budget VRAM as a fraction of the card (90% by default), so this works
+unchanged on a 24 GiB or a 96 GiB GPU. Add `--max-vram-gb N` only to pin an absolute cap.
+On a 24 GiB card, also pass `-- s7_mesh.low_vram=true` — the default needs ~29 GiB for mesh
+shape generation at stage 7.
 
 Enable automatic articulation decomposition (requires the optional `articulate` environments — see [INSTALL.md](docs/INSTALL.md)):
 

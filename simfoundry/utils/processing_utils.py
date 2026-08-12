@@ -17,6 +17,7 @@ import open3d as o3d
 import matplotlib.pyplot as plt
 from shapely.geometry import Polygon, MultiPoint
 import simfoundry.utils.transform_utils as T
+from simfoundry.utils.python_utils import atomic_output_path
 import torch
 from typing import List
 from torchvision.ops import box_convert
@@ -1582,6 +1583,8 @@ def remove_background(
         output_image = restored
 
     output_path = output_path.with_suffix('.png')
-    output_image.save(output_path)
+    # Published atomically: stage 6 writes the file the stage-7 listener watches for.
+    with atomic_output_path(output_path) as tmp_output_path:
+        output_image.save(tmp_output_path)
 
     print(f"  -> Saved: {output_path}")

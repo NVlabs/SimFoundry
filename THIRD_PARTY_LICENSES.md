@@ -38,7 +38,7 @@ Derived files carry an attribution note in their header.
 | No. | Component | License | Copyright | License Link |
 |-----|-----------|---------|-----------|--------------|
 | 0 | ACDC / digital-cousins (upstream of SimFoundry) | Apache-2.0 | Copyright (c) 2024 the ACDC authors (Stanford Vision and Learning Lab) | https://github.com/cremebrule/digital-cousins/blob/5a6d120fa1e3808779cfdf887b2169cbe73c3678/LICENSE |
-| 0e | og_cdc_assets (SimFoundry OmniGibson robot assets, e.g. `franka_robotiq`) | Apache-2.0 | Copyright (c) 2024 the ACDC authors (Stanford Vision and Learning Lab) | https://github.com/cremebrule/og_cdc_assets |
+| 0e | behavior-1k/omnigibson-robot-assets (OmniGibson robot assets, incl. `franka_robotiq`) | MIT | Copyright (c) Stanford Vision and Learning Lab (BEHAVIOR-1K) | https://huggingface.co/datasets/behavior-1k/omnigibson-robot-assets |
 
 ### 0a. Additional adapted sources
 
@@ -212,7 +212,7 @@ not extend to any component below, their model weights, or any dataset or SDK re
 | Component | Required? | Acquisition | Exact version | Source terms | Weights terms | Key restriction |
 |---|---|---|---|---|---|---|
 | SAM 3 | Required (`simfoundry`) | `git clone` — `install_simfoundry.sh` | `46957e47…` | SAM License (Meta) | Gated Hugging Face download | **Non-OSS**, source-available; HF login required |
-| og_cdc_assets (robot assets) | Required (`simfoundry`) | `git clone` — `install_simfoundry.sh` | unpinned | Apache-2.0 | n/a — assets only | Merged into `deps/BEHAVIOR-1K/datasets/omnigibson-robot-assets/` |
+| behavior-1k/omnigibson-robot-assets (`franka_robotiq` subtree) | Required (`simfoundry`) | `huggingface_hub.snapshot_download` — `install_simfoundry.sh` | unpinned (`main`) | MIT | n/a — assets only | Public HF dataset; only `models/franka/franka_robotiq/**` is fetched, into `deps/BEHAVIOR-1K/datasets/omnigibson-robot-assets/` |
 | Any6D | Required (`any6d`) | `git clone` — `install_any6d.sh` | `80eb4866…` | Custom academic-only | n/a | **Non-commercial / academic use only** |
 | Hunyuan3D-2.1 | Required (`hunyuan`) | `git clone` — `install_hunyuan.sh` | `82920d64…` | Tencent Hunyuan 3D 2.1 Community License | Same, plus Real-ESRGAN weight (BSD-3-Clause) | **Non-OSS** community license |
 | Hunyuan3D-Part (P3-SAM, X-Part) | Optional (`articulate`) | Fetched by articulate-anything | Tencent Hunyuan 3D-Part Community License | P3-SAM weights auto-download on first use | **Non-OSS** community license |
@@ -228,26 +228,6 @@ not extend to any component below, their model weights, or any dataset or SDK re
 | TeleMoMa | **User-supplied** | Not installed by SimFoundry | User's choice (`0.3.0` known-good) | **No license file — all rights reserved** | n/a | **No rights granted by upstream.** Not installed, distributed, or mirrored |
 | TRELLIS.2 | Optional (`--trellis`) | `git clone` — `install_simfoundry.sh` | `75fbf018…` | MIT | n/a | None |
 | pyzed / ZED SDK | Optional (`--zed`) | User installs the ZED SDK | User's SDK version | MIT (bindings) | n/a | **Proprietary ZED SDK** required at runtime, under Stereolabs terms |
-
-### GPL components and process boundaries
-
-No SimFoundry module imports a GPL library and the Omniverse Kit USD bindings (`pxr`)
-together. Positions as of 2026-07-28:
-
-- **pymeshlab (GPL-3.0-only)** — imported by `simfoundry/utils/asset_conversion_utils.py`,
-  which contains no `pxr` reference. USD editing runs in a separate process
-  (`12_import_usd.py` → `reparent_usd_joints.py`), which imports no GPL library.
-  **OmniGibson does import pymeshlab inside the Isaac Sim process**
-  (`omnigibson/prims/cloth_prim.py`, `omnigibson/utils/asset_conversion_utils.py`);
-  SimFoundry inherits this upstream behaviour, and some SimFoundry modules run in that
-  process. This is the one place the two combine.
-- **plyfile (GPL-3.0-or-later)** — used by two auto-background stages and by the upstream
-  3dgrut script, which runs via `subprocess.run` in the separate `3dgrut` environment.
-  Neither path loads `pxr`.
-- **Blender (GPL-2.0-or-later)** — invoked as a separate executable by
-  articulate-anything; never linked or imported.
-
-`hidapi` is tri-licensed and **SimFoundry elects BSD-3-Clause** (item 77).
 
 ### Components requiring your acceptance or approval before use
 

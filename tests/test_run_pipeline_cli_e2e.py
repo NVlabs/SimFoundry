@@ -34,6 +34,8 @@ def test_reconstruction_cli_routes_stage_2c_to_nerfstudio_env():
         "--dry-run",
         "--exec-mode",
         "mamba",
+        # Stage 2c only enters the plan under --bg-splat; --include alone cannot select it.
+        "--bg-splat",
         "--include",
         "2c",
         "--env-nerfstudio",

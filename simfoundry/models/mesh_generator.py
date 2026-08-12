@@ -3,6 +3,7 @@
 
 import trimesh
 import shutil
+from simfoundry.utils.python_utils import atomic_copyfile, atomic_output_path
 import imageio
 from PIL import Image
 import os
@@ -246,7 +247,8 @@ class Hunyuan(MeshGenerator):
         )[0]
         if visualize:
             mesh_untextured.show()
-        mesh_untextured.export(out_fpath)
+        with atomic_output_path(out_fpath) as _tmp_out:
+            mesh_untextured.export(_tmp_out)
 
     def generate_texture(
         self,
@@ -262,7 +264,9 @@ class Hunyuan(MeshGenerator):
         assert out_fpath.endswith(".glb"), f"out_fpath must end with .glb, got: {out_fpath}"
         textured_mesh_path = self.texture_pipeline(shape_fpath, image_path=image_path, use_remesh=use_remesh)
         textured_mesh_path_glb = textured_mesh_path.replace(".obj", ".glb")
-        shutil.copyfile(textured_mesh_path_glb, out_fpath)
+        # Published atomically: the streaming watcher keys on this filename, and a
+        # multi-tens-of-MB copy is long enough for a consumer to open it half-written.
+        atomic_copyfile(textured_mesh_path_glb, out_fpath)
         if visualize:
             tm = trimesh.load(textured_mesh_path_glb)
             tm.show()
@@ -300,7 +304,8 @@ class Direct3D(ShapeGenerator):
         )["mesh"]
         if visualize:
             mesh.show()
-        mesh.export(out_fpath)
+        with atomic_output_path(out_fpath) as _tmp_out:
+            mesh.export(_tmp_out)
 
 
 
@@ -411,7 +416,8 @@ class Trellis(MeshGenerator):
         )
         if visualize:
             glb.show()
-        glb.export(out_fpath)
+        with atomic_output_path(out_fpath) as _tmp_out:
+            glb.export(_tmp_out)
 
 
 class Trellis2(MeshGenerator):
@@ -563,7 +569,8 @@ class Trellis2(MeshGenerator):
 
         if visualize:
             glb.show()
-        glb.export(out_fpath)
+        with atomic_output_path(out_fpath) as _tmp_out:
+            glb.export(_tmp_out)
 
 
     

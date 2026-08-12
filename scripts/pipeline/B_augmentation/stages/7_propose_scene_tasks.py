@@ -31,7 +31,7 @@ from simfoundry.models.vlm import Gemini
 # )
 
 OG_OBJECT_STATES = (
-    "OnTop"
+    "OnTop, OnTopAABB, InsideAABB, AboveAABB, Lifted"
 )
 
 # Robot constraints (gripper info, etc.) for different robot types
@@ -59,16 +59,32 @@ For each task provide:
 3. goal_predicates_all: list of predicates that must ALL be true for success. Each predicate has: state, state_kwargs (null if not needed), value (true/false), group, other_group (only for binary states like OnTop, Touching).
 4. goal_predicates_any: list of predicates where ANY being true yields success (optional; use null if not needed).
 
-Allowed states (from OmniGibson object_states): {states}
-For binary relations use group and other_group. For unary states (Open, ToggledOn, etc.) use group and set other_group to null or omit.
+Allowed states (from OmniGibson / SimFoundry): {states}
+For binary relations use group and other_group. For unary states use group and set other_group to null.
+
+State usage guidance (emit state_kwargs exactly as shown, or null):
+- OnTop: OmniGibson kinematic on-top check. Binary (group on top of other_group). state_kwargs: null.
+- OnTopAABB: bounding-box on-top check, more reliable for scanned/custom meshes; prefer it over OnTop. Binary. Optional state_kwargs keys: z_tolerance (meters, default 0.03), xy_overlap_threshold (fraction 0-1 of the top object's footprint, default 0.5).
+- InsideAABB: bounding-box containment; use for putting an object in a bowl, cup, box, or drawer. Binary. Recommended state_kwargs: volume_threshold (fraction 0-1 of the inner object's volume that must be inside; use 0.5).
+- AboveAABB: object held entirely above the reference object's top surface (hovering, not resting). Binary. Optional state_kwargs keys: min_clearance (meters, default 0.0), xy_overlap_threshold (fraction 0-1, or null to skip the alignment check).
+- Lifted: object raised at least min_height above its height at the start of the episode. Unary (set other_group to null). state_kwargs: min_height (meters, default 0.05).
+Do not invent other states or state_kwargs keys.
 
 Example predicate format:
   goal_predicates_all:
-    - state: OnTop
-      state_kwargs: null
+    - state: OnTopAABB
+      state_kwargs:
+        z_tolerance: 0.03
+        xy_overlap_threshold: 0.5
       value: true
       group: cup
       other_group: plate
+    - state: InsideAABB
+      state_kwargs:
+        volume_threshold: 0.5
+      value: true
+      group: pear
+      other_group: bowl
   goal_predicates_any: null
 
 Output exactly {num_tasks} tasks. Separate each task with "---" and a task number (e.g. "--- Task 2"). Each task block must be valid YAML with keys: task_name, semantic_group_mapping, goal_predicates_all, goal_predicates_any."""

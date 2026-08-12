@@ -33,6 +33,7 @@ from simfoundry.utils.processing_utils import compute_point_cloud_from_depth, pa
 from simfoundry.utils.prompt_utils import prompt_topk_image_select
 from simfoundry.pipeline.stage_utils import StageResult, bootstrap_hydra_workdir, finalize_stage
 from simfoundry.pipeline.frame_selection import resolve_img_idx
+from simfoundry.utils.python_utils import atomic_output_path
 import multiprocessing
 from tqdm import trange
 import logging
@@ -285,7 +286,7 @@ _MIN_SOURCE_POINTS = 10
 def _write_object_failure(out_dir: str, img_name: str, reason: str, **counts) -> None:
     """Write a failure record to the per-object info JSON and log a warning."""
     info = {"error": "pose_matching_skipped", "reason": reason, **counts}
-    with open(f"{out_dir}/info/{img_name}.json", "w") as f:
+    with atomic_output_path(f"{out_dir}/info/{img_name}.json") as _tmp_info, open(_tmp_info, "w") as f:
         json.dump(info, f, indent=4)
     logger.warning("Skipping pose matching for %s: %s", img_name, reason)
 
@@ -693,7 +694,7 @@ def main(cfg):
             "pre_scale_factor": float(pre_scale_factor),
         }
 
-        with open(f"{out_dir}/info/{img_name}.json", "w") as f:
+        with atomic_output_path(f"{out_dir}/info/{img_name}.json") as _tmp_info, open(_tmp_info, "w") as f:
             json.dump(out_info, f, indent=4)
 
     logger.info("="*60)

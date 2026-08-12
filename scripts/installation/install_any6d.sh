@@ -202,7 +202,7 @@ pip install --quiet --extra-index-url https://miropsota.github.io/torch_packages
 # Step 4.11: Install foundationpose
 # mycpp's CMake build needs Boost (system, program_options); install it and put
 # $CONDA_PREFIX on CMAKE_PREFIX_PATH so cmake finds BoostConfig.cmake/Eigen3.
-mamba install boost -y >> /dev/null
+mamba install boost cmake -y >> /dev/null
 PYBIND11_CMAKE_DIR="$(python -m pybind11 --cmakedir)"
 export CMAKE_PREFIX_PATH="${PYBIND11_CMAKE_DIR}:${CONDA_PREFIX}${CMAKE_PREFIX_PATH:+:${CMAKE_PREFIX_PATH}}"
 

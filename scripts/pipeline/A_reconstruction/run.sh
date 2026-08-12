@@ -33,7 +33,7 @@ Options:
   --env-nerfstudio NAME           Mamba env for stage 2c. Default: nerfstudio_simfoundry
   --env-da3 NAME                  Mamba env for depth stage. Default: da3
   --env-mesh NAME                 Mamba env for mesh generation. Default: hunyuan (use simfoundry for trellis.2 if installed)
-  --env-b1k NAME                  Mamba env for OmniGibson stages. Default: b1k
+  --env-b1k NAME                  Mamba env for OmniGibson stages. Default: simfoundry
   --stream / --no-stream          Enable/disable stages 5-8 streaming. Default: enabled
   --stream-start-stage N          Streaming start stage, 5-8. Default: 5
   --stream-end-stage N            Streaming end stage, 5-8. Default: 8
@@ -61,7 +61,7 @@ ENV_SIMFOUNDRY="${ENV_SIMFOUNDRY:-simfoundry}"
 ENV_NERFSTUDIO="${ENV_NERFSTUDIO:-nerfstudio_simfoundry}"
 ENV_DA3="${ENV_DA3:-da3}"
 ENV_MESH="${ENV_MESH:-hunyuan}"
-ENV_B1K="${ENV_B1K:-b1k}"
+ENV_B1K="${ENV_B1K:-simfoundry}"
 STREAM_ENABLED="${STREAM_ENABLED:-1}"
 STREAM_START_STAGE="${STREAM_START_STAGE:-5}"
 STREAM_END_STAGE="${STREAM_END_STAGE:-8}"

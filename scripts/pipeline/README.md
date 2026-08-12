@@ -38,7 +38,7 @@ Useful options:
 - `--max-vram-gb N`: opt-in absolute hard budget in GiB, overriding the fraction. Leave unset unless you need to pin it — with `hard_vram_cap` the budget counts *total* GPU usage, so a value too small for the card stalls stages.
 - `--detect-articulation`: run stage 8b for automatic articulated-object generation. Requires the optional `articulate` environments; ignored with a warning if they are absent.
 - `--env-nerfstudio NAME`: select the Nerfstudio environment used by stage 2c. Default: `nerfstudio_simfoundry`.
-- `--env-b1k simfoundry`: use this if OmniGibson is installed in the `simfoundry` env.
+- `--env-b1k NAME`: env for the OmniGibson stages. Default: `simfoundry`; pass this only if OmniGibson lives in a separate env.
 
 ### Stages
 
@@ -196,6 +196,36 @@ Mode mapping:
 - `--mode eval`: stage `1`
 - `--mode demo`: stages `2,3,3b,4,5,6`
 - `--mode full`: stages `1,2,3,3b,4,5,6`
+
+### Task Predicates
+
+Task YAMLs (see `scripts/cfg/task/example.yaml` for a fully commented example) use two
+predicate vocabularies:
+
+**Spatial placement predicates** (`group_predicate_placement`, applied at each episode
+reset; implemented in `simfoundry/utils/placement_utils.py`): `on_top`, `left_of`,
+`right_of`, `behind`, `in_front_of`, `inside`, `near`, `between`, `inside_link`.
+The horizontal predicates displace one axis by `gap` and sample the other; `near`
+places at a random direction around the reference; `between` places on the segment
+between two reference groups (`reference_groups: [a, b]`); `inside_link` places
+within a named link's AABB (`link_name`, e.g. a shelf level or drawer).
+
+```yaml
+group_predicate_placement:
+  cup:
+    reference_group: plate
+    predicates: [left_of, near]
+    gap: {left_of: [0.03, 0.15], near: [0.02, 0.10]}
+```
+
+**Check predicates** (`init_predicates_*`, `goal_predicates_*`, `milestone_predicates`):
+any OmniGibson object state (`OnTop`, `Touching`, ...) plus the SimFoundry special
+states — `PlaceOnTop` (init-only AABB placement), `InsideAABB` (containment,
+`volume_threshold`), `OnTopAABB` (`z_tolerance`, `xy_overlap_threshold`), `AboveAABB`
+(`min_clearance`, optional `xy_overlap_threshold`), `Lifted` (unary, `min_height`
+above the episode-start pose), and `IsGrasping` (milestones only). The AABB-based
+states are recommended for reconstructed/custom assets, whose collision meshes often
+break OmniGibson's sampling-based states.
 
 ## Cache And Test Mode
 

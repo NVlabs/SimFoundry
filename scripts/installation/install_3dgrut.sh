@@ -9,9 +9,12 @@
 #   1. scripts/create_conda.sh  — creates the conda env + CUDA toolkit + persisted build vars
 #   2. install_env_uv.sh        — installs the project, Kaolin, ppisp, fused-ssim, slangc
 #
-# It supersedes the previous version, which referenced a `patches/3dgrut.patch` and an
-# `install_env.sh` that no longer exist upstream (the installer was renamed
-# `install_env_uv.sh`). For CUDA 12.8 the upstream installer pins torch 2.8.0+cu128 with
+# It supersedes the previous version, which called an upstream `install_env.sh` that has
+# since been renamed `install_env_uv.sh`. Two patches are applied below:
+# `patches/3dgrut.patch` (ply_to_usd.py export_cameras=False) and
+# `patches/3dgrut_nounset.patch` (set +u in create_conda.sh, so conda's compiler
+# deactivate hooks can't abort the build on unset CONDA_BACKUP_* variables).
+# For CUDA 12.8 the upstream installer pins torch 2.8.0+cu128 with
 # TORCH_CUDA_ARCH_LIST="7.5;8.0;8.6;9.0;10.0;12.0+PTX" (sm_120 / RTX 5090 Blackwell).
 
 set -euo pipefail
@@ -102,6 +105,22 @@ if [ -f "${PATCH}" ]; then
   fi
 else
   echo "WARNING: ${PATCH} not found; the ply_to_usd export_cameras fix will be missing."
+fi
+
+# Make create_conda.sh nounset-safe (set +u before its conda operations). The conda()
+# wrapper reactivates the env after each `conda install`, sourcing deactivate.d hooks
+# that can reference unset CONDA_BACKUP_* variables; under the script's `set -u` that
+# aborts the build mid-way and leaves a half-built env.
+NOUNSET_PATCH="${project_root}/patches/3dgrut_nounset.patch"
+if [ -f "${NOUNSET_PATCH}" ]; then
+  if git -C "${THREEDGRUT_DIR}" apply --check --reverse "${NOUNSET_PATCH}" 2>/dev/null; then
+    echo "patches/3dgrut_nounset.patch already applied"
+  else
+    git -C "${THREEDGRUT_DIR}" apply "${NOUNSET_PATCH}"
+    echo "Applied patches/3dgrut_nounset.patch (create_conda.sh set +u for conda hooks)"
+  fi
+else
+  echo "WARNING: ${NOUNSET_PATCH} not found; create_conda.sh may abort on conda's compiler hooks under set -u."
 fi
 
 # ------------------------------------------------------------------------------

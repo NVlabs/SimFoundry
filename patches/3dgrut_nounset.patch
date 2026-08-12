@@ -1,0 +1,16 @@
+diff --git a/scripts/create_conda.sh b/scripts/create_conda.sh
+index 3c7eae3..45f23f3 100755
+--- a/scripts/create_conda.sh
++++ b/scripts/create_conda.sh
+@@ -86,6 +86,11 @@ echo ""
+ # ------------------------------------------
+ # Step 3: Create and activate conda environment
+ # ------------------------------------------
++# The conda() wrapper reactivates the env after every `conda install` below,
++# sourcing the env's deactivate.d hooks in this shell. Compiler/CUDA hook
++# packages can reference unset CONDA_BACKUP_* variables, which aborts the
++# script under `set -u`. Disable nounset before any conda operations.
++set +u
+ eval "$(conda shell.bash hook)"
+ 
+ CONDA_ENV_PATH=$(conda env list | sed -E -n "s/^${CONDA_ENV}[[:space:]]+\*?[[:space:]]*(.*)$/\1/p")

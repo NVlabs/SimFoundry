@@ -21,6 +21,22 @@ og_task_config:
       value: true
       group: bowl
       other_group: plate
+    # AABB-based checks (reliable for custom meshes): OnTopAABB, AboveAABB, Lifted, InsideAABB
+    # - state: OnTopAABB
+    #   state_kwargs: {z_tolerance: 0.03, xy_overlap_threshold: 0.5}
+    #   value: true
+    #   group: cup
+    #   other_group: plate
+    # - state: Lifted                   # unary: raised >= min_height above its start pose
+    #   state_kwargs: {min_height: 0.08}
+    #   value: true
+    #   group: cup
+    #   other_group: null
+    # - state: AboveAABB                # hovering above (not resting on) the reference
+    #   state_kwargs: {min_clearance: 0.02, xy_overlap_threshold: 0.5}
+    #   value: true
+    #   group: cup
+    #   other_group: plate
   goal_predicates_any:
     - state: Touching
       state_kwargs: null
@@ -80,16 +96,20 @@ og_task_config:
     cup: 0.174
     bowl: 0.174
     plate: 0.174
+  # Placement predicates: on_top, left_of, right_of, behind, in_front_of, inside,
+  # near, between, inside_link (see simfoundry/utils/placement_utils.py)
   group_predicate_placement:
     cup:
       reference_group: plate
-      predicates: [left_of, right_of, behind, in_front_of]
+      predicates: [left_of, right_of, behind, in_front_of]   # also: near
       gap:                              # per-predicate gap ranges
         left_of: [0.03, 0.15]
         right_of: [0.03, 0.15]
         behind: [0.02, 0.15]
         in_front_of: [0.01, 0.05]
+        # near: [0.02, 0.10]            # 'near' = random direction around ref, edge-to-edge gap
       z_offset: 0.0
+      # aligned: true                   # center the secondary axis on ref (horizontal predicates)
     bowl:
       reference_group: plate
       predicates: [left_of, right_of, behind, in_front_of]
@@ -99,6 +119,15 @@ og_task_config:
         behind: [0.02, 0.15]
         in_front_of: [0.01, 0.05]
       z_offset: 0.0
+    # bowl:
+    #   reference_groups: [plate, cup]  # 'between' needs exactly two reference groups
+    #   predicates: [between]
+    #   gap: [0.0, 0.05]                # min edge clearance from EACH reference
+    # marker:
+    #   reference_group: shelf
+    #   predicates: [inside_link]       # place within a named link's AABB (drawer/shelf level)
+    #   link_name: shelf_level_2
+    #   z_offset: 0.005                 # lift above the link bottom; gap is ignored
   workspace_bounds:              # workspace limits in robot base frame (meters)
     lower: [0, -1.0, -1.0]
     upper: [0.8, 1.0, 1.0]

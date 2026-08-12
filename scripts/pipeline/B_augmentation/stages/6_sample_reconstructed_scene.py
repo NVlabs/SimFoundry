@@ -1110,14 +1110,24 @@ def main(cfg):
         #     usd_path=gs_path,
         # )
 
-        gs_background_da3 = USDObject(
-            name="background_da3",
-            usd_path=gs_path_da3,
-        )
+        # Same guard stage 13 uses. Without it, a missing splat is a FileNotFoundError inside
+        # USDObject followed by a segfault, rather than a scene without a background.
+        if not os.path.exists(gs_path_da3):
+            logger.warning(
+                "include_gs=True but the GS USDZ was not found at %s. Run the "
+                "auto_bg_reconstruction pipeline to produce it, or set s13_og.include_gs=false. "
+                "Skipping the GS background for this run.",
+                gs_path_da3,
+            )
+        else:
+            gs_background_da3 = USDObject(
+                name="background_da3",
+                usd_path=gs_path_da3,
+            )
 
-        env.scene.add_object(gs_background_da3)
-        og.sim.step()
-        gs_background_da3.set_position_orientation(*T.mat2pose(cam2world_tf))
+            env.scene.add_object(gs_background_da3)
+            og.sim.step()
+            gs_background_da3.set_position_orientation(*T.mat2pose(cam2world_tf))
         og.sim.step()
         og.sim.render()
         og.sim.render()

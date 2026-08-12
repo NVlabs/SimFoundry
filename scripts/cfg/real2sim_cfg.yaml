@@ -202,11 +202,11 @@ stream_subseq:
   end_stage: 8          # end stage in contiguous subsequence (5-8)
   poll_interval_s: 3.0
   idle_timeout_s: 120.0
-  # Seconds an artifact must go unwritten before the next stage may open it. Discovery matches
-  # on filename, which appears as soon as the producer opens the file, so without this a
-  # consumer can read a partially written mesh (stage 8 saw a half-written .glb as a mesh with
-  # zero triangles). Raise it if a producer stalls mid-write for longer than this.
-  artifact_settle_s: 5.0
+  # Backstop only. Producers publish artifacts atomically (write to <name>.partial.<ext>, then
+  # rename), so a consumer cannot observe a partial file and this does not need to cover a
+  # producer's slowest write. It cannot anyway: stage 8 once read a half-copied 41 MB .glb as a
+  # mesh with zero triangles despite a 5 s window, because the copy stalled longer than that.
+  artifact_settle_s: 1.0
   # VRAM budget for streamed stages, as a fraction of the GPU's TOTAL memory. Sizing it
   # relative to the card means one setting works on a 24 GiB and a 96 GiB GPU.
   max_vram_frac: 0.9
@@ -308,6 +308,8 @@ s12_usd: #env b1k
   out_dirname: s12_usd
   out_dir: "${root_dir}/${scene_name}/${s12_usd.out_dirname}"
   dataset_name: real2sim-assets
+  # Materials opacity threshold for USD export of TRELLIS2 meshes
+  opacity_threshold: 0.5
 s13_og:
   rerun: true
   out_dirname: s13_og
@@ -327,7 +329,12 @@ s13_og:
     orientation: [0, 0, 0, 1]
   include_table: false
   include_robot: true
-  include_gs: true
+  # Use the Gaussian-splat background from the auto_bg_reconstruction pipeline. Off by default
+  # because stage 2c (the splat producer) is opt-in via --bg-splat: leaving this on made the
+  # default pipeline consume an artifact the default pipeline never produced. It also forces
+  # floor_plane_visible and use_skybox off, so turning it on without a splat yields a scene
+  # with an invisible floor and no sky.
+  include_gs: false
   randomize_xy_range: 0.01
   randomize_z_rotation_deg: 50           # Z-axis rotation range: 360 = full [0,360°), else ±N degrees (e.g. 30 = ±30°)
   randomize_settle_steps: 100
@@ -614,7 +621,7 @@ prompt_cousin_structured:      # env: simfoundry
   max_components: null
   max_generated_images_per_object: null
   text_model: gemini-2.5-pro
-  image_model: gemini-3-pro-image-preview
+  image_model: gemini-3-pro-image
   remote_retries: 3
   check_reasonableness: true
   max_reasonableness_attempts: 3

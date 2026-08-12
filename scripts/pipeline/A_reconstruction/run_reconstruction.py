@@ -24,7 +24,7 @@ def main():
     parser.add_argument("--env-nerfstudio", default="nerfstudio_simfoundry")
     parser.add_argument("--env-da3", default="da3")
     parser.add_argument("--env-mesh", default="hunyuan")
-    parser.add_argument("--env-b1k", default="b1k")
+    parser.add_argument("--env-b1k", default="simfoundry")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--stream-5-8", action="store_true", help="Enable streaming for a contiguous subsequence in stages 5-8")
     parser.add_argument("--stream-start-stage", type=int, default=5, help="Streaming subsequence start stage (5-8)")

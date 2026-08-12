@@ -45,14 +45,44 @@ TIMING_LOG_ENV_VAR = "SIMFOUNDRY_PIPELINE_TIMING_LOG"
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CFG_PATH = REPO_ROOT / "scripts" / "cfg" / "real2sim_cfg.yaml"
 
-# Stage 8b (articulation) is an optional component: it is included in the plan only when the
-# stage script is present, so a checkout without it degrades to a warning rather than a failure.
+# Stage 8b (articulation) is optional: it joins the plan only when it can actually run, so an
+# install without it degrades to a warning rather than a failure.
 ARTICULATION_STAGE_SCRIPT = "scripts/pipeline/A_reconstruction/stages/8b_articulate_objects.py"
+ARTICULATION_DEPS_DIR = "deps/articulate-anything"
+# Mirrors CONDA_ENVS in 8b_articulate_objects.py; stage 8b shells out to these.
+ARTICULATION_ENVS = ("articulate-anything-hunyuan", "articulate-anything-partfield")
+
+
+def _conda_envs_dirs() -> list[Path]:
+    """Directories that may contain named conda envs, derived without shelling out."""
+    candidates = []
+    conda_exe = os.environ.get("CONDA_EXE")
+    if conda_exe:
+        candidates.append(Path(conda_exe).resolve().parent.parent / "envs")
+    conda_prefix = os.environ.get("CONDA_PREFIX")
+    if conda_prefix:
+        prefix = Path(conda_prefix).resolve()
+        # Either <base>/envs/<name> (so envs is the parent) or the base env itself.
+        candidates.append(prefix.parent if prefix.parent.name == "envs" else prefix / "envs")
+    return [d for d in dict.fromkeys(candidates) if d.is_dir()]
 
 
 def articulation_available() -> bool:
-    """Whether the optional articulation stage (8b) is present in this checkout."""
-    return (REPO_ROOT / ARTICULATION_STAGE_SCRIPT).is_file()
+    """Whether stage 8b can actually run here.
+
+    The stage script alone is not enough: it ships in every checkout, so testing only for it
+    meant the documented "ignored with a warning" path never triggered and stage 8b was
+    scheduled into plans that could not run it. Stage 8b also needs the articulate-anything
+    checkout and one of its conda envs, so check for those too. When the conda layout cannot be
+    determined, report unavailable — degrading to a warning is the documented behaviour and is
+    safer than scheduling a stage that will fail mid-run.
+    """
+    if not (REPO_ROOT / ARTICULATION_STAGE_SCRIPT).is_file():
+        return False
+    if not (REPO_ROOT / ARTICULATION_DEPS_DIR).is_dir():
+        return False
+    envs_dirs = _conda_envs_dirs()
+    return any((envs_dir / name).is_dir() for envs_dir in envs_dirs for name in ARTICULATION_ENVS)
 
 
 def format_duration(seconds: float) -> str:

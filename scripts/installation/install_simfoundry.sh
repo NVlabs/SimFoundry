@@ -260,7 +260,7 @@ if [ ! -d "nvdiffrast" ]; then
 fi
 pip install nvdiffrast/ --no-build-isolation
 cd ..
-mamba install boost -y > /dev/null
+mamba install boost cmake -y > /dev/null
 mamba install -c conda-forge eigen=3.4.0 -y > /dev/null
 
 EIGEN_INCLUDE="${CONDA_PREFIX}/include/eigen3"
@@ -541,11 +541,11 @@ validate_robot_asset_file() {
   fi
   if [[ "${required}" == "required" ]]; then
     echo "ERROR: Required OmniGibson robot asset is missing: ${ROBOT_ASSETS_DIR}/${rel_path}" >&2
-    echo "The public OmniGibson robot asset download should provide this file. Re-run install.sh or inspect the asset download." >&2
+    echo "All required assets come from the public behavior-1k datasets on Hugging Face." >&2
+    echo "Check network access to huggingface.co, then re-run install.sh." >&2
     exit 1
   fi
   echo "WARNING: Optional OmniGibson robot asset is unavailable: ${rel_path}" >&2
-  echo "         Robotiq-based configs require a SimFoundry-specific robot asset bundle." >&2
   echo "         Pass --robot-asset-fallback-root <repo> if you have a local copy." >&2
 }
 
@@ -554,36 +554,46 @@ echo "Ensuring OmniGibson robot assets are installed..."
 python -c "from omnigibson.utils.asset_utils import download_omnigibson_robot_assets; download_omnigibson_robot_assets()"
 ROBOT_ASSETS_DIR="${PROJECT_ROOT}/deps/BEHAVIOR-1K/datasets/omnigibson-robot-assets"
 
-# SimFoundry-specific OmniGibson robot assets (e.g. the franka_robotiq end effector), which the
-# public OmniGibson robot-asset download does not carry. Must run AFTER
-# download_omnigibson_robot_assets() so the public download cannot clobber the merged files.
-# TODO(SimFoundry): confirm this SHA matches a tested build before release.
-OG_SIMFOUNDRY_ASSETS_REPO="${OG_SIMFOUNDRY_ASSETS_REPO:-https://github.com/cremebrule/og_cdc_assets.git}"
-OG_SIMFOUNDRY_ASSETS_COMMIT="${OG_SIMFOUNDRY_ASSETS_COMMIT:-}"
-OG_SIMFOUNDRY_ASSETS_SRC="${PROJECT_ROOT}/deps/og_cdc_assets"
+# The franka_robotiq end effector, which most task configs use. It lives in the public
+# behavior-1k/omnigibson-robot-assets dataset repo, but NOT in the pre-built
+# omnigibson-robot-assets.zip that download_omnigibson_robot_assets() unpacks -- that zip is an
+# older snapshot, taken before franka_robotiq was added to the dataset. So fetch that one
+# subtree directly.
+#
+# Must run AFTER download_omnigibson_robot_assets(), for two reasons: unpacking the zip would
+# overwrite these files, and download_omnigibson_robot_assets() skips entirely when its target
+# directory already exists, so creating that directory first would silently drop the rest of
+# the bundle.
+OG_ROBOT_ASSETS_HF_REPO="${OG_ROBOT_ASSETS_HF_REPO:-behavior-1k/omnigibson-robot-assets}"
+FRANKA_ROBOTIQ_REL="models/franka/franka_robotiq"
 
-fetch_simfoundry_robot_assets() {
-  if [[ ! -d "${OG_SIMFOUNDRY_ASSETS_SRC}/.git" ]]; then
-    echo "Fetching SimFoundry OmniGibson robot assets from ${OG_SIMFOUNDRY_ASSETS_REPO}..."
-    git clone "${OG_SIMFOUNDRY_ASSETS_REPO}" "${OG_SIMFOUNDRY_ASSETS_SRC}"
+fetch_franka_robotiq_assets() {
+  if [[ -f "${ROBOT_ASSETS_DIR}/${FRANKA_ROBOTIQ_REL}/usd/franka_robotiq.usda" ]]; then
+    echo "franka_robotiq robot assets already present; skipping download."
+    return 0
   fi
-  if [[ -n "${OG_SIMFOUNDRY_ASSETS_COMMIT}" ]]; then
-    git -C "${OG_SIMFOUNDRY_ASSETS_SRC}" checkout --detach "${OG_SIMFOUNDRY_ASSETS_COMMIT}"
-  fi
-
-  # The repo carries `models/...` at its root; merge it into the robot-assets tree without
-  # overwriting anything the public download already provided.
-  if [[ ! -d "${OG_SIMFOUNDRY_ASSETS_SRC}/models" ]]; then
-    echo "ERROR: ${OG_SIMFOUNDRY_ASSETS_SRC} has no models/ directory; unexpected repo layout." >&2
-    return 1
-  fi
+  echo "Fetching franka_robotiq robot assets from ${OG_ROBOT_ASSETS_HF_REPO}..."
   mkdir -p "${ROBOT_ASSETS_DIR}"
-  cp -an "${OG_SIMFOUNDRY_ASSETS_SRC}/models/." "${ROBOT_ASSETS_DIR}/models/" 2>/dev/null || true
-  echo "Merged SimFoundry robot assets into ${ROBOT_ASSETS_DIR}"
+  python - "${ROBOT_ASSETS_DIR}" "${OG_ROBOT_ASSETS_HF_REPO}" "${FRANKA_ROBOTIQ_REL}" <<'PY'
+import sys
+
+from huggingface_hub import snapshot_download
+
+local_dir, repo_id, rel_path = sys.argv[1], sys.argv[2], sys.argv[3]
+# Public dataset, so no token is needed. allow_patterns keeps this to ~225 MB rather than
+# pulling the multi-GB repo, and lands the files at <local_dir>/models/franka/franka_robotiq/
+# because the dataset uses the same layout as the robot-assets tree.
+snapshot_download(
+    repo_id=repo_id,
+    repo_type="dataset",
+    allow_patterns=[f"{rel_path}/**"],
+    local_dir=local_dir,
+)
+PY
 }
 
-if ! fetch_simfoundry_robot_assets; then
-  echo "WARNING: could not fetch SimFoundry robot assets; falling back to --robot-asset-fallback-root." >&2
+if ! fetch_franka_robotiq_assets; then
+  echo "WARNING: could not fetch franka_robotiq robot assets; falling back to --robot-asset-fallback-root." >&2
 fi
 
 validate_robot_asset_file "models/franka/franka_panda/usd/franka_panda.usda" required "models/franka/franka_panda"

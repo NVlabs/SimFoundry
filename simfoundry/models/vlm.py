@@ -557,7 +557,7 @@ class Gemini(VLM_API):
         self,
         project=None,
         location="global",
-        model="gemini-3-pro-image-preview",
+        model="gemini-3-pro-image",
         verbose=False,
         timeout_ms=None,
         api_key=None,

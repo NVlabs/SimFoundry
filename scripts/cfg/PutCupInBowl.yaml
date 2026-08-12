@@ -108,7 +108,7 @@ s6_upsample:      # env: simfoundry
   out_dir: "${root_dir}/${scene_name}/${s6_upsample.out_dirname}"
   sam_conf_threshold: 0.1
   model: gemini-2.5-flash-image     # options: gpt, gemini, flux
-  # model: gemini-3-pro-image-preview     # options: gpt, gemini, flux
+  # model: gemini-3-pro-image     # options: gpt, gemini, flux
   validity_model: gemini
   infill: false    # If true, infill the object before upsampling
   check_valid: false  # If true, run validity check on each upsampled object

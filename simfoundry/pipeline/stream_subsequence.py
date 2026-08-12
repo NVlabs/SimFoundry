@@ -11,16 +11,17 @@ import time
 from typing import Callable
 
 from simfoundry.pipeline.stage_utils import list_object_iteration_indices
+from simfoundry.utils.python_utils import PARTIAL_MARKER
 
 
 SUPPORTED_STAGES = (5, 6, 7, 8)
 
 #: Seconds an artifact must go without being written to before a downstream stage may open it.
-#: Discovery matches on filename, which appears as soon as the producer opens the file -- a
-#: multi-hundred-MB mesh keeps being written for seconds afterwards. Without this, a consumer
-#: can open a half-written file: stage 8 read a partial .glb as a mesh with zero triangles and
-#: killed the run two seconds before stage 7 logged that it had finished writing it.
-DEFAULT_ARTIFACT_SETTLE_S = 5.0
+#: Producers now publish atomically (see atomic_output_path), so this is a backstop for any
+#: writer that still updates a watched path in place rather than the primary guarantee. It was
+#: the primary guarantee once, and could not hold: a producer may stall mid-write for an
+#: unbounded time, so no window is large enough. Kept small because it costs a poll.
+DEFAULT_ARTIFACT_SETTLE_S = 1.0
 
 
 @dataclass(frozen=True)
@@ -85,6 +86,11 @@ def discover_ready_artifact_mtimes(
     mtimes: dict[int, float] = {}
     for path in Path(watch_dir).iterdir():
         if not path.is_file() or not path.name.endswith(info.artifact_suffix):
+            continue
+        if PARTIAL_MARKER in path.name:
+            # Producers build artifacts under `<name>.partial.<ext>` and rename them into
+            # place, so a partial is by definition not ready. Stated explicitly rather than
+            # relying on the index parse below happening to reject the name.
             continue
         indices = list_object_iteration_indices([path.name], suffix=info.artifact_suffix)
         if not indices:

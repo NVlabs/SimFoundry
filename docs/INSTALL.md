@@ -8,19 +8,21 @@ This guide covers the standard SimFoundry setup: environments, checkpoints, serv
 - CUDA-compatible driver
 - Mamba or Conda with `mamba`
 - `ffmpeg`
-- Git submodules enabled
+- ~250 GB of free disk space for a full install (conda envs ≈ 100 GB, `deps/` ≈ 82 GB of
+  which the VOID model alone is 41 GB, Hugging Face cache ≈ 12 GB, plus checkpoints)
 - Hugging Face account for gated models such as SAM3
 - Google Cloud project with the Vertex AI API and billing enabled — the pipeline's VLM stages (reconstruction, articulation, and B augmentation) run on Vertex AI (Gemini). Authenticate with `gcloud auth application-default login`
 - ZED SDK only if you plan to use ZED capture
 
 Recommended VRAM:
 
-- 24 GiB works for the standard video pipeline. The streaming budget defaults to a fraction of
-  total GPU memory (`stream_subseq.max_vram_frac`, 0.9), so no flag is needed; pass
-  `--max-vram-gb N` only to pin an absolute cap.
+- 24 GiB works for the standard video pipeline, but requires `s7_mesh.low_vram=true` — the
+  default (`false`) needs ~29 GiB for mesh shape generation at stage 7. The streaming budget
+  defaults to a fraction of total GPU memory (`stream_subseq.max_vram_frac`, 0.9), so no
+  other flag is needed; pass `--max-vram-gb N` only to pin an absolute cap.
 - More VRAM can improve throughput for streamed reconstruction and high-resolution background runs.
 
-## 1. Clone And Prepare Submodules
+## 1. Clone The Repository
 
 This repo uses **Git LFS** for binary assets (PNGs, GIFs) in `docs/`. Install it before cloning:
 
@@ -30,7 +32,6 @@ git lfs install
 
 # Then clone normally — LFS files are fetched automatically
 git clone <repo-url>
-git submodule update --init --recursive
 ```
 
 If you already cloned without LFS, fetch the assets with:
@@ -39,7 +40,8 @@ If you already cloned without LFS, fetch the assets with:
 git lfs pull
 ```
 
-If a dependency is not a submodule on your checkout, use the matching install script in `scripts/installation/`.
+The repository has no git submodules. All dependencies are cloned into `deps/` by the
+install scripts in `scripts/installation/`.
 
 ## 2. Install Environments
 
@@ -122,7 +124,7 @@ Minimum service setup for the main (A reconstruction) pipeline:
 ```bash
 export GCLOUD_PROJECT=<your-gcp-project>
 gcloud auth application-default login
-huggingface-cli login
+hf auth login
 ```
 
 ## 4. Download Checkpoints
@@ -139,33 +141,6 @@ If downloads are unreliable, provide a local fallback root:
 bash scripts/installation/download_checkpoints.sh \
   --default \
   --checkpoint-fallback-root /path/to/known-good/repo-copy
-```
-
-### Robot assets
-
-`install_simfoundry.sh` provisions OmniGibson robot assets in two steps, into
-`deps/BEHAVIOR-1K/datasets/omnigibson-robot-assets/`:
-
-1. OmniGibson's own public download (`franka_panda`, `sky.jpg`, and the other stock robots).
-2. The SimFoundry asset bundle from
-   [`og_cdc_assets`](https://github.com/cremebrule/og_cdc_assets), which adds the
-   `franka_robotiq` end effector used by most task configs. Its `models/` tree is merged over
-   the public assets without overwriting them.
-
-Override the source or pin a revision if needed:
-
-```bash
-OG_SIMFOUNDRY_ASSETS_REPO=git@github.com:cremebrule/og_cdc_assets.git \
-OG_SIMFOUNDRY_ASSETS_COMMIT=<sha> \
-  bash scripts/installation/install_simfoundry.sh --project-root ../.. --env-name simfoundry --default
-```
-
-If you already have a checkout containing the assets, point at it instead:
-
-```bash
-bash scripts/installation/install_simfoundry.sh \
-  --project-root ../.. --env-name simfoundry --default \
-  --robot-asset-fallback-root /path/to/repo-with-assets
 ```
 
 ## 5. Verify The Install
@@ -197,8 +172,9 @@ pip install -r requirements_dev.txt
 mamba run -n simfoundry python -m pytest -q
 ```
 
-A four-file subset needs no runtime dependencies at all, so it works before any environment
-is built:
+A four-file subset needs no runtime dependencies beyond `pytest` itself, so it works before
+any environment is built (a stock conda `base` does not ship `pytest` — install it first
+with `pip install pytest` or `pip install -r requirements_dev.txt`):
 
 ```bash
 pytest tests/test_subpipeline_layout.py tests/test_resource_scheduler.py \
@@ -340,4 +316,4 @@ license, copyright holder, and license link.
 
 - `api_keys.txt`, `Data/`, `deps/`, `reports/`, and local caches are ignored by git.
 - Most scripts infer the repo root automatically; avoid hard-coding absolute paths in config unless the data really lives outside the repo.
-- Use `--env-b1k simfoundry` on pipeline commands if OmniGibson is installed in the `simfoundry` environment rather than a separate `b1k` environment.
+- OmniGibson stages run in the `simfoundry` environment by default. Pass `--env-b1k NAME` on pipeline commands only if you keep OmniGibson in a separate environment.

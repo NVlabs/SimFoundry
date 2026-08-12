@@ -242,7 +242,7 @@ def main(cfg):
     nano_banana = Gemini(
         project=cfg.gcloud_project,
         location="global",
-        model=cfg.prompt_cousin_structured.get("image_model", "gemini-3-pro-image-preview"),
+        model=cfg.prompt_cousin_structured.get("image_model", "gemini-3-pro-image"),
     )
 
     # Iterate over all upsampled transparent images from step 6

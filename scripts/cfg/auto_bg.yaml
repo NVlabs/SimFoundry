@@ -68,7 +68,7 @@ s1_quadmask:                                      # env: simfoundry — generate
   keyframe_idx: 0                                 # Which subsampled frame indexes the mask prompt
   floor_category: "${floor_category}"
   gcloud_project: "${gcloud_project}"
-  gemini_model: gemini-3-pro-image-preview  # Used to identify tabletop objects to mask out (Vertex Gemini; must support IMAGE modality)
+  gemini_model: gemini-3-pro-image  # Used to identify tabletop objects to mask out (Vertex Gemini; must support IMAGE modality)
   sam_conf: 0.30                                  # SAM3 detection threshold
   mask_dilate_px: 12                              # Dilation kernel on the union mask (pixels)
   mp4_fps: "${void_mp4_fps}"

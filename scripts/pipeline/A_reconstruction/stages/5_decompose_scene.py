@@ -47,6 +47,7 @@ from sentence_transformers import SentenceTransformer
 from simfoundry.utils.python_utils import assert_valid_key
 from simfoundry.pipeline.stage_utils import StageResult, bootstrap_hydra_workdir, finalize_stage
 from simfoundry.pipeline.frame_selection import resolve_img_idx
+from simfoundry.utils.python_utils import atomic_output_path
 import hydra
 import logging
 import os
@@ -2049,7 +2050,10 @@ def main(cfg):
             world_to_cam_tf=cam2world_tf,
         )
 
-        with open(f"{out_dir}/obj_cat_list/iter_{current_iteration}.json", "w+") as f:
+        # Published atomically: this file is what the stage-6 listener watches for, so a
+        # consumer must never see it half-written.
+        _obj_cat_fpath = f"{out_dir}/obj_cat_list/iter_{current_iteration}.json"
+        with atomic_output_path(_obj_cat_fpath) as _tmp_obj_cat, open(_tmp_obj_cat, "w+") as f:
             saved_vlm_categories = [get_primary_object_name(name) for name in obj_cat_list]
             saved_pruned_phrases = [get_primary_object_name(name) for name in pruned_phrases]
             saved_removed_obj_phrase = get_primary_object_name(obj_phrase_to_remove)

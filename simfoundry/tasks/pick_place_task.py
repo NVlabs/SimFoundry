@@ -1,363 +1,73 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from enum import IntEnum
 import json
 import math
 import random
+from collections import OrderedDict
+
 import torch as th
-from simfoundry import ASSET_DIR
-from simfoundry.utils.placement_utils import place_with_predicate, resolve_gap, separate_overlapping_objects
-from simfoundry.utils.distractor_utils import (
-    build_candidate_pool,
-    sample_distractors,
-    compute_scene_centroid,
-    place_distractor,
-)
+
 import omnigibson as og
+import omnigibson.lazy as lazy
 import omnigibson.utils.transform_utils as T
-from omnigibson.macros import gm, macros
-from omnigibson.robots import BaseRobot, FrankaPanda, Yam
-from omnigibson.reward_functions.potential_reward import PotentialReward
+from omnigibson.macros import gm
+from omnigibson.object_states import Open, ToggledOn
+from omnigibson.object_states.object_state_base import REGISTERED_OBJECT_STATES, RelativeObjectState
 from omnigibson.reward_functions.reward_function_base import BaseRewardFunction
+from omnigibson.robots import BaseRobot, FrankaPanda, Yam
 from omnigibson.scenes.scene_base import Scene
 from omnigibson.tasks.task_base import BaseTask
 from omnigibson.termination_conditions.timeout import Timeout
-from omnigibson.utils.python_utils import assert_valid_key, classproperty
-from omnigibson.utils.ui_utils import create_module_logger, draw_box, clear_debug_drawing
-import omnigibson.lazy as lazy
-from omnigibson.object_states import ToggledOn, Open
-from omnigibson.object_states.aabb import AABB
-from omnigibson.object_states.object_state_base import REGISTERED_OBJECT_STATES, RelativeObjectState
+from omnigibson.utils.python_utils import classproperty
+from omnigibson.utils.ui_utils import create_module_logger
 
-from omnigibson.object_states.open_state import m as open_state_macros
-from omnigibson.utils.constants import JointType
-
-open_state_macros.JOINT_THRESHOLD_BY_TYPE = {
-    JointType.JOINT_REVOLUTE: 0.1,  # TODO: maybe adjust later
-    JointType.JOINT_PRISMATIC: 0.1,  
-}
-
-
-def check_inside_aabb(inner_obj, outer_obj, outer_link_name=None, shrink_factor=0.0, shrink_z_factor=None, 
-                      volume_threshold=None, debug=False):
-    """
-    Check if inner_obj is inside outer_obj's AABB.
-    This is a simpler alternative to the Inside state which requires container meta links.
-    
-    Args:
-        inner_obj: The object that should be inside
-        outer_obj: The container object
-        outer_link_name: Optional name of a specific link of outer_obj to use for AABB check.
-                        If None, uses the entire object's AABB.
-        shrink_factor: Fraction (0.0 to 1.0) to shrink the outer AABB uniformly for stricter checking.
-                      0.0 = no shrinking (check full AABB)
-                      0.1 = shrink by 10% on each side (check inner 80% of volume)
-                      0.25 = shrink by 25% on each side (check inner 50% of volume)
-        shrink_z_factor: Optional separate shrink factor for Z-axis only. If provided, overrides
-                        shrink_factor for the Z dimension. Useful for drawers where you want
-                        stricter vertical checking but less strict horizontal checking.
-        volume_threshold: If provided (0.0 to 1.0), check that at least this fraction of the 
-                         inner object's AABB volume is inside the outer AABB. 
-                         E.g., 0.75 means 75% of volume must be inside.
-                         If None, uses center-point check (legacy behavior).
-        debug: If True, print debug information about the AABB check
-        
-    Returns:
-        bool: True if inner_obj is sufficiently inside outer_obj's (or link's) AABB
-    """
-    inner_aabb_lo, inner_aabb_hi = inner_obj.states[AABB].get_value()
-    inner_center = (inner_aabb_lo + inner_aabb_hi) / 2.0
-    
-    # If a specific link is specified, use that link's AABB instead of the whole object
-    if outer_link_name is not None:
-        if hasattr(outer_obj, 'links') and outer_link_name in outer_obj.links:
-            link = outer_obj.links[outer_link_name]
-            outer_aabb_lo, outer_aabb_hi = link.visual_aabb
-        else:
-            log.warning(f"Link '{outer_link_name}' not found in object '{outer_obj.name}'. Using whole object AABB.")
-            outer_aabb_lo, outer_aabb_hi = outer_obj.states[AABB].get_value()
-    else:
-        outer_aabb_lo, outer_aabb_hi = outer_obj.states[AABB].get_value()
-    
-    # Clone tensors to avoid modifying the original AABBs
-    outer_aabb_lo = outer_aabb_lo.clone()
-    outer_aabb_hi = outer_aabb_hi.clone()
-    
-    # Apply shrink factor to make check stricter (require object to be well inside)
-    if shrink_factor > 0.0:
-        aabb_size = outer_aabb_hi - outer_aabb_lo
-        shrink_amount = aabb_size * shrink_factor
-        outer_aabb_lo = outer_aabb_lo + shrink_amount
-        outer_aabb_hi = outer_aabb_hi - shrink_amount
-    
-    # Apply separate Z-axis shrink factor if provided
-    if shrink_z_factor is not None and shrink_z_factor > 0.0:
-        aabb_size = outer_aabb_hi - outer_aabb_lo
-        z_shrink_amount = aabb_size[2] * shrink_z_factor
-        outer_aabb_lo[2] = outer_aabb_lo[2] + z_shrink_amount
-        outer_aabb_hi[2] = outer_aabb_hi[2] - z_shrink_amount
-    
-    # If volume_threshold is specified, compute AABB intersection volume
-    if volume_threshold is not None:
-        # Compute intersection of the two AABBs
-        intersect_lo = th.maximum(inner_aabb_lo, outer_aabb_lo)
-        intersect_hi = th.minimum(inner_aabb_hi, outer_aabb_hi)
-        
-        # Check if there's any intersection
-        if (intersect_lo >= intersect_hi).any():
-            # No intersection
-            overlap_ratio = 0.0
-        else:
-            # Compute volumes
-            intersect_size = intersect_hi - intersect_lo
-            inner_size = inner_aabb_hi - inner_aabb_lo
-            
-            intersect_volume = th.prod(intersect_size).item()
-            inner_volume = th.prod(inner_size).item()
-            
-            if inner_volume > 0:
-                overlap_ratio = intersect_volume / inner_volume
-            else:
-                overlap_ratio = 0.0
-        
-        result = overlap_ratio >= volume_threshold
-    else:
-        # Legacy center-point check
-        result = (th.le(outer_aabb_lo, inner_center).all() and th.le(inner_center, outer_aabb_hi).all()).item()
-    
-    return result
-from omnigibson.termination_conditions.termination_condition_base import SuccessCondition
-from collections import OrderedDict
-
-# Override specific omnigibson macros specific for this task
-macros.utils.object_state_utils.ON_TOP_RAY_CASTING_SAMPLING_PARAMS.verify_cuboid_empty = False
-macros.utils.sampling_utils.DEFAULT_HIT_PROPORTION = 0.7
+from simfoundry import ASSET_DIR
+from simfoundry.tasks.macros import GAINS  # importing also applies the OG macro overrides
+from simfoundry.tasks.predicates import (
+    DirectPlacementPredicate,
+    InsideAABBPredicate,
+    SPECIAL_STATE_NAMES,
+    make_aabb_predicate,
+    MultiPredicate,
+    Predicate,
+    PredicateType,
+    check_inside_aabb,
+)
+from simfoundry.tasks.task_utils import compute_look_at_orientation, obj_is_settled, randomize_object_pose
+from simfoundry.utils.distractor_utils import (
+    build_candidate_pool,
+    place_distractor,
+    sample_distractors,
+)
+from simfoundry.utils.placement_utils import place_with_predicate, resolve_gap, separate_overlapping_objects
 
 # Create module logger
 log = create_module_logger(module_name=__name__)
 
 
-GAINS = {
-    "franka_panda": {
-        "kp": th.tensor([400.0, 400.0, 400.0, 400.0, 400.0, 400.0, 400.0, 25.0, 25.0]),
-        "kv": th.tensor([80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 10.0, 10.0]),
-        "max_velocity": th.tensor([2.175, 2.175, 2.175, 2.175, 2.61, 2.61, 2.61, 1.0, 1.0]),
-        "max_effort": th.tensor([87.0, 87.0, 87.0, 87.0, 12.0, 12.0, 12.0, 24.0, 24.0]),
-        "joint_lower_limits": th.tensor([-2.6973, -1.5628, -2.6973, -2.8718, -2.6973, 0.1175, -2.773, 0.0, 0.0]),
-        "joint_upper_limits": th.tensor([2.6973, 1.5628, 2.6973, -0.2698, 2.6973, 3.5525, 2.6973, 0.04, 0.04]),
-    },
-    "franka_robotiq": {
-        "kp": th.tensor([400.0, 400.0, 400.0, 400.0, 400.0, 400.0, 400.0, 25.0, 25.0]),
-        "kv": th.tensor([80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 10.0, 10.0]),
-
-        # "kp": th.tensor([800.0, 800.0, 800.0, 800.0, 800.0, 800.0, 800.0, 25.0, 25.0]),
-        # "kv": th.tensor([80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 10.0, 10.0]),
-
-        # "kp": th.tensor([40.0, 60.0, 50.0, 50.0, 30.0, 20.0, 10.0, 10.0, 10.0]),
-        # "kv": th.tensor([4.0, 6.0, 5.0, 5.0, 3.0, 2.0, 1.0, 1.0, 1.0]),
-
-
-        # "kp": th.tensor([200.0, 200.0, 400.0, 400.0, 200.0, 200.0, 400.0, 25.0, 25.0]),
-        # "kp": th.tensor([400.0, 300.0, 500.0, 250.0, 350.0, 250.0, 100.0, 25.0, 25.0]),
-
-        # "kv": th.tensor([40.0, 60.0, 50.0, 50.0, 30.0, 20.0, 10.0, 10.0, 10.0]),
-     
-        # "kv": th.tensor([80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 10.0, 10.0]),
-        
-        "max_velocity": th.tensor([2.175, 2.175, 2.175, 2.175, 2.61, 2.61, 2.61, 1.0, 1.0]),
-        "max_effort": th.tensor([87.0, 87.0, 87.0, 87.0, 12.0, 12.0, 12.0, 24.0, 24.0]),
-        "joint_lower_limits": th.tensor([-2.6973, -1.5628, -2.6973, -2.8718, -2.6973, 0.1175, -2.773,  0.0000,
-         0.0000]),
-        "joint_upper_limits": th.tensor([2.6973,  1.5628,  2.6973, -0.2698,  2.6973,  3.5525,  2.6973, 0.7854, 0.7854]),
-
-        # "joint_lower_limits": th.tensor([-2.2973, -1.2628, -2.6973, -2.8718, -2.6973, 0.1175, -2.773,  0.0000,
-        #  0.0000]),
-        # "joint_upper_limits": th.tensor([2.2973,  1.0,  2.6973, -0.5,  2.6973,  3.5525,  2.6973, 0.7854, 0.7854]),
-    },
-    "Yam": {
-        "kp": th.tensor([400.0, 400.0, 400.0, 400.0, 400.0, 400.0, 400.0, 100.0, 100.0]),
-        "kv": th.tensor([25.0, 25.0, 25.0, 25.0, 25.0, 25.0, 10.0, 10.0]),
-        "max_velocity": th.tensor([3.49, 3.49, 3.49, 10.47, 10.47, 10.47, 0.5, 0.5]),
-        "max_effort": th.tensor([87.0, 87.0, 87.0, 12.0, 12.0, 12.0, 120.0, 120.0]),
-    },
-}
-
-
-class PredicateType(IntEnum):
-    ALL = 0
-    ANY = 1
-    SPECIFIC = 2
-
-
-class MultiPredicate(SuccessCondition):
-    """
-    MultiPredicate (success condition) used for PickPlaceTask
-    Episode terminates if all the predicates are satisfied
-    """
-    def __init__(self, predicates):
-        self.predicates = predicates
-        
-    def _reset(self, task, env):
-        for predicate in self.predicates:
-            predicate.reset(task, env)
-
-    def _step(self, task, env, action):
-        return all(predicate.step(task, env, action)[1] for predicate in self.predicates)
-
-
-class Predicate(SuccessCondition):
-    """
-    PredicateGoal (success condition) used for PickPlaceTask
-    Episode terminates if all the predicates are satisfied
-
-    Args:
-        goal_fcn (method): function for calculating goal(s). Function signature should be:
-
-            goals = goal_fcn()
-
-            where @goals is a list of bddl.condition_evaluation.HEAD -- compiled BDDL goal conditions
-    """
-
-    def __init__(
-            self,
-            objs,
-            predicate_type,
-            obj_state,
-            obj_state_val,
-            obj_state_kwargs,
-    ):
-        # Store values
-        self.objs = objs
-        self.predicate_type = predicate_type
-        self.obj_state = obj_state
-        self.obj_state_val = obj_state_val
-        self.obj_state_kwargs = dict() if obj_state_kwargs is None else obj_state_kwargs
-
-        # Run super
-        super().__init__()
-
-    def _step(self, task, env, action):
-        if self.predicate_type == PredicateType.ALL:
-            op = all
-        elif self.predicate_type == PredicateType.ANY:
-            op = any
-        elif self.predicate_type == PredicateType.SPECIFIC:
-            assert len(self.objs) == 1
-            op = all
-        else:
-            raise ValueError(f"Predicate type {self.predicate_type} not supported")
-
-        # Terminate if predicate condition is met
-        done = op(obj.states[self.obj_state].get_value(**self.obj_state_kwargs) == self.obj_state_val for obj in self.objs)
-
-        return done
-
-    def set(self):
-        # Set the values
-        if self.predicate_type == PredicateType.ALL:
-            op = all
-        elif self.predicate_type == PredicateType.ANY:
-            op = any
-        elif self.predicate_type == PredicateType.SPECIFIC:
-            assert len(self.objs) == 1
-            op = all
-        else:
-            raise ValueError(f"Predicate type {self.predicate_type} not supported")
-
-        # Terminate if predicate condition is met
-        success = op(obj.states[self.obj_state].set_value(**self.obj_state_kwargs, new_value=True) for obj in self.objs)
-
-        return success
-
-
-class InsideAABBPredicate(SuccessCondition):
-    """
-    Predicate for checking if an object is inside another object using AABB containment.
-    This doesn't require container meta links, just checks if the inner object is
-    within the outer object's axis-aligned bounding box.
-    
-    Optionally, can check against a specific link of the outer object (e.g., a specific drawer).
-    
-    New: supports volume_threshold to check that a percentage of the object's volume 
-    is inside (e.g., 0.75 = 75% of volume must be inside).
-    """
-
-    def __init__(self, inner_objs, outer_obj, outer_link_name=None, shrink_factor=0.0, shrink_z_factor=None, 
-                 volume_threshold=None, debug=False, expected_value=True):
-        self.inner_objs = inner_objs
-        self.outer_obj = outer_obj
-        self.outer_link_name = outer_link_name
-        self.shrink_factor = shrink_factor
-        self.shrink_z_factor = shrink_z_factor
-        self.volume_threshold = volume_threshold
-        self.debug = debug
-        self.expected_value = expected_value
-        super().__init__()
-
-    def _step(self, task, env, action):
-        # Check if all inner objects are inside the outer object (or specific link)
-        results = [check_inside_aabb(
-            inner_obj, self.outer_obj, self.outer_link_name, 
-            self.shrink_factor, self.shrink_z_factor, 
-            self.volume_threshold, self.debug
-        ) for inner_obj in self.inner_objs]
-        is_inside = all(results)
-        return is_inside == self.expected_value
-
-
-class DirectPlacementPredicate(SuccessCondition):
-    """
-    Directly places an object on top of another using AABB calculations.
-    Much more reliable than OmniGibson's OnTop.set_value() for custom objects
-    whose collision meshes may not work well with kinematics sampling.
-    """
-
-    def __init__(self, obj, target_obj, z_offset=0.02):
-        self.obj = obj
-        self.target_obj = target_obj
-        self.z_offset = z_offset
-        super().__init__()
-
-    def _step(self, task, env, action):
-        # Not used for termination — only for init placement via set()
-        return False
-
-    def set(self):
-        """Place self.obj centered on top of self.target_obj using AABB."""
-        # Get target (e.g. plate) AABB
-        target_lo, target_hi = self.target_obj.states[AABB].get_value()
-        target_center_xy = (target_lo[:2] + target_hi[:2]) / 2.0
-        target_top_z = target_hi[2].item()
-
-        # Get object (e.g. bowl) AABB to compute half-height
-        obj_lo, obj_hi = self.obj.states[AABB].get_value()
-        obj_half_height = ((obj_hi[2] - obj_lo[2]) / 2.0).item()
-
-        # Position: centered on target XY, sitting on top of target Z
-        new_pos = th.tensor([
-            target_center_xy[0].item(),
-            target_center_xy[1].item(),
-            target_top_z + obj_half_height + self.z_offset,
-        ])
-
-        # Keep current orientation
-        _, current_ori = self.obj.get_position_orientation()
-        self.obj.set_position_orientation(position=new_pos, orientation=current_ori)
-        self.obj.keep_still()
-
-        log.info(f"Directly placed '{self.obj.name}' on top of '{self.target_obj.name}' at z={new_pos[2]:.4f}")
-        return True
+def _resolve_registered_state(state_name, context):
+    """Look up an OmniGibson object state by name, with an actionable error for unknown names."""
+    if state_name not in REGISTERED_OBJECT_STATES:
+        raise ValueError(
+            f"Unknown predicate state '{state_name}' ({context}). "
+            f"SimFoundry special states: {', '.join(SPECIAL_STATE_NAMES)}. "
+            f"Available OmniGibson object states: {', '.join(sorted(REGISTERED_OBJECT_STATES))}."
+        )
+    return REGISTERED_OBJECT_STATES[state_name]
 
 
 class AbsoluteReward(BaseRewardFunction):
+    """Reward that directly returns the value of a user-supplied function of the env."""
+
     def __init__(self, reward_fcn):
         self.reward_fcn = reward_fcn
         super().__init__()
-    
+
     def _step(self, task, env, action):
         reward = self.reward_fcn(env)
         return reward, {}
+
 
 class PickPlaceTask(BaseTask):
     """
@@ -507,8 +217,10 @@ class PickPlaceTask(BaseTask):
         if self.group_init_joint_positions:
             log.info(f"[INIT] group_init_joint_positions configured: {list(self.group_init_joint_positions.keys())}")
         # Predicate-based spatial placement: maps group name -> config dict with
-        #   reference_group (str), predicates (list of str), gap (float or [min, max]),
-        #   z_offset (float, optional)
+        #   reference_group (str) or reference_groups ([a, b], required for 'between'),
+        #   predicates (list of str), gap (float, [min, max], or per-predicate dict),
+        #   z_offset (float, optional), aligned (bool, optional),
+        #   link_name (str, required for 'inside_link'), probability (float, optional)
         self.group_predicate_placement = dict() if group_predicate_placement is None else group_predicate_placement
         if self.group_predicate_placement:
             log.info(f"[INIT] group_predicate_placement configured: {list(self.group_predicate_placement.keys())}")
@@ -831,39 +543,6 @@ class PickPlaceTask(BaseTask):
 
         log.info(f"Randomized ground plane z: offset={z_offset:+.4f}m, new z={new_floor_pos[2]:.4f}m")
 
-    @staticmethod
-    def _compute_look_at_orientation(cam_pos, look_at_point):
-        """
-        Compute the quaternion orientation for a camera at cam_pos to face look_at_point.
-        Uses USD/OpenGL camera convention: -Z is forward (look direction), +Y is up.
-
-        Args:
-            cam_pos (torch.Tensor): Camera position (3,)
-            look_at_point (torch.Tensor): Target point to look at (3,)
-
-        Returns:
-            torch.Tensor: Quaternion orientation (x, y, z, w)
-        """
-        forward = look_at_point - cam_pos
-        forward = forward / th.norm(forward)
-
-        world_up = th.tensor([0.0, 0.0, 1.0], dtype=th.float32)
-
-        # Handle degenerate case where forward is nearly parallel to world_up
-        if th.abs(th.dot(forward, world_up)) > 0.999:
-            world_up = th.tensor([0.0, 1.0, 0.0], dtype=th.float32)
-
-        right = th.cross(forward, world_up)
-        right = right / th.norm(right)
-
-        up = th.cross(right, forward)
-        up = up / th.norm(up)
-
-        # Camera convention: columns are [+X=right, +Y=up, +Z=-forward]
-        rot_mat = th.stack([right, up, -forward], dim=1)
-        quat = T.mat2quat(rot_mat)
-        return quat
-
     def _randomize_external_cameras(self, env):
         """
         Randomize external camera positions using spherical coordinate perturbation around a
@@ -932,7 +611,7 @@ class PickPlaceTask(BaseTask):
             ], dtype=th.float32)
 
             new_pos = self.camera_look_at_point + new_v
-            new_ori = self._compute_look_at_orientation(new_pos, self.camera_look_at_point)
+            new_ori = compute_look_at_orientation(new_pos, self.camera_look_at_point)
 
             sensor.set_position_orientation(position=new_pos, orientation=new_ori, frame="parent")
 
@@ -941,19 +620,6 @@ class PickPlaceTask(BaseTask):
     def _load_non_low_dim_observation_space(self):
         # No non-low dim observations so we return an empty dict
         return dict()
-
-    @staticmethod
-    def _obj_is_settled(obj, distractor_names):
-        """Return True if *obj* should be considered settled for the reset velocity check."""
-        if obj.fixed_base:
-            return True
-        if obj.name in distractor_names:
-            return True
-        try:
-            return th.norm(obj.get_linear_velocity()).item() < 0.01
-        except (AttributeError, Exception):
-            # Kinematic prims (e.g. mesh_background) don't have get_linear_velocity
-            return True
 
     def reset(self, env):
         # Reset milestone tracking for the new episode
@@ -975,7 +641,7 @@ class PickPlaceTask(BaseTask):
                     og.sim.step_physics()
                     # Update distractor names after reset (they may have been re-created)
                     distractor_names = {o.name for o in self._distractor_objs}
-                    success = all(self._obj_is_settled(obj, distractor_names) for obj in env.scene.objects)
+                    success = all(obj_is_settled(obj, distractor_names) for obj in env.scene.objects)
                     curr_sample += 1
                 if not success:
                     print("Failed to reset scene: velocities not minimized")
@@ -995,6 +661,19 @@ class PickPlaceTask(BaseTask):
                 log.warning(
                     f"Scene still unstable after {self.reset_stability_max_attempts} attempts, proceeding anyway"
                 )
+
+        # Capture episode-start state for predicates that need it (e.g., Lifted).
+        # OmniGibson's BaseTerminationCondition.reset() does not dispatch to _reset,
+        # so the task triggers the capture itself, after init placement and settling.
+        self._capture_predicate_start_states()
+
+    def _capture_predicate_start_states(self):
+        """Let goal and milestone predicates record episode-start state (e.g., Lifted's start Z)."""
+        predicates = list(self._termination_conditions["predicates"].predicates)
+        predicates += list(self.milestone_predicates.values())
+        for predicate in predicates:
+            if hasattr(predicate, "capture_start_state"):
+                predicate.capture_start_state()
 
     def _check_scene_stability(self, env):
         """
@@ -1118,10 +797,16 @@ class PickPlaceTask(BaseTask):
                          f"(p={probability:.2f}); using xyz randomization fallback")
                 continue
 
-            ref_group = placement_cfg["reference_group"]
+            ref_cfg = placement_cfg.get("reference_groups", placement_cfg.get("reference_group"))
+            assert ref_cfg is not None, (
+                f"Predicate placement for group '{group}' requires reference_group or reference_groups"
+            )
+            ref_group_names = [ref_cfg] if isinstance(ref_cfg, str) else list(ref_cfg)
             predicates = placement_cfg["predicates"]
             gap_cfg = placement_cfg.get("gap", 0.05)
             z_offset = placement_cfg.get("z_offset", 0.0)
+            aligned = placement_cfg.get("aligned", False)
+            link_name = placement_cfg.get("link_name", None)
 
             # Randomly select a predicate for this reset
             predicate = random.choice(predicates)
@@ -1129,18 +814,33 @@ class PickPlaceTask(BaseTask):
             # Resolve gap (supports scalar, [min, max], or per-predicate dict)
             gap = resolve_gap(gap_cfg, predicate)
 
-            ref_objs = self.group_objs.get(ref_group, [])
-            assert len(ref_objs) == 1, (
-                f"Predicate placement for group '{group}' requires exactly 1 "
-                f"object in reference_group '{ref_group}', found {len(ref_objs)}"
-            )
+            ref_objs = []
+            for ref_group in ref_group_names:
+                objs_rg = self.group_objs.get(ref_group, [])
+                assert len(objs_rg) == 1, (
+                    f"Predicate placement for group '{group}' requires exactly 1 "
+                    f"object in reference group '{ref_group}', found {len(objs_rg)}"
+                )
+                ref_objs.append(objs_rg[0])
 
+            if predicate == "between":
+                assert len(ref_objs) == 2, (
+                    f"Predicate 'between' for group '{group}' requires reference_groups: [a, b]"
+                )
+            if predicate == "inside_link":
+                assert link_name is not None, (
+                    f"Predicate 'inside_link' for group '{group}' requires link_name"
+                )
+
+            # Non-'between' predicates in a mixed predicates list use the first reference group
             for obj in self.group_objs[group]:
                 place_with_predicate(obj, ref_objs[0], predicate, gap=gap, z_offset=z_offset,
-                                     bounds=world_bounds)
+                                     bounds=world_bounds, aligned=aligned,
+                                     reference_obj_2=ref_objs[1] if len(ref_objs) > 1 else None,
+                                     link_name=link_name)
                 predicate_placed_objects.append((obj, predicate))
 
-            log.info(f"[RESET] Placed '{group}' {predicate} '{ref_group}' (gap={gap:.3f}m)")
+            log.info(f"[RESET] Placed '{group}' {predicate} '{' / '.join(ref_group_names)}' (gap={gap:.3f}m)")
 
         # Resolve overlaps between predicate-placed objects (e.g., cup and bowl
         # both placed in_front_of the plate would stack without this).
@@ -1441,7 +1141,6 @@ class PickPlaceTask(BaseTask):
         return reward, done, info
 
     def _create_reward_functions(self):
-        # Initialize reward functions dict and fill in with Potential 
         rewards = dict()
 
         def milestone_potential(env):
@@ -1451,26 +1150,13 @@ class PickPlaceTask(BaseTask):
             This provides a monotonically increasing potential.
             """
             self.check_milestones(env)
-            
+
             # Return milestone progress (0.0 to 1.0)
             return self.get_milestone_progress()
-
-
-    
-        # rewards["potential"] = PotentialReward(
-        #     potential_fcn=milestone_potential,
-        #     r_potential=self._reward_config["r_potential"],
-        # )
 
         rewards["milestone"] = AbsoluteReward(
             reward_fcn=milestone_potential,
         )
-
-        # Alternative: Binary reward for success/failure (uncomment to use)
-        # rewards["potential"] = PotentialReward(
-        #     potential_fcn=lambda env: 1.0 if self.success else 0.0,
-        #     r_potential=self._reward_config["r_potential"],
-        # )
 
         return rewards
 
@@ -1478,7 +1164,7 @@ class PickPlaceTask(BaseTask):
         terminations = dict()
 
         terminations["timeout"] = Timeout(max_steps=self._termination_config["max_steps"])
-        # predicates = list(self._create_predicates(self.goal_predicates_all, self.goal_predicates_any, self.goal_predicates_specific).values())
+        # Goal predicates are filled in later by update_scene(), once group objects are known
         terminations["predicates"] = MultiPredicate(predicates=[])
 
         return terminations
@@ -1538,9 +1224,24 @@ class PickPlaceTask(BaseTask):
                             expected_value=obj_state_val,
                         )
                         continue
-                    
-                    obj_state = REGISTERED_OBJECT_STATES[state_name]
-                    
+
+                    # Special handling for the SimFoundry AABB-geometry states - reliable
+                    # for custom meshes where OG's kinematic states misbehave
+                    if state_name in ("OnTopAABB", "AboveAABB", "Lifted"):
+                        other_obj = None
+                        if state_name != "Lifted":
+                            other_group = predicate_info["other_group"]
+                            other_objs = self.group_objs[other_group]
+                            assert len(other_objs) == 1, \
+                                f"{state_name} requires exactly 1 object in other_group '{other_group}', found {len(other_objs)}"
+                            other_obj = other_objs[0]
+                        predicates[f"predicate_{type_str}_{i}"] = make_aabb_predicate(
+                            state_name, objs, other_obj, obj_state_val, obj_state_kwargs,
+                        )
+                        continue
+
+                    obj_state = _resolve_registered_state(state_name, f"predicates_{type_str}[{i}]")
+
                     # Special handling for Open state - dynamically add to objects with joints
                     if obj_state == Open:
                         for obj in objs:
@@ -1650,9 +1351,27 @@ class PickPlaceTask(BaseTask):
                 }
                 self.milestones_achieved[name] = 0
                 continue
-            
+
+            # Special handling for the SimFoundry AABB-geometry states. These classes
+            # implement _step, so the standard check_milestones loop evaluates them
+            # (including `requires` gating) - no bespoke check dict needed.
+            if state_name in ("OnTopAABB", "AboveAABB", "Lifted"):
+                other_obj = None
+                if state_name != "Lifted":
+                    other_group = milestone_info["other_group"]
+                    other_objs = self.group_objs.get(other_group, [])
+                    if len(other_objs) != 1:
+                        log.warning(f"Milestone '{name}' requires exactly 1 object in other_group '{other_group}', found {len(other_objs)}")
+                        continue
+                    other_obj = other_objs[0]
+                self.milestone_predicates[name] = make_aabb_predicate(
+                    state_name, objs, other_obj, obj_state_val, obj_state_kwargs,
+                )
+                self.milestones_achieved[name] = 0
+                continue
+
             # Standard object state predicate
-            obj_state = REGISTERED_OBJECT_STATES[state_name]
+            obj_state = _resolve_registered_state(state_name, f"milestone '{name}'")
             
             # Special handling for Open state - dynamically add to objects with joints
             if obj_state == Open:
@@ -1800,43 +1519,9 @@ class PickPlaceTask(BaseTask):
         achieved = sum(1 for v in self.milestones_achieved.values() if v)
         return achieved / len(self.milestones_achieved)
 
-    @staticmethod
-    def randomize_object_pose(default_pos, default_quat, max_xyz_offset=(0, 0, 0), max_z_rotation=0.0, bounds=None):
-        """
-        Randomizes the pose given @default_pos and @default_quat, based on max perturbations @max_xyz_offset and
-        @max_z_rotation.  When @bounds is provided, the position offset is constrained so that the
-        resulting position stays within the workspace bounds (uniform sampling within the intersection
-        of the offset range and the valid workspace region).
-
-        Args:
-            default_pos (3-array): (x,y,z) position to perturb
-            default_quat (4-array): (x,y,z,w) quaternion orientation to perturb
-            max_xyz_offset (3-array): (x,y,z) maximum perturbation to sample
-            max_z_rotation (float): maximum z-rotation to sample
-            bounds (tuple or None): World-frame workspace bounds as ``(lower, upper)``
-                tensors of shape ``(3,)``.  If provided, the sampled position is
-                guaranteed to lie within these bounds.
-
-        Returns:
-            2-tuple:
-                - torch.tensor: (x,y,z) perturbed position
-                - torch.tensor: (x,y,z,w) perturbed quaternion
-        """
-        max_xyz_offset = th.tensor(max_xyz_offset, dtype=th.float)
-        default_pos = th.as_tensor(default_pos, dtype=th.float)
-
-        if bounds is not None:
-            # Intersect the offset range [-max, +max] with the valid workspace region
-            lo = th.maximum(-max_xyz_offset, bounds[0] - default_pos)
-            hi = th.minimum(max_xyz_offset, bounds[1] - default_pos)
-            pos_offset = th.rand(3) * (hi - lo) + lo
-        else:
-            pos_offset = th.rand(3) * (2.0 * max_xyz_offset) - max_xyz_offset
-
-        rot_z_offset = T.euler2mat(th.tensor([0.0, 0.0, th.rand(1).item() * 2.0 * max_z_rotation - max_z_rotation], dtype=th.float))
-        new_pos = default_pos + pos_offset
-        new_quat = T.mat2quat(rot_z_offset @ T.quat2mat(default_quat))
-        return new_pos, new_quat
+    # Implementation lives in task_utils; exposed as a static method so callers can keep
+    # using self.randomize_object_pose / PickPlaceTask.randomize_object_pose.
+    randomize_object_pose = staticmethod(randomize_object_pose)
 
     @classproperty
     def valid_scene_types(cls):

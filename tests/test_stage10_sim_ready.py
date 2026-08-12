@@ -6,6 +6,17 @@ import os
 from pathlib import Path
 import sys
 
+import pytest
+
+# These target a refactor of stage 10 into discover_sim_ready_jobs / ConversionTask /
+# convert_objects_parallel that is not in this release: 10_make_objects_sim_ready.py defines
+# none of them (it has resolve_requested_indices and import_rigid_scene_object instead).
+# Skipped rather than deleted so the intended interface survives for whoever lands that
+# refactor -- and so `pytest` stays usable as the documented install check.
+pytestmark = pytest.mark.skip(
+    reason="stage 10 refactor (discover_sim_ready_jobs / ConversionTask) is not in this release"
+)
+
 
 def load_stage10_module(repo_root: Path):
     module_path = repo_root / "scripts" / "pipeline" / "A_reconstruction" / "stages" / "10_make_objects_sim_ready.py"

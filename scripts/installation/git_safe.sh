@@ -3,9 +3,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Non-destructive checkout helpers for dependency repos under deps/.
-
 #
-# Set SIMFOUNDRY_FORCE_DEP_CHECKOUT=1 to opt in to overwriting local work.
+# SIMFOUNDRY_FORCE_DEP_CHECKOUT=1 skips the guards below. Safe in
+# git_safe_checkout_detached (plain `checkout --detach`, never `-f`); destructive in
+# git_safe_sync_branch (`checkout -B` + `reset --hard`).
 
 # Print a warning explaining why a checkout was left alone.
 _git_safe_skip_notice() {
@@ -13,7 +14,7 @@ _git_safe_skip_notice() {
   echo "" >&2
   echo "NOTE: leaving ${repo_dir} as-is (${reason})." >&2
   echo "      Not checking out ${target}, so your local work is preserved." >&2
-  echo "      Commit/stash your changes, or set SIMFOUNDRY_FORCE_DEP_CHECKOUT=1 to overwrite." >&2
+  echo "      Commit or stash your changes, or set SIMFOUNDRY_FORCE_DEP_CHECKOUT=1 to check out anyway." >&2
   echo "" >&2
 }
 
@@ -48,14 +49,30 @@ git_safe_checkout_detached() {
     return
   fi
 
-  # A branch with commits not on the target is local development; don't move off it.
+  # Don't move off a branch carrying local development, i.e. commits not on its own remote.
+  # Comparing against the pin instead would skip every clean clone, since a pin is older than
+  # the remote's default branch by construction.
   local branch
   branch="$(git -C "${repo_dir}" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
-  if [[ -n "${branch}" && -n "${target_sha}" ]] \
-     && [[ -n "$(git -C "${repo_dir}" rev-list --count "${target_sha}..HEAD" 2>/dev/null)" ]] \
-     && [[ "$(git -C "${repo_dir}" rev-list --count "${target_sha}..HEAD" 2>/dev/null)" != "0" ]]; then
-    _git_safe_skip_notice "${label}" "branch '${branch}' has local commits" "${target}"
-    return
+  if [[ -n "${branch}" ]]; then
+    local upstream unpushed
+    upstream="$(git -C "${repo_dir}" rev-parse --verify --quiet "${branch}@{upstream}" 2>/dev/null || true)"
+    if [[ -z "${upstream}" ]]; then
+      # No tracking config; fall back to the conventional remote ref.
+      upstream="$(git -C "${repo_dir}" rev-parse --verify --quiet "origin/${branch}" 2>/dev/null || true)"
+    fi
+
+    if [[ -z "${upstream}" ]]; then
+      # Nothing to compare against, so assume the branch is the user's.
+      _git_safe_skip_notice "${label}" "branch '${branch}' has no remote to compare against" "${target}"
+      return
+    fi
+
+    unpushed="$(git -C "${repo_dir}" rev-list --count "${upstream}..HEAD" 2>/dev/null || true)"
+    if [[ -n "${unpushed}" && "${unpushed}" != "0" ]]; then
+      _git_safe_skip_notice "${label}" "branch '${branch}' has ${unpushed} commit(s) not on its remote" "${target}"
+      return
+    fi
   fi
 
   git -C "${repo_dir}" checkout --detach "${target}"

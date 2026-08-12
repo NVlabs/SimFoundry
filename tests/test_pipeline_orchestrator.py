@@ -56,7 +56,10 @@ def test_named_stage_plans_use_new_subdirectories():
     application = get_stage_plan("video", pipeline_name="application")
 
     assert reconstruction[0].script == "scripts/pipeline/A_reconstruction/stages/1b_process_raw_video.py"
-    stage_2c = next(spec for spec in reconstruction if spec.stage_id == "2c")
+    # Stage 2c is opt-in via --bg-splat, so it is absent from the default plan.
+    assert not any(spec.stage_id == "2c" for spec in reconstruction)
+    with_splat = get_stage_plan("video", pipeline_name="reconstruction", bg_splat=True)
+    stage_2c = next(spec for spec in with_splat if spec.stage_id == "2c")
     assert stage_2c.env == "nerfstudio"
     assert any(spec.script.endswith("B_augmentation/stages/8_match_cousin_p2p.py") for spec in augmentation)
     assert application[0].stage_id == "smoke"
@@ -66,7 +69,7 @@ def test_named_stage_plans_use_new_subdirectories():
 def test_stage_2c_uses_dedicated_nerfstudio_environment():
     stage_2c = next(
         spec
-        for spec in get_stage_plan("video", pipeline_name="reconstruction")
+        for spec in get_stage_plan("video", pipeline_name="reconstruction", bg_splat=True)
         if spec.stage_id == "2c"
     )
 
