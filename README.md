@@ -310,4 +310,4 @@ See [Third-Party Licenses](THIRD_PARTY_LICENSES.md), [Third-Party Notices](THIRD
 
 ## Contact
 
-For questions or support, reach out to Nadun Ranawaka at [nadun.ranawaka@gatech.edu](mailto:nadun.ranawaka@gatech.edu) or Josiah Wong at [jdwong@alumni.stanford.edu](mailto:jdwong@alumni.stanford.edu).
+For questions or support, reach out to Nadun Ranawaka at [nadun.ranawaka@gatech.edu](mailto:nadun.ranawaka@gatech.edu) or Ajay Mandlekar at [amandlekar@nvidia.com](mailto:amandlekar@nvidia.com).
