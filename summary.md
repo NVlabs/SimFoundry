@@ -155,6 +155,35 @@ The public OmniGibson robot-asset download supplies `franka_panda`, `franka_moun
 `franka_dexhand` — but **not** `franka_robotiq`, exactly as `docs/INSTALL.md` states. So there
 is no supported way for an external user to satisfy a required dependency.
 
+**The default pipeline does not appear to need this asset at all.** `franka_robotiq` is a
+Franka Panda fitted with a *Robotiq* gripper — a hand-authored robot model, not a
+reconstructed scene asset (SimFoundry generates the scene objects from video; the robot is
+fixed). Stage 13 selects it only when the Robotiq end effector is chosen:
+
+```python
+# 13_create_og_scene.py:131-136
+end_effector = robot_cfg.get("end_effector", "gripper")
+model_by_end_effector = {
+    "gripper": "franka_panda",     # <- the default
+    "robotiq": "franka_robotiq",   # <- only this needs og_cdc_assets
+}
+```
+
+But `real2sim_cfg.yaml:320` sets `end_effector: gripper`, and every shipped task config sets
+`robot_type: franka` rather than `franka_robotiq`. Stage 13's *runtime* check is correctly
+conditional; it is only the *installer* that treats the asset as unconditionally `required`
+and exits 1.
+
+`docs/INSTALL.md:139` describes it as "the `franka_robotiq` end effector used by most task
+configs", which the shipped configs contradict — none of them select it.
+
+**This suggests B2 may be a one-line fix rather than a distribution problem:** demoting
+`validate_robot_asset_file "models/franka/franka_robotiq/..."` from `required` to `optional`
+at `install_simfoundry.sh:591` would likely unblock every external user, leaving the asset
+needed only by those who opt into Robotiq. *Not yet verified* — this reinstall used the
+fallback bundle, so the no-asset path remains untested. Worth confirming before release,
+since it would turn a hard blocker into a trivial change.
+
 Two things make it harder to diagnose than it needs to be:
 
 - **The error message points at the wrong source.** It says *"The public OmniGibson robot
@@ -254,6 +283,48 @@ step 4. Even with H8 fixed, no articulated asset can be produced.
 default in `joint_actor.py:373`), and re-pin `deps/co-tracker` to the commit matching the
 downloaded checkpoint. Both are small, but until they land `--detect-articulation` cannot
 deliver its advertised output.
+
+### B4 — `evdev` cannot build on a machine with no pip cache (conda sysroot headers too old)
+
+| | |
+|---|---|
+| **Severity** | Blocker on a *genuinely* clean machine — aborts `install_simfoundry.sh` |
+| **Where** | [`install_simfoundry.sh:368`](scripts/installation/install_simfoundry.sh#L368) (`evdev==1.9.3`), ordered after the conda gcc install at ~line 340 |
+
+```
+src/evdev/ecodes.c:541:29: error: 'KEY_LINK_PHONE' undeclared
+ERROR: Failed building wheel for evdev
+ERROR: Mesh/input package installation failed with exit code 1.
+```
+
+`evdev` publishes no manylinux wheel, so it always compiles from source. The installer first
+installs conda's `gcc_linux-64=13` (needed for BEHAVIOR-1K), which makes `pip` use
+`x86_64-conda-linux-gnu-cc` and **conda's sysroot headers**:
+
+| `linux/input-event-codes.h` | `KEY_LINK_PHONE` |
+|---|---|
+| `/usr/include/...` (system, Ubuntu 22.04) | present |
+| `.../x86_64-conda-linux-gnu/sysroot/usr/include/...` | **absent** |
+
+evdev 1.9.3 references key codes newer than the conda sysroot provides, so the build fails.
+
+**This was masked in the first beta-test install.** That run logged `Using cached evdev...`,
+reusing a wheel built during the machine's original August setup. After the pip cache was
+purged, the same installer on the same machine logged `Downloading evdev-1.9.3.tar.gz` and
+failed. **Any user without a pre-existing pip cache — i.e. every new user — hits this.** It is
+a good example of a stale cache hiding a real defect from a "clean" reinstall test.
+
+**Fix that worked** (build with the system compiler, then re-run; the installer's
+`python -c 'import evdev'` guard then skips it):
+
+```bash
+mamba activate simfoundry
+CC=/usr/bin/gcc CXX=/usr/bin/g++ python -m pip install "evdev==1.9.3"
+```
+
+**Suggested fix:** install `evdev`/`pymeshlab` *before* the conda compilers land, or pin
+`CC`/`CXX` to the system toolchain for that one pip call, or add a newer
+`sysroot_linux-64` so the conda headers carry the required key codes.
 
 ---
 
@@ -595,6 +666,42 @@ messages suggests it.
 rather than success. Across the installer (`install_everything.sh` skipping half-built envs),
 `3dgrut`, and articulation, it has now caused four separate misleading failures in this test.
 Worth treating as one cross-cutting design issue rather than three unrelated bugs.
+
+### H10 — `install_faiss_gpu` has no timeout and can hang silently and indefinitely
+
+| | |
+|---|---|
+| **Where** | [`faiss_gpu.sh:12`](scripts/installation/faiss_gpu.sh#L12) |
+| **Symptom** | The last step of `install_simfoundry.sh` sits forever with no output and no error |
+
+```bash
+mamba install -n "${env_name}" -c pytorch "faiss-gpu=${FAISS_GPU_VERSION}" -y
+```
+
+No `timeout`, no retry — unlike the pip steps in the same installer, which use
+`timeout --signal=TERM --kill-after=30s "${PYTHON_PACKAGE_TIMEOUT}s"`.
+
+Observed on the second clean-room install: the process caught a stalled socket and sat in
+`poll()` for **52 minutes**, consuming **0.66 s of CPU in total**, with no log output. The
+channel was healthy throughout (`conda.anaconda.org/pytorch` returned HTTP 200 in 0.07 s), and
+after killing it the identical command succeeded on the first retry in under 10 minutes.
+
+Because it is the *final* step of the *first* environment, an operator sees a build that has
+apparently been "working" for an hour, and the log's last line is a routine conda message.
+A second observer independently concluded the installer had *stopped*; it had not — it was
+wedged, which matters because "stopped" implies re-running is safe while "wedged" means it
+would wait forever.
+
+**How to tell a hung step from a slow one** (worth documenting for users):
+
+```bash
+ps -o pid,stat,etime,time,cmd -p <pid>
+# ELAPSED 51:39 with TIME 00:00:00  ->  hung, not working
+```
+
+**Suggested fix:** wrap the call in `timeout` with 2-3 retries, matching the pip steps. A
+silent unbounded hang on the first environment is a poor first impression and is easily
+mistaken for normal slowness.
 
 ---
 

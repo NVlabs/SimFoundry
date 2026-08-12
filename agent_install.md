@@ -7,14 +7,30 @@ on a fresh Linux + NVIDIA machine. Written from an observed clean-room reinstall
 **Read this whole file before running anything.** The install takes hours and several
 steps are effectively irreversible once started.
 
-**A from-scratch install fails three times before it succeeds.** Each failure is documented
-in §6 with its fix. Budget for them:
+**A from-scratch install fails four to five times before it succeeds.** Each failure is
+documented in §6 with its fix. Budget for them — verified across two independent clean-room
+installs on the same machine:
 
 | # | Fails at | Fix |
 |---|---|---|
 | §6.1 | `simfoundry`, ~40 min in | `SIMFOUNDRY_FORCE_DEP_CHECKOUT=1` |
 | §6.2 | `simfoundry`, ~50 min in | `--robot-asset-fallback-root` — **needs a copy of a non-public asset bundle; you may be hard-blocked here** |
+| §6.5 | `simfoundry`, mesh/input step | build `evdev` with the system compiler |
+| §6.6 | `simfoundry`, final FAISS step | kill and redo with `timeout` — it hangs silently, forever |
 | §6.3 | `3dgrut` (last, optional) | patch conda hooks to be `nounset`-safe |
+
+**Two operational rules that would have saved hours here:**
+
+1. **Wrap every long step in `timeout`.** Two of this install's three multi-hour delays were
+   silent hangs, not slow work.
+2. **Never trust "a process exists" as progress.** Check CPU time (§6.6). Also confirm an
+   installer is *actually running* after any manual intervention — it is easy to fix one
+   failure and forget to restart the chain.
+
+> **Shell note for agents:** in `zsh` (the default on many dev machines and on macOS),
+> unquoted parameter expansion does **not** word-split. `bash run.sh $ARGS` passes the whole
+> string as one argument, so flags silently become a single Hydra override and the stage
+> fails with a confusing error. Always write flags literally, or use `bash -c`.
 
 ---
 
@@ -57,10 +73,10 @@ df -h .
 | Requirement | Why | Failure if missing |
 |---|---|---|
 | `mamba` (Miniforge) | every installer calls it | exits 127 immediately |
-| `uv` | `install_3dgrut.sh` only | 3dgrut env fails, others fine |
-| `/usr/local/cuda-12.8` | `install_any6d.sh` sets `CUDA_HOME` to it | any6d build fails |
-| `git-lfs` | articulation repos store assets in LFS | corrupt checkouts |
-| ~250 GB free disk | envs ≈ 100 GB, deps ≈ 82 GB, HF cache ≈ 12 GB | mid-build ENOSPC |
+| `uv` | `install_3dgrut.sh` only (verified: no other installer references it) | 3dgrut env fails, others fine |
+| `/usr/local/cuda-12.8` | `CUDA_HOME` in **`install_simfoundry.sh:82`** *and* `install_any6d.sh:75` | **core env fails**, not just any6d |
+| `git-lfs` | `install_articulate.sh` only — optional articulation component | articulation checkouts corrupt; core install unaffected |
+| ~170 GB free disk | **measured**: 160 GB for 9 envs + `deps/` + `checkpoints/`. Without articulation, ~135 GB. Excludes the HF cache (~23 GB), which is shared and usually already present. | mid-build ENOSPC |
 | 24 GiB VRAM | the standard video pipeline | OOM at stage 7 |
 
 **Do not** rely on `git submodule update --init --recursive` from the docs — this repo
@@ -70,9 +86,24 @@ has no `.gitmodules`. All dependencies are cloned by the install scripts into `d
 
 ## 2. Choose the install scope
 
-> **Always set `SIMFOUNDRY_FORCE_DEP_CHECKOUT=1`.** Without it, a *fresh clone* of
+> **Two things to settle BEFORE running anything in this section.** Getting either wrong
+> costs ~50 minutes before the failure appears.
+>
+> **(a) Always set `SIMFOUNDRY_FORCE_DEP_CHECKOUT=1`.** Without it, a *fresh clone* of
 > `deps/BEHAVIOR-1K` is misdetected as local development and the pinned commit is never
-> checked out, which fails the install partway through. See §6.1.
+> checked out. See §6.1.
+>
+> **(b) Check whether `og_cdc_assets` is reachable first** — if it is not, the command below
+> **cannot build the `simfoundry` env at all**, because `install_everything.sh` does not
+> accept or forward `--robot-asset-fallback-root`:
+>
+> ```bash
+> GIT_TERMINAL_PROMPT=0 git ls-remote https://github.com/cremebrule/og_cdc_assets.git HEAD
+> ```
+>
+> If that fails, go to **§6.2 now** and build `simfoundry` with `install_simfoundry.sh`
+> directly, then return here and run `install_everything.sh` for the remaining envs (it skips
+> the one already built). Do not discover this the slow way.
 
 ```bash
 # All 7 envs (simfoundry, hunyuan, any6d, da3, void, nerfstudio_simfoundry, 3dgrut)
@@ -136,14 +167,31 @@ chmod 600 api_keys.txt
 **Gated models.** The user's HF account must have approved access to these, or later
 stages fail with a 401/403 that does not name the cause:
 
+Do **not** probe a fixed filename like `config.json` — not every repo has one, and a missing
+file is indistinguishable from a permissions failure. `netflix/void-model`, for example,
+contains only `README.md` and two `.safetensors`, so a `config.json` probe reports a false
+`DENIED`. Ask the API whether the repo is listable instead:
+
 ```bash
-for r in facebook/sam3 \
-         facebook/dinov3-vitl16-pretrain-lvd1689m \
-         briaai/RMBG-2.0 \
-         netflix/void-model; do
-  printf '%-50s ' "$r"
-  hf download "$r" config.json --quiet >/dev/null 2>&1 && echo OK || echo DENIED
-done
+python - <<'PY'
+from huggingface_hub import HfApi
+from huggingface_hub.utils import GatedRepoError, RepositoryNotFoundError
+api = HfApi()
+for r in ["facebook/sam3",
+          "facebook/dinov3-vitl16-pretrain-lvd1689m",
+          "briaai/RMBG-2.0",
+          "netflix/void-model",
+          "alibaba-pai/CogVideoX-Fun-V1.5-5b-InP"]:
+    try:
+        api.list_repo_files(r)
+        print(f"{r:<50} OK")
+    except GatedRepoError:
+        print(f"{r:<50} DENIED - request access on the model page")
+    except RepositoryNotFoundError:
+        print(f"{r:<50} NOT FOUND / no access")
+    except Exception as e:
+        print(f"{r:<50} ERROR {type(e).__name__}")
+PY
 ```
 
 `black-forest-labs/FLUX.1-Kontext-dev` is optional — only needed if a config sets
@@ -401,6 +449,56 @@ which**, do not pick for them:
 
 Budget ~25 GB: both `articulate-anything-hunyuan` and `articulate-anything-partfield` are
 built unconditionally, with no flag to select one.
+
+### 6.5 `ERROR: Failed building wheel for evdev` — `KEY_LINK_PHONE` undeclared
+
+Hits **any machine without a pre-existing pip cache**, i.e. every genuinely new install.
+
+```
+src/evdev/ecodes.c:541:29: error: 'KEY_LINK_PHONE' undeclared
+ERROR: Mesh/input package installation failed with exit code 1.
+```
+
+`evdev` ships no manylinux wheel, so it always compiles. The installer has already put conda's
+`gcc_linux-64` on PATH (for BEHAVIOR-1K), so pip builds against conda's **sysroot** headers,
+which lack the newer key codes the system headers have.
+
+```bash
+mamba activate simfoundry
+CC=/usr/bin/gcc CXX=/usr/bin/g++ python -m pip install "evdev==1.9.3"
+```
+
+Then re-run `install_simfoundry.sh` — its `python -c 'import evdev'` guard makes it skip the
+step. **Warning:** re-running restarts the whole script, including BEHAVIOR-1K's `setup.sh`;
+budget ~30 minutes.
+
+### 6.6 The install appears to hang with no output (usually FAISS)
+
+`faiss_gpu.sh:12` runs `mamba install -c pytorch faiss-gpu -y` with **no timeout and no
+retry**, and it is the *last* step of the *first* env. A stalled socket wedges it forever
+while the log's last line looks like normal conda output.
+
+**Always distinguish hung from slow before waiting:**
+
+```bash
+ps -o pid,stat,etime,time,cmd -p <pid>
+```
+
+`ELAPSED 51:39` with `TIME 00:00:00` means it has used no CPU and is **hung**, not working.
+Confirm with `cat /proc/<pid>/wchan` (`do_poll` = blocked on I/O).
+
+Recovery — kill it and redo that step with a cap, which succeeds immediately:
+
+```bash
+kill -9 <mamba pid>; pkill -f install_simfoundry.sh
+timeout 600s mamba install -n simfoundry -c pytorch faiss-gpu=1.12 -y
+mamba run -n simfoundry python -c "import faiss; print(faiss.get_num_gpus())"
+```
+
+Since faiss is the final step, the env is otherwise complete — no full rebuild needed.
+
+**Generally: wrap every long install step in `timeout` and watch for stale logs.** Two of the
+three multi-hour delays in this project's install were silent hangs, not slow work.
 
 ### Installer stops partway
 `install_everything.sh` uses `set -euo pipefail`, so the first failure aborts every
