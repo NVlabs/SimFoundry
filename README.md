@@ -167,6 +167,8 @@ SimFoundry is organized into three modular pipelines:
 
 ## Scene Gallery
 
+Each object mesh in the simulation column was generated fully automatically from a single 2D crop using Hunyuan3D, then depth-estimated, segmented, posed, and compiled into a physics-ready OmniGibson scene — no manual annotation at any step. Powered by [Pipeline A](scripts/pipeline/A_reconstruction/).
+
 Real-world scenes and their SimFoundry reconstructions. The simulation column shows objects being sequentially placed back into the reconstructed scene:
 
 <table>
@@ -201,6 +203,8 @@ Real-world scenes and their SimFoundry reconstructions. The simulation column sh
 </table>
 
 ## Digital Cousins
+
+Given a reconstructed scene, SimFoundry uses a VLM to propose geometry, topology, and appearance variations of each object, then generates the resulting 3D assets automatically. Policies trained on the original scene transfer zero-shot to these unseen object variants in the real world. Powered by [Pipeline B](scripts/pipeline/B_augmentation/).
 
 SimFoundry generates **digital cousin** variations — objects with differing geometry, topology, and appearance — enabling policy generalization to unseen objects out of the box:
 
