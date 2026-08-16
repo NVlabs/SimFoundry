@@ -1943,13 +1943,13 @@ def main(cfg):
 
         merged_output = np.where(metric_depth == 0, deepcopy(output), metric_depth)
 
-        # Check pixels against original image to see if we segmented a valid image, and not an "imagined" object
-        # due to the inpainting process accidentally adding a spurious object. We enforce a minimum proportion of pixels
-        # to completely align with the original image
+        # Check pixels against the upsampled source image (the root of the iteration chain) to see
+        # if we segmented a valid object, and not an "imagined" one added by the inpainting process.
+        # We enforce a minimum proportion of pixels to align with that source. Cast to float first:
+        # uint8 subtraction wraps around and marks any brightened pixel as misaligned.
         mask_size = removal_mask.sum()
-        # removal_original_pixel_alignment = np.all(resized_padded_img == current_rgb, axis=-1)
-        # n_aligned_pixels = removal_original_pixel_alignment[removal_mask].sum()
-        removal_original_pixel_alignment = np.linalg.norm(resized_padded_img - current_rgb, axis=-1) < 50
+        removal_original_pixel_alignment = np.linalg.norm(
+            upsampled_obj_img_raw.astype(np.float32) - current_rgb.astype(np.float32), axis=-1) < 50
         n_aligned_pixels = removal_original_pixel_alignment[removal_mask].sum()
         valid_pixel_proportion = float(n_aligned_pixels / mask_size)
         is_valid_removed_obj = bool(valid_pixel_proportion > min_valid_pixel_prop)

@@ -30,6 +30,7 @@ from os.path import exists
 from pathlib import Path
 from xml.dom import minidom
 from scipy.spatial.transform import Rotation as R
+from simfoundry.pipeline.articulation_physics import resolve_joint_dynamics
 from simfoundry.utils.urdfpy_utils import URDF
 import numpy as np
 
@@ -1793,16 +1794,25 @@ def import_articulated_object(
     up_axis: Literal["z", "y"] = "z",
     apply_base_rotation: bool = True,
     overwrite: bool = True,
+    joint_dynamics_overrides: Optional[dict] = None,
+    joint_dynamics_defaults: Optional[dict] = None,
 ) -> str:
     """
     Imports an articulated object from an existing URDF (e.g., from articulation pipeline)
     by adding physical properties and generating collision meshes.
-    
+
     Args:
         urdf_path: Path to existing URDF from articulation step (e.g., mobility.urdf)
         mesh_parts_dir: Directory containing the mesh parts referenced by the URDF
         parts_properties: List of dicts with per-part properties:
             [{"name": "link_name", "mass_kg": 1.0, "friction": 0.5, "joint_damping": 0.1}, ...]
+        joint_dynamics_overrides: Optional per-joint {"<joint name>": {"damping", "friction"}}
+            applied last (user edits from the articulation refinement UI).
+        joint_dynamics_defaults: Optional per-joint {"<joint name>": {"damping", "friction"}}
+            estimates (the articulation pipeline's physics_properties.json), used only
+            for what neither an override nor the input URDF's own <dynamics> provides.
+            <dynamics> values already present in the input URDF (pipeline-authored or
+            hand-edited) are preserved unless overridden.
         category: Category name for the object
         model: Model identifier (6 lowercase letters)
         dataset_root: Root directory of the dataset
@@ -2148,20 +2158,29 @@ def import_articulated_object(
         
         child_link = child_elem.attrib.get("link", "")
         props = link_to_props.get(child_link, {})
-        
-        # Get damping and friction values
-        damping = props.get("joint_damping", 0.5)  # Default damping
-        friction = REVOLUTE_JOINT_FRIC if joint_type == "revolute" else PRISMATIC_JOINT_FRIC
-        
-     
+
+        # Dynamics authored by the articulation pipeline (already in the input
+        # URDF) are preserved; pipeline estimates then legacy defaults fill
+        # gaps; per-joint user overrides win.
+        existing_dyn = joint.find("dynamics")
+        joint_name = joint.attrib.get("name", "")
+        damping, friction = resolve_joint_dynamics(
+            joint_type,
+            existing_attrib=dict(existing_dyn.attrib) if existing_dyn is not None else None,
+            child_props=props,
+            override=(joint_dynamics_overrides or {}).get(joint_name),
+            revolute_friction=REVOLUTE_JOINT_FRIC,
+            prismatic_friction=PRISMATIC_JOINT_FRIC,
+            defaults_entry=(joint_dynamics_defaults or {}).get(joint_name),
+        )
+
         for old_dyn in joint.findall("dynamics"):
             joint.remove(old_dyn)
-        
+
         # Add dynamics element
         dynamics_elem = ET.SubElement(joint, "dynamics")
         dynamics_elem.attrib = {
             "damping": str(damping),
-            # "friction": str(friction), # TODO: Remove this once we have the correct friction values
             "friction": str(friction),
         }
     

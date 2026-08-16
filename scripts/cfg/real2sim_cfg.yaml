@@ -276,6 +276,11 @@ s8b_articulate_objects:
   s5_max_iter: 5
   s5_num_seeds: 1
   merge_interactive_correction: false # Keep the generated articulation workflow unattended by default
+  # Interactive joint-refinement UI (articulate-anything step 6): opens a web UI
+  # after articulation to refine joint limits, pivots, axes, and dynamics.
+  # Also applies to already-articulated objects (they are passed through the
+  # workflow for refinement without being re-articulated).
+  interactive_joint_refinement: false
   # Classification review options:
   classification_only: false          # If true, stop after writing object_classification.json
   interactive_review: false          # If true, prompt user to review/modify VLM classification

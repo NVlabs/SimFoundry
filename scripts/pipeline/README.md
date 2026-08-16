@@ -82,7 +82,7 @@ frame throughout.*
 | `6` | `A_reconstruction/stages/6_upsample_object_images.py` | `simfoundry` | Create cleaner object images for mesh generation. | `s6_upsample/` |
 | `7` | `A_reconstruction/stages/7_generate_object_meshes.py` | `hunyuan` (`--env-mesh`) | Generate 3D meshes. | `s7_mesh/` |
 | `8` | `A_reconstruction/stages/8_match_object_poses.py` | `simfoundry` | Estimate object poses. | `s8_pose/` |
-| `8b` | `A_reconstruction/stages/8b_articulate_objects.py` | `simfoundry` | Optional automatic articulation (`--detect-articulation`). | `s8b_articulate_objects/` |
+| `8b` | `A_reconstruction/stages/8b_articulate_objects.py` | `simfoundry` | Optional automatic articulation (`--detect-articulation`). Also the source of articulated-object physics: the workflow estimates per-part mass/surface friction and per-joint damping/friction (`results/physics_properties.json` + URDF `<dynamics>`), which stage 10 consumes instead of estimating its own; user edits from the refinement UI (`physics_overrides.json`) take precedence. | `s8b_articulate_objects/` |
 | `9` | `A_reconstruction/stages/9_compile_scene.py` | `simfoundry` | Compile object metadata. | `s9_compile/` |
 | `10` | `A_reconstruction/stages/10_make_objects_sim_ready.py` | `simfoundry` | Build sim-ready URDF/collision assets. | `s10_sim/` |
 | `11` | `A_reconstruction/stages/11_stabilize_physics.py` | `simfoundry` | Settle objects in physics. | `s11_physics/` |

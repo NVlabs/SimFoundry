@@ -54,8 +54,12 @@ def render_yaw_views(mesh, out_dir, azimuths_deg=VIEW_AZIMUTHS_DEG, elevation_de
         up = np.cross(cam, right)
         sx, sy, depth = v @ right, v @ up, v @ cam
         order = np.argsort(depth[f].mean(axis=1))
-        shade = np.clip(fn @ cam, 0.15, 1.0)[:, None]
-        cols = np.clip(face_color * (0.35 + 0.65 * shade), 0, 1)
+        # Off-axis light and lifted albedo so dark objects still show geometry, not a silhouette.
+        light = cam + 0.5 * up + 0.25 * right
+        light /= np.linalg.norm(light)
+        shade = np.clip(fn @ light, 0.0, 1.0)[:, None]
+        albedo = 0.25 + 0.75 * face_color
+        cols = np.clip(albedo * (0.3 + 0.7 * shade), 0, 1)
         polys = np.stack([sx[f], sy[f]], axis=-1)
         fig, ax = plt.subplots(figsize=(4, 4), dpi=110)
         ax.add_collection(PolyCollection(polys[order], facecolors=cols[order], edgecolors="none"))

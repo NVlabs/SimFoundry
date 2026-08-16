@@ -96,6 +96,35 @@ def get_articulation_query_image_path(cfg) -> str | None:
     return str(raw_imgs[img_idx])
 
 
+def get_object_scale(cfg, iter_num: str) -> float | None:
+    """Real-world scale (stage 8's tf_scale) for one object, or None.
+
+    The articulation workflow's physics-estimation step uses it so the mass
+    VLM sees true dimensions — the same scale stage 10 applies to part meshes.
+    Reads the same pose-info variant stage 10 consumes (interactive when
+    s9_compile.use_interactive_pose is set). Optional by design: the workflow
+    also runs standalone on meshes with no pose info at all.
+    """
+    if cfg.s9_compile.get("use_interactive_pose", False):
+        info_dirname = f"info_interactive{cfg.s9_compile.get('interactive_suffix', '')}"
+    else:
+        info_dirname = "info"
+    info_fpath = f"{cfg.s8_pose.out_dir}/{info_dirname}/{iter_num}.json"
+    if not os.path.exists(info_fpath):
+        logger.warning("No pose info at %s; articulation physics will estimate without real-world scale", info_fpath)
+        return None
+    try:
+        with open(info_fpath) as f:
+            info = json.load(f)
+        tf_scale = info["z_up"]["scale"]
+    except (json.JSONDecodeError, OSError, KeyError, TypeError) as exc:
+        logger.warning("Could not read scale from %s (%s); estimating without it", info_fpath, exc)
+        return None
+    if isinstance(tf_scale, list):
+        tf_scale = sum(float(v) for v in tf_scale) / len(tf_scale)
+    return float(tf_scale)
+
+
 def get_conda_env_path(env_name: str) -> str:
     """Get full path to a conda environment (works even when another env is active)."""
     # Get conda base from CONDA_EXE (e.g., /path/to/miniconda3/bin/conda)
@@ -272,6 +301,12 @@ def main(cfg):
             iter_num = fname.replace(".json", "")
             object_list[info["removed_obj_phrase"]] = iter_num
 
+    if not object_list:
+        raise RuntimeError(
+            f"No valid detected objects in {obj_cat_dir} (every entry has is_valid_removed_obj=false?). "
+            "Articulation classification needs stage 5's detected objects; re-run stage 5 before stage 8b."
+        )
+
     # Get upsampled images for downstream articulate-anything object inputs.
     upsampled_dir = f"{cfg.s6_upsample.out_dir}/upsampled"
     for obj_name, iter_num in object_list.items():
@@ -352,6 +387,7 @@ def main(cfg):
     objects_list = []
     expected_urdfs = []
     unprocessable = []  # articulated objects whose inputs are missing
+    completed_objects = []  # already articulated; may still need physics / refinement
 
     def record_stage_result(success, **additional_info):
         # cfg may carry an api_key override; never persist credentials into stage_info.json.
@@ -388,9 +424,20 @@ def main(cfg):
         output_urdf = f"{obj_out_dir}/results/mobility.urdf"
         mesh_yaw = read_orientation_yaw(f"{mesh_dir}/{iter_num}_orientation.json")
         stamp_fpath = f"{obj_out_dir}/front_orientation.json"
+
+        object_entry = {
+            "name": sanitized_name,
+            "mesh_path": os.path.abspath(mesh_path),
+            "image_path": os.path.abspath(image_path),
+        }
+        obj_scale = get_object_scale(cfg, iter_num)
+        if obj_scale is not None:
+            object_entry["scale"] = obj_scale
+
         if os.path.exists(output_urdf):
             if read_orientation_yaw(stamp_fpath) == mesh_yaw:
                 logger.info(f"Skipping '{obj_name}' - already articulated")
+                completed_objects.append((object_entry, output_urdf))
                 continue
             logger.info(f"Re-articulating '{obj_name}': mesh orientation changed")
             shutil.rmtree(obj_out_dir)
@@ -399,13 +446,27 @@ def main(cfg):
         with open(stamp_fpath, "w") as f:
             json.dump({"applied_yaw_deg": mesh_yaw}, f)
 
-        objects_list.append({
-            "name": sanitized_name,
-            "mesh_path": os.path.abspath(mesh_path),
-            "image_path": os.path.abspath(image_path),
-        })
+        objects_list.append(object_entry)
         expected_urdfs.append(output_urdf)
     
+    # Already-articulated objects are not re-articulated, but they still go
+    # through the workflow when they lack physics estimates or the user asked
+    # for the interactive joint-refinement UI — the workflow's per-step
+    # artifact checks skip steps 1-5 and only run the physics/refinement steps.
+    interactive_refinement = cfg.s8b_articulate_objects.get("interactive_joint_refinement", False)
+    postprocess_objects = [
+        (entry, urdf) for entry, urdf in completed_objects
+        if interactive_refinement
+        or not os.path.exists(f"{os.path.dirname(urdf)}/physics_properties.json")
+    ]
+    if postprocess_objects:
+        logger.info(
+            "Including %d already-articulated object(s) for physics/refinement only: %s",
+            len(postprocess_objects), [e["name"] for e, _ in postprocess_objects],
+        )
+        objects_list.extend(entry for entry, _ in postprocess_objects)
+        expected_urdfs.extend(urdf for _, urdf in postprocess_objects)
+
     if not objects_list:
         # Nothing left to run: success only when every articulated object either has its
         # URDF already or none were detected — missing inputs are recorded as failure so
@@ -443,6 +504,19 @@ def main(cfg):
         articulate_cfg.s4_merge_mesh_parts.model_name = merge_model
         articulate_cfg.s4_merge_mesh_parts.interactive_correction = cfg.s8b_articulate_objects.get(
             "merge_interactive_correction", False
+        )
+    if postprocess_objects and "s5_articulate" in articulate_cfg:
+        # Never re-articulate: stage 8b already decided which objects are
+        # complete (and rmtree'd the stale ones), so the template's
+        # s5_articulate.rerun=true must not redo published objects that were
+        # included only for physics/refinement.
+        articulate_cfg.s5_articulate.rerun = False
+    if "s6_refine_articulation" in articulate_cfg:
+        articulate_cfg.s6_refine_articulation.enabled = interactive_refinement
+    elif interactive_refinement:
+        logger.warning(
+            "interactive_joint_refinement requested but the articulation template "
+            "has no s6_refine_articulation section; update deps/articulate-anything."
         )
     s5_model = cfg.s8b_articulate_objects.get("s5_model", merge_model)
     if s5_model and "s5_articulate" in articulate_cfg:

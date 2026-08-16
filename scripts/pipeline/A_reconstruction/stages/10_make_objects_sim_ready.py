@@ -24,6 +24,7 @@ from simfoundry import CFG_DIR
 from simfoundry.utils.processing_utils import extract_numbers_from_str
 from simfoundry.utils.python_utils import sanitize_path_component
 from simfoundry.utils.prompt_utils import prompt_object_mass_friction, prompt_articulated_object_parts_properties, parse_json_response
+from simfoundry.pipeline.articulation_physics import resolve_articulation_physics
 from simfoundry.pipeline.stage_utils import StageResult, bootstrap_hydra_workdir, finalize_stage
 
 # see https://github.com/facebookresearch/hydra/issues/2949#issue-2516892001
@@ -395,12 +396,28 @@ def main(cfg):
 
         else: # process articulated objects
             # For articulated objects, mesh parts from step 8b are from the canonical mesh
-            # (already pre-scaled by pre_scale_factor), so we only apply tf_scale
-            # Get per-part physical properties from VLM
-            parts_properties = process_articulated_object(
-                obj_phrase, urdf_path, mesh_parts_dir, img_fpath, vlm, tf_scale
+            # (already pre-scaled by pre_scale_factor), so we only apply tf_scale.
+            # Dynamics come from the articulation pipeline (physics_properties.json
+            # + <dynamics> in mobility.urdf, with the refinement UI's
+            # physics_overrides.json on top); the stage-10 VLM estimate remains
+            # only as a fallback for results predating the pipeline's physics step.
+            parts_properties, joint_overrides, joint_defaults, physics_source = resolve_articulation_physics(
+                obj_results_dir,
+                urdf_path=urdf_path,
+                fallback_parts_fn=lambda: process_articulated_object(
+                    obj_phrase, urdf_path, mesh_parts_dir, img_fpath, vlm, tf_scale
+                ),
             )
-            
+            if physics_source == "articulation_pipeline":
+                logger.info("Using articulation-pipeline physics for %s", obj_phrase)
+            else:
+                logger.warning(
+                    "No physics_properties.json for %s; falling back to stage-10 VLM "
+                    "estimation. Re-run stage 8b (its physics step) to source dynamics "
+                    "from the articulation pipeline.",
+                    obj_phrase,
+                )
+
             # Import articulated object with physical properties
             import_articulated_object(
                 urdf_path=urdf_path,
@@ -415,8 +432,10 @@ def main(cfg):
                 # up_axis="z" is default - no rotation needed since mobility.urdf already works correctly
                 overwrite=True,
                 apply_base_rotation=True,
+                joint_dynamics_overrides=joint_overrides,
+                joint_dynamics_defaults=joint_defaults,
             )
-            
+
             # Add to object list (use first part's friction as representative)
             representative_friction = parts_properties[0].get("friction", 0.5) if parts_properties else 0.5
             scene_objects_info[idx] = {
@@ -426,6 +445,7 @@ def main(cfg):
                 "friction": representative_friction,
                 "is_articulated": True,
                 "parts_properties": parts_properties,
+                "physics_source": physics_source,
             }
 
 
