@@ -274,8 +274,28 @@ s8_pose:          # env: simfoundry
   use_foundationpose: true
   est_refine_iter: 5  # Number of refinement iterations for FoundationPose
   object_indices: null  # null = all, or [1,2] for selective streaming/reruns
-  canonicalize_front: true      # VLM front-pick; rotates mesh front to +Z before fitting
+  canonicalize_front: true      # VLM front-pick; rotates the (uprighted) mesh front to +Z
   front_pick_model: gemini-2.5-flash
+  # The coarse pick is on a 45-degree grid, leaving up to +/-22.5 deg of residual yaw (a side
+  # face still visible in the "front" view). front_refine runs a second VLM pass over fine
+  # views (+/-22.5 deg in 7.5-deg steps) around the pick and keeps the most front-on one.
+  front_refine: true
+  # VLM picks plateau at render granularity, so the last 10-20 deg of yaw is corrected
+  # geometrically: align the (upright) footprint's min-area rectangle with the x/z axes.
+  # Bounded to +/-45 deg (preserves the semantic front choice); skipped for round footprints.
+  front_yaw_snap: true
+  # Pixel-aligned backends (pixal3d) generate in the conditioning image's camera frame, so the
+  # conditioning viewpoint's elevation/roll is baked into the s7 mesh (measured ~34 deg on a
+  # real run, vs <10 deg for hunyuan/trellis, which emit a canonical upright frame). The
+  # full-SO(3) fit measures that tilt against the scene cloud; when trusted, its pitch/roll
+  # component is baked into canonical_mesh (consumed by 8b articulation, stages 9/10, and
+  # cousin generation) and the stored pose keeps only gravity yaw + translation + scale.
+  # With use_foundationpose the tilt is re-derived from FoundationPose's pose, which
+  # disambiguates the symmetry flips that fool the CPD restarts on boxy objects.
+  bake_fitted_tilt: true
+  min_tilt_deg: 10.0        # below this the mesh already counts as upright — no bake, no churn
+  max_tilt_deg: 80.0        # an implied tilt above this is treated as a failed fit — no bake
+  tilt_consensus_deg: 20.0  # top fits must agree on the up axis within this angle to be trusted
   # use_any6d: true
   # resume_idx: Controls the interactive pose editing workflow (8b_match_object_poses_interactive.py)
   #   null  -> Normal mode: run pose fitting from scratch, auto-generate suffix for output

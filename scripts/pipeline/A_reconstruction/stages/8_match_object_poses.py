@@ -32,7 +32,8 @@ from simfoundry.utils.processing_utils import compute_point_cloud_from_depth, pa
     dilate_mask, erode_mask, extract_numbers_from_str, denoise_obj_point_cloud
 from simfoundry.utils.prompt_utils import prompt_topk_image_select
 from simfoundry.pipeline.stage_utils import StageResult, bootstrap_hydra_workdir, finalize_stage, resolve_base_iteration
-from simfoundry.pipeline.front_canonicalization import canonicalize_front
+from simfoundry.pipeline.front_canonicalization import canonicalize_front, yaw_snap_to_axes
+from simfoundry.pipeline.upright_from_fit import decide_tilt, tilt_from_fit
 from simfoundry.pipeline.frame_selection import resolve_img_idx
 from simfoundry.utils.python_utils import atomic_output_path
 import multiprocessing
@@ -342,9 +343,12 @@ def main(cfg):
     padded_rgb_da, (delta_w, delta_h) = pad_image_to_ratio(rgb_da, target_ratio=target_ratio, padding_color=(0, 0, 0), return_padding_size=True)
     H, W, _ = padded_rgb_da.shape
 
-    # # Load cam2world tf
-    # cam2world_tf_fpath = f"{cfg.s4_frame.out_dir}/image_{img_idx}_cam2world.npy"
-    # cam2world_tf = np.load(cam2world_tf_fpath)
+    # The object point clouds below stay in the canonical frame's CAMERA coordinates
+    # (cam2world is intentionally not applied to them), so the scene's gravity axis must
+    # be expressed there too: rows of the stage-4 rotation map camera axes onto world
+    # axes, hence world +Z in camera coordinates is the third row.
+    cam2world_tf = np.load(f"{cfg.s4_frame.out_dir}/image_{img_idx}_cam2world.npy")
+    gravity_up_cam = cam2world_tf[:3, :3].T @ np.array([0.0, 0.0, 1.0])
 
     requested_indices = resolve_requested_indices(cfg)
     if requested_indices is not None:
@@ -441,34 +445,13 @@ def main(cfg):
         # rough voxel density
         source_obb_diag = np.linalg.norm(source.get_oriented_bounding_box().extent)
 
-        # Yaw-canonicalize the mesh front before fitting; the fitted pose absorbs the
-        # rotation, so mesh + pose stay a consistent pair downstream.
-        front_rot = None
-        front_info = {"applied_yaw_deg": 0.0, "status": "disabled"}
-        if cfg.s8_pose.get("canonicalize_front", True):
-            obj_phrase = None
-            obj_cat_fpath = f"{scene_dir}/obj_cat_list/{img_name}.json"
-            if os.path.exists(obj_cat_fpath):
-                with open(obj_cat_fpath) as f:
-                    obj_phrase = json.load(f).get("removed_obj_phrase")
-            front_rot, front_info = canonicalize_front(
-                trimesh.load(mesh_path, force="mesh"),
-                render_dir=f"{out_dir}/front_views/{img_name}",
-                photo_path=f"{cfg.s6_upsample.out_dir}/upsampled/{img_name}.png",
-                category=obj_phrase,
-                gcloud_project=cfg.gcloud_project,
-                model=cfg.s8_pose.get("front_pick_model", "gemini-2.5-flash"),
-            )
-            logger.info(f"Front canonicalization for {img_name}: {front_info['status']} "
-                        f"(yaw={front_info['applied_yaw_deg']:.0f} deg)")
-        with atomic_output_path(f"{out_dir}/canonical_mesh/{img_name}_orientation.json") as _tmp_orient, \
-                open(_tmp_orient, "w") as f:
-            json.dump(front_info, f, indent=4)
-
-        # Read target mesh, convert to point cloud
+        # The mesh is fitted RAW: the fit below searches full SO(3) from random restarts,
+        # so it needs no front pre-rotation — and its result is what reveals the mesh's
+        # true up axis. Pixel-aligned backends (pixal3d) bake the conditioning viewpoint's
+        # elevation/roll into the mesh, so tilt and front canonicalization both happen
+        # AFTER the fit and are composed out of the stored pose, keeping mesh + pose a
+        # consistent pair downstream.
         mesh = o3d.io.read_triangle_mesh(mesh_path, enable_post_processing=True)
-        if front_rot is not None:
-            mesh.rotate(front_rot, center=(0.0, 0.0, 0.0))
         target = mesh.sample_points_poisson_disk(number_of_points=10000)
         target = target.remove_non_finite_points()
         # o3d.visualization.draw_geometries([target])
@@ -548,17 +531,108 @@ def main(cfg):
         logger.info(f"Best fit found at scale_multiplier={final_scale_multiplier:.2f} "
                    f"(final_pre_scale_factor={final_pre_scale_factor:.4f}, dist={top_info['dist']:.6f})")
 
+        # Tilt canonicalization: the direction the best fit sends onto the scene's gravity
+        # axis is the object's true up in mesh coordinates. When the fit is trusted, the
+        # pitch/roll that uprights the mesh is baked into canonical_mesh, so articulation
+        # and every other canonical_mesh consumer sees an upright object; the stored pose
+        # then carries only gravity yaw + translation + scale. Gated so already-canonical
+        # backends (hunyuan/trellis, measured <10 deg) are left untouched.
+        tilt_rot = None
+        tilt_info = {"tilt_deg": 0.0, "consensus_spread_deg": 0.0,
+                     "applied_tilt_deg": 0.0, "status": "disabled"}
+        if cfg.s8_pose.get("bake_fitted_tilt", True):
+            tilt_rot, tilt_info = decide_tilt(
+                info_sorted, gravity_up_cam,
+                min_tilt_deg=cfg.s8_pose.get("min_tilt_deg", 10.0),
+                max_tilt_deg=cfg.s8_pose.get("max_tilt_deg", 80.0),
+                consensus_deg=cfg.s8_pose.get("tilt_consensus_deg", 20.0),
+            )
+            logger.info(f"Tilt canonicalization for {img_name}: {tilt_info['status']} "
+                        f"(tilt={tilt_info['tilt_deg']:.1f} deg, "
+                        f"consensus spread={tilt_info['consensus_spread_deg']:.1f} deg)")
+
+        # Front canonicalization runs on the uprighted mesh: its yaw renders assume +Y up,
+        # so picking the front of a tilted mesh was unreliable for pixel-aligned backends.
+        front_rot = None
+        front_info = {"applied_yaw_deg": 0.0, "status": "disabled"}
+        if cfg.s8_pose.get("canonicalize_front", True):
+            obj_phrase = None
+            obj_cat_fpath = f"{scene_dir}/obj_cat_list/{img_name}.json"
+            if os.path.exists(obj_cat_fpath):
+                with open(obj_cat_fpath) as f:
+                    obj_phrase = json.load(f).get("removed_obj_phrase")
+            front_mesh = trimesh.load(mesh_path, force="mesh")
+            if tilt_rot is not None:
+                _tilt_tf = np.eye(4)
+                _tilt_tf[:3, :3] = tilt_rot
+                front_mesh.apply_transform(_tilt_tf)
+            front_rot, front_info = canonicalize_front(
+                front_mesh,
+                render_dir=f"{out_dir}/front_views/{img_name}",
+                photo_path=f"{cfg.s6_upsample.out_dir}/upsampled/{img_name}.png",
+                category=obj_phrase,
+                gcloud_project=cfg.gcloud_project,
+                model=cfg.s8_pose.get("front_pick_model", "gemini-2.5-flash"),
+                refine=cfg.s8_pose.get("front_refine", True),
+            )
+            logger.info(f"Front canonicalization for {img_name}: {front_info['status']} "
+                        f"(yaw={front_info['applied_yaw_deg']:.0f} deg)")
+
+        total_applied_yaw_deg = front_info["applied_yaw_deg"]
+        front_info_post_tilt = None
+        # The orientation record is written after the FoundationPose block below: when
+        # FoundationPose is enabled it may re-derive the tilt from its own (flip-robust)
+        # pose and re-pick the front, superseding the CPD-based values above.
+
+        # canonical_rot maps the raw s7 mesh into the canonical frame: tilt, then front yaw.
+        canonical_rot = None
+        if tilt_rot is not None or front_rot is not None:
+            canonical_rot = np.eye(3)
+            if tilt_rot is not None:
+                canonical_rot = tilt_rot @ canonical_rot
+            if front_rot is not None:
+                canonical_rot = front_rot @ canonical_rot
+
         # Update mesh -- this is pre-scaled, pre-transform (canonical object frame) -- save this
         canonical_mesh_fpath = f"{out_dir}/canonical_mesh/{img_name}.glb"
 
         # Scale and save via trimesh using the FINAL pre_scale_factor (best from grid search)
         canonical_mesh_tm = trimesh.load(mesh_path)
-        if front_rot is not None:
-            _front_tf = np.eye(4)
-            _front_tf[:3, :3] = front_rot
-            canonical_mesh_tm.apply_transform(_front_tf)
+        if canonical_rot is not None:
+            _canon_tf = np.eye(4)
+            _canon_tf[:3, :3] = canonical_rot
+            canonical_mesh_tm.apply_transform(_canon_tf)
+        # Geometric yaw snap: the VLM passes decide WHICH face is the front; the precise
+        # residual angle is geometry's job (VLM picks plateau at render granularity).
+        # Only meaningful once the mesh is known upright — tilt baked, or already below
+        # the tilt threshold like hunyuan/trellis output.
+        snap_info = {"snap_yaw_deg": 0.0, "status": "disabled"}
+        if cfg.s8_pose.get("front_yaw_snap", True):
+            if tilt_info["status"] in ("baked", "below_threshold"):
+                snap_rot, snap_info = yaw_snap_to_axes(np.asarray(canonical_mesh_tm.vertices))
+                if snap_rot is not None:
+                    _snap_tf = np.eye(4)
+                    _snap_tf[:3, :3] = snap_rot
+                    canonical_mesh_tm.apply_transform(_snap_tf)
+                    canonical_rot = snap_rot if canonical_rot is None else snap_rot @ canonical_rot
+                    total_applied_yaw_deg += snap_info["snap_yaw_deg"]
+                logger.info(f"Yaw snap for {img_name}: {snap_info['status']} "
+                            f"(snap={snap_info['snap_yaw_deg']:.1f} deg)")
+            else:
+                snap_info = {"snap_yaw_deg": 0.0, "status": "skipped_not_upright"}
         canonical_mesh_tm.apply_scale(final_pre_scale_factor)
         canonical_mesh_tm.export(canonical_mesh_fpath)
+
+        # The fit was computed against the RAW mesh; compose the canonicalizing rotation
+        # out of the stored pose so canonical_mesh + pose place the object exactly as the
+        # fit did: p_cam = s*R_fit@p_raw + t = s*(R_fit@canonical_rot.T)@p_canonical + t.
+        if canonical_rot is not None:
+            top_info["tf_z_up"] = transformation.RigidTransformation(
+                rot=top_info["tf_z_up"].rot @ canonical_rot.T,
+                t=top_info["tf_z_up"].t,
+                scale=top_info["tf_z_up"].scale,
+            )
+            top_info["tf_y_up"] = top_info["tf_z_up"] * tf_y_up
 
         # Load canonical mesh in open3d
         canonical_mesh = o3d.io.read_triangle_mesh(canonical_mesh_fpath, enable_post_processing=True)
@@ -673,6 +747,88 @@ def main(cfg):
                 top_info["tf_y_up"] = foundationpose_tf_rt * tf_y_up
                 top_info["tf_z_up"] = foundationpose_tf_rt
 
+                # FoundationPose is the pose authority when enabled, and unlike the CPD
+                # restarts it disambiguates symmetry flips by rendering the textured mesh
+                # against the RGB-D observation — so re-derive the tilt from ITS pose.
+                # (Observed: CPD restarts agreed within 0.2 deg on an upside-down fit of a
+                # boxy object, implying a 153-deg tilt that the gate rejected, while
+                # FoundationPose recovered the true 43-deg tilt.) If the pre-FP bake
+                # already uprighted the mesh, the residual here falls below min_tilt_deg
+                # and nothing happens.
+                if cfg.s8_pose.get("bake_fitted_tilt", True):
+                    fp_tilt_deg, fp_tilt_rot = tilt_from_fit(
+                        top_info["tf_z_up"].rot, gravity_up_cam)
+                    tilt_info["fp_tilt_deg"] = fp_tilt_deg
+                    if (cfg.s8_pose.get("min_tilt_deg", 10.0) <= fp_tilt_deg
+                            <= cfg.s8_pose.get("max_tilt_deg", 80.0)):
+                        upright_tm = trimesh.load(canonical_mesh_fpath, force="mesh")
+                        _fp_tilt_tf = np.eye(4)
+                        _fp_tilt_tf[:3, :3] = fp_tilt_rot
+                        upright_tm.apply_transform(_fp_tilt_tf)
+                        # The pre-FP front pick saw a tilted mesh; re-pick on the upright one.
+                        fp_front_rot = None
+                        if cfg.s8_pose.get("canonicalize_front", True):
+                            fp_front_rot, front_info_post_tilt = canonicalize_front(
+                                upright_tm,
+                                render_dir=f"{out_dir}/front_views/{img_name}_upright",
+                                photo_path=f"{cfg.s6_upsample.out_dir}/upsampled/{img_name}.png",
+                                category=obj_phrase,
+                                gcloud_project=cfg.gcloud_project,
+                                model=cfg.s8_pose.get("front_pick_model", "gemini-2.5-flash"),
+                refine=cfg.s8_pose.get("front_refine", True),
+                            )
+                            if fp_front_rot is not None:
+                                _fp_front_tf = np.eye(4)
+                                _fp_front_tf[:3, :3] = fp_front_rot
+                                upright_tm.apply_transform(_fp_front_tf)
+                                total_applied_yaw_deg += front_info_post_tilt["applied_yaw_deg"]
+                        bake_rot = fp_tilt_rot if fp_front_rot is None else fp_front_rot @ fp_tilt_rot
+                        if cfg.s8_pose.get("front_yaw_snap", True):
+                            fp_snap_rot, snap_info = yaw_snap_to_axes(
+                                np.asarray(upright_tm.vertices))
+                            if fp_snap_rot is not None:
+                                _fp_snap_tf = np.eye(4)
+                                _fp_snap_tf[:3, :3] = fp_snap_rot
+                                upright_tm.apply_transform(_fp_snap_tf)
+                                bake_rot = fp_snap_rot @ bake_rot
+                                total_applied_yaw_deg += snap_info["snap_yaw_deg"]
+                            logger.info(f"Yaw snap for {img_name}: {snap_info['status']} "
+                                        f"(snap={snap_info['snap_yaw_deg']:.1f} deg)")
+                        upright_tm.export(canonical_mesh_fpath)
+                        canonical_mesh = o3d.io.read_triangle_mesh(
+                            canonical_mesh_fpath, enable_post_processing=True)
+                        top_info["tf_z_up"] = transformation.RigidTransformation(
+                            rot=top_info["tf_z_up"].rot @ bake_rot.T,
+                            t=top_info["tf_z_up"].t,
+                            scale=top_info["tf_z_up"].scale,
+                        )
+                        top_info["tf_y_up"] = top_info["tf_z_up"] * tf_y_up
+                        tilt_info["applied_tilt_deg"] = fp_tilt_deg
+                        tilt_info["status"] = "baked_from_foundationpose"
+                        logger.info(
+                            f"Tilt canonicalization for {img_name}: baked_from_foundationpose "
+                            f"(tilt={fp_tilt_deg:.1f} deg)")
+                    else:
+                        logger.info(
+                            f"FoundationPose-implied tilt for {img_name} is "
+                            f"{fp_tilt_deg:.1f} deg — outside the bake gates; not baked")
+
+        orientation_record = dict(front_info)
+        orientation_record.update({
+            "applied_yaw_deg": total_applied_yaw_deg,
+            "applied_tilt_deg": tilt_info["applied_tilt_deg"],
+            "tilt_status": tilt_info["status"],
+            "tilt_deg": tilt_info["tilt_deg"],
+            "tilt_consensus_spread_deg": tilt_info["consensus_spread_deg"],
+            "snap_yaw_deg": snap_info["snap_yaw_deg"],
+            "snap_status": snap_info["status"],
+        })
+        if front_info_post_tilt is not None:
+            orientation_record["post_tilt_front"] = front_info_post_tilt
+        with atomic_output_path(f"{out_dir}/canonical_mesh/{img_name}_orientation.json") as _tmp_orient, \
+                open(_tmp_orient, "w") as f:
+            json.dump(orientation_record, f, indent=4)
+
         # Update mesh
         mesh_updated = deepcopy(canonical_mesh)
         vertices = np.asarray(mesh_updated.vertices)
@@ -714,6 +870,8 @@ def main(cfg):
             # Total scale = pre_scale_factor * tf_scale
             "pre_scale_factor": float(pre_scale_factor),
             "front_canonicalization": front_info,
+            "front_canonicalization_post_tilt": front_info_post_tilt,
+            "tilt_canonicalization": tilt_info,
         }
 
         with atomic_output_path(f"{out_dir}/info/{img_name}.json") as _tmp_info, open(_tmp_info, "w") as f:

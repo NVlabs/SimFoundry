@@ -24,7 +24,7 @@ import os
 from simfoundry import CFG_DIR
 from simfoundry.pipeline.frame_selection import resolve_img_idx
 from simfoundry.pipeline.stage_utils import StageResult, finalize_stage
-from simfoundry.pipeline.front_canonicalization import read_orientation_yaw
+from simfoundry.pipeline.front_canonicalization import orientation_stamp_changed, read_orientation_stamp
 
 logger = logging.getLogger(__name__)
 
@@ -422,7 +422,7 @@ def main(cfg):
         sanitized_name = sanitize_path_component(obj_name)
         obj_out_dir = f"{out_dir}/{sanitized_scene_name}/{sanitized_name}"
         output_urdf = f"{obj_out_dir}/results/mobility.urdf"
-        mesh_yaw = read_orientation_yaw(f"{mesh_dir}/{iter_num}_orientation.json")
+        mesh_stamp = read_orientation_stamp(f"{mesh_dir}/{iter_num}_orientation.json")
         stamp_fpath = f"{obj_out_dir}/front_orientation.json"
 
         object_entry = {
@@ -435,7 +435,7 @@ def main(cfg):
             object_entry["scale"] = obj_scale
 
         if os.path.exists(output_urdf):
-            if read_orientation_yaw(stamp_fpath) == mesh_yaw:
+            if not orientation_stamp_changed(read_orientation_stamp(stamp_fpath), mesh_stamp):
                 logger.info(f"Skipping '{obj_name}' - already articulated")
                 completed_objects.append((object_entry, output_urdf))
                 continue
@@ -444,7 +444,7 @@ def main(cfg):
 
         os.makedirs(obj_out_dir, exist_ok=True)
         with open(stamp_fpath, "w") as f:
-            json.dump({"applied_yaw_deg": mesh_yaw}, f)
+            json.dump({"applied_yaw_deg": mesh_stamp[0], "applied_tilt_deg": mesh_stamp[1]}, f)
 
         objects_list.append(object_entry)
         expected_urdfs.append(output_urdf)
