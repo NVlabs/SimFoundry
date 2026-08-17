@@ -111,6 +111,8 @@ def main(cfg):
         # OmniGibson expects joints to be children of their parent link prims,
         # but Isaac Sim's URDF importer places them in a separate /joints scope
         usd_path = imported_usd_path(cfg.s12_usd.dataset_name, obj_category, obj_model)
+        if not os.path.exists(usd_path):
+            raise FileNotFoundError(f"Import produced no USD for {obj_name} at: {usd_path}")
 
         if is_articulated:
             if os.path.exists(usd_path):

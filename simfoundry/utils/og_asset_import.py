@@ -111,9 +111,14 @@ def main(argv=None):
 
     try:
         import_og_asset_from_urdf(**supported)
-    finally:
-        # Always tear the simulator down, otherwise the process hangs holding the GPU.
-        og.shutdown()
+    except BaseException:
+        import os
+        import traceback
+        traceback.print_exc()
+        # og.shutdown() exits 0 and would mask the failure; die hard with a real code.
+        os._exit(1)
+    # Tear the simulator down, otherwise the process hangs holding the GPU.
+    og.shutdown()
 
 
 if __name__ == "__main__":

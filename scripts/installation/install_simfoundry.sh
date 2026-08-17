@@ -440,12 +440,8 @@ if [[ ${INSTALL_TRELLIS} == true ]]; then
   cd TRELLIS.2
   pip install imageio imageio-ffmpeg tqdm easydict opencv-python-headless ninja trimesh transformers==4.57.6 gradio==6.0.1 tensorboard pandas lpips zstandard utils3d
   pip install git+https://github.com/EasternJournalist/utils3d.git@9a4eb15e4021b67b12c460c7057d642626897ec8
-  # TRELLIS.2's default sparse-conv backend (flex_gemm) JITs its kernels through Triton, and
-  # torch 2.7.0 pins triton 3.3.0, whose AccelerateMatmul pass has no tl.dot lowering for
-  # sm_120 (RTX 5090 / RTX PRO 6000 Blackwell). Compiling one there aborts the process:
-  #   getMMAVersionSafe: Assertion `false && "computeCapability not supported"' failed
-  # 3.3.1 (the triton torch 2.7.1 ships) adds sm_120 and is drop-in for torch 2.7.0.
-  pip install "triton>=3.3.1"
+  # >=3.3.1 for sm_120 (Blackwell) tl.dot support; <3.4 for torch 2.7.0 inductor compatibility.
+  pip install "triton>=3.3.1,<3.4"
   # Check if libjpeg-dev is installed (required for pillow-simd)
   if ! dpkg -s libjpeg-dev &> /dev/null; then
     echo "ERROR: libjpeg-dev is not installed but is required for TRELLIS2."

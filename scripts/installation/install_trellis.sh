@@ -273,13 +273,8 @@ cd TRELLIS.2
 pip install imageio imageio-ffmpeg tqdm easydict opencv-python-headless ninja trimesh transformers==4.57.6 gradio==6.0.1 tensorboard pandas lpips zstandard utils3d
 pip install "git+https://github.com/EasternJournalist/utils3d.git@${UTILS3D_COMMIT}"
 
-# TRELLIS.2's default sparse-conv backend (flex_gemm) JITs its kernels through Triton, and
-# torch 2.7.0 pins triton 3.3.0, whose AccelerateMatmul pass has no tl.dot lowering for
-# sm_120 (RTX 5090 / RTX PRO 6000 Blackwell). Compiling one there aborts the process:
-#   getMMAVersionSafe: Assertion `false && "computeCapability not supported"' failed
-# 3.3.1 (the triton torch 2.7.1 ships) adds sm_120 and is drop-in for torch 2.7.0.
-# Harmless on older archs, so it is applied unconditionally rather than gated on the GPU.
-pip install "triton>=3.3.1"
+# >=3.3.1 for sm_120 (Blackwell) tl.dot support; <3.4 for torch 2.7.0 inductor compatibility.
+pip install "triton>=3.3.1,<3.4"
 pip install pillow-simd
 pip install kornia timm psutil
 conda-develop .
