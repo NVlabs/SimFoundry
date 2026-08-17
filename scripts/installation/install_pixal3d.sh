@@ -404,6 +404,14 @@ else
 fi
 pip install "${UTILS3D_LOCAL}"
 
+# Several of the pinned requirements above (timm, kornia, accelerate) depend on torch, which
+# pulls torch into pip's resolution graph — and torch 2.7.0 pins triton==3.3.0 exactly, so the
+# resolver silently DOWNGRADES the triton>=3.3.1 that install_trellis.sh / the --trellis block
+# installed. 3.3.0 cannot compile tl.dot for compute capability 12.0 (Blackwell): flex_gemm's
+# sparse-conv kernels abort with "getMMAVersionSafe: computeCapability not supported" at the
+# first stage-7 generation. Re-assert the floor after every pip install that can touch torch.
+pip install "triton>=3.3.1"
+
 # Put the checkout on the env's import path. The backend loads inference.py by absolute path,
 # but `import pixal3d` must resolve for it.
 conda-develop .
