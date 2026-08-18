@@ -157,7 +157,7 @@ def applied_yaw_deg(front_azimuth_deg, target_azimuth_deg=FRONT_TARGET_AZIMUTH_D
 
 
 def canonicalize_front(mesh, render_dir, *, vlm=None, photo_path=None, category=None,
-                       gcloud_project=None, model="gemini-2.5-flash", refine=True,
+                       gcloud_project=None, model="gemini-2.5-flash", refine=False,
                        refine_span_deg=FRONT_REFINE_SPAN_DEG,
                        refine_step_deg=FRONT_REFINE_STEP_DEG):
     """Decide the yaw rotation that puts `mesh`'s semantic front on the target axis.

@@ -331,10 +331,11 @@ def prompt_infill_image_no_conditioning(obj_name):
     The resulting image should be a complete and accurate representation of the object, showing the object's intricate details and surface texture. The quality of the image should be the same as the original image."""
 
 def prompt_upsample_image_gemini():
-    return f"""A high-resolution, studio-lit product photograph of this object resting stably on the ground, presented on a polished concrete surface. 
-    The lighting is a three-point softbox setup designed to create soft, diffused highlights and eliminate harsh shadows. 
-    The camera angle is a slightly elevated 45-degree shot to showcase its clean lines. 
-    Camera is zoomed in on the object, showing the object's intricate details and surface texture. 
+    return f"""A high-resolution, studio-lit product photograph of this object resting stably on the ground, presented on a polished concrete surface.
+    The lighting is a three-point softbox setup designed to create soft, diffused highlights and eliminate harsh shadows.
+    The camera angle is a slightly elevated 45-degree shot to showcase its clean lines.
+    Camera is zoomed in on the object, showing the object's intricate details and surface texture.
+    If the object has articulated parts (drawers, doors, or lids), preserve their exact state from the input image: keep each one exactly as open or closed as shown. Do not close, tidy, or rearrange them.
     Ultra-realistic in 4K resolution.
     """
     #Rotate the object so its bottom surface is flat on the ground, with the ground surfacepointing up.

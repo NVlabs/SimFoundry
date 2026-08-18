@@ -553,6 +553,9 @@ def main(cfg):
 
         # Front canonicalization runs on the uprighted mesh: its yaw renders assume +Y up,
         # so picking the front of a tilted mesh was unreliable for pixel-aligned backends.
+        # Fine yaw refinement runs only when a tilt was baked: canonical backends
+        # (hunyuan/trellis) land exactly on the 45-degree grid, and a fine re-pick can
+        # only move them off it.
         front_rot = None
         front_info = {"applied_yaw_deg": 0.0, "status": "disabled"}
         if cfg.s8_pose.get("canonicalize_front", True):
@@ -573,7 +576,7 @@ def main(cfg):
                 category=obj_phrase,
                 gcloud_project=cfg.gcloud_project,
                 model=cfg.s8_pose.get("front_pick_model", "gemini-2.5-flash"),
-                refine=cfg.s8_pose.get("front_refine", True),
+                refine=cfg.s8_pose.get("front_refine", True) and tilt_rot is not None,
             )
             logger.info(f"Front canonicalization for {img_name}: {front_info['status']} "
                         f"(yaw={front_info['applied_yaw_deg']:.0f} deg)")
@@ -604,11 +607,11 @@ def main(cfg):
             canonical_mesh_tm.apply_transform(_canon_tf)
         # Geometric yaw snap: the VLM passes decide WHICH face is the front; the precise
         # residual angle is geometry's job (VLM picks plateau at render granularity).
-        # Only meaningful once the mesh is known upright — tilt baked, or already below
-        # the tilt threshold like hunyuan/trellis output.
+        # Runs only after a tilt bake — canonical backends are already grid-aligned and
+        # hull noise would only perturb them.
         snap_info = {"snap_yaw_deg": 0.0, "status": "disabled"}
         if cfg.s8_pose.get("front_yaw_snap", True):
-            if tilt_info["status"] in ("baked", "below_threshold"):
+            if tilt_info["status"] == "baked":
                 snap_rot, snap_info = yaw_snap_to_axes(np.asarray(canonical_mesh_tm.vertices))
                 if snap_rot is not None:
                     _snap_tf = np.eye(4)
@@ -619,7 +622,7 @@ def main(cfg):
                 logger.info(f"Yaw snap for {img_name}: {snap_info['status']} "
                             f"(snap={snap_info['snap_yaw_deg']:.1f} deg)")
             else:
-                snap_info = {"snap_yaw_deg": 0.0, "status": "skipped_not_upright"}
+                snap_info = {"snap_yaw_deg": 0.0, "status": "skipped_no_tilt_bake"}
         canonical_mesh_tm.apply_scale(final_pre_scale_factor)
         canonical_mesh_tm.export(canonical_mesh_fpath)
 

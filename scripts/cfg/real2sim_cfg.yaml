@@ -276,13 +276,12 @@ s8_pose:          # env: simfoundry
   object_indices: null  # null = all, or [1,2] for selective streaming/reruns
   canonicalize_front: true      # VLM front-pick; rotates the (uprighted) mesh front to +Z
   front_pick_model: gemini-2.5-flash
-  # The coarse pick is on a 45-degree grid, leaving up to +/-22.5 deg of residual yaw (a side
-  # face still visible in the "front" view). front_refine runs a second VLM pass over fine
-  # views (+/-22.5 deg in 7.5-deg steps) around the pick and keeps the most front-on one.
+  # Fine yaw passes for tilt-baked (pixel-aligned) meshes ONLY — canonical backends land
+  # exactly on the 45-degree grid and a re-pick can only move them off it.
+  # front_refine: second VLM pass over +/-22.5 deg in 7.5-deg steps around the coarse pick.
   front_refine: true
-  # VLM picks plateau at render granularity, so the last 10-20 deg of yaw is corrected
-  # geometrically: align the (upright) footprint's min-area rectangle with the x/z axes.
-  # Bounded to +/-45 deg (preserves the semantic front choice); skipped for round footprints.
+  # front_yaw_snap: align the upright footprint's min-area rectangle with the x/z axes
+  # (bounded to +/-45 deg; skipped for round footprints).
   front_yaw_snap: true
   # Pixel-aligned backends (pixal3d) generate in the conditioning image's camera frame, so the
   # conditioning viewpoint's elevation/roll is baked into the s7 mesh (measured ~34 deg on a
