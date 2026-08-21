@@ -46,7 +46,9 @@ _spec = importlib.util.spec_from_file_location("_decompose_scene", _module_path,
 # This avoids loading SAM3/Gemini/etc just to test the ordering logic.
 def _load_ordering_function():
     """Load compute_object_removal_order without importing the full pipeline module."""
-    from collections import defaultdict, deque
+    from collections import defaultdict
+
+    from simfoundry.pipeline.support_graph import support_levels
 
     # Read the source
     with open(_module_path, "r") as f:
@@ -73,7 +75,7 @@ def _load_ordering_function():
         "trimesh": trimesh,
         "logger": logging.getLogger("5_decompose_scene"),
         "defaultdict": defaultdict,
-        "deque": deque,
+        "support_levels": support_levels,
     }
     exec(func_source, namespace)
     return namespace["compute_object_removal_order"]
