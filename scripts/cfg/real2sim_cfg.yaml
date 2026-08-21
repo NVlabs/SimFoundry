@@ -275,7 +275,7 @@ s8_pose:          # env: simfoundry
   est_refine_iter: 5  # Number of refinement iterations for FoundationPose
   object_indices: null  # null = all, or [1,2] for selective streaming/reruns
   canonicalize_front: true      # VLM front-pick; rotates the (uprighted) mesh front to +Z
-  front_pick_model: gemini-2.5-flash
+  front_pick_model: gemini-3.1-pro-preview
   # Fine yaw passes for tilt-baked (pixel-aligned) meshes ONLY — canonical backends land
   # exactly on the 45-degree grid and a re-pick can only move them off it.
   # front_refine: second VLM pass over +/-22.5 deg in 7.5-deg steps around the coarse pick.
@@ -291,7 +291,10 @@ s8_pose:          # env: simfoundry
   # cousin generation) and the stored pose keeps only gravity yaw + translation + scale.
   # With use_foundationpose the tilt is re-derived from FoundationPose's pose, which
   # disambiguates the symmetry flips that fool the CPD restarts on boxy objects.
-  bake_fitted_tilt: true
+  # auto = bake only for pixel-aligned shape backends (pixal3d). Canonical-frame backends
+  # (hunyuan/trellis2/direct3d) are upright by construction, so a fitted tilt there is a fit
+  # error or the object's physical placement — baking either corrupts the mesh. true/false force it.
+  bake_fitted_tilt: auto
   min_tilt_deg: 10.0        # below this the mesh already counts as upright — no bake, no churn
   max_tilt_deg: 80.0        # an implied tilt above this is treated as a failed fit — no bake
   tilt_consensus_deg: 20.0  # top fits must agree on the up axis within this angle to be trusted

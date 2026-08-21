@@ -21,6 +21,19 @@ import numpy as np
 # glTF convention, and what front_canonicalization's yaw renders assume.
 MESH_UP = np.array([0.0, 1.0, 0.0])
 
+# Backends that generate in the conditioning camera's frame; only their meshes carry a
+# generation tilt worth baking. Canonical-frame backends (hunyuan, trellis2, direct3d)
+# are upright by construction, so a fitted tilt there is a fit error or the object's
+# physical placement — baking either corrupts the mesh.
+PIXEL_ALIGNED_SHAPE_MODELS = ("pixal3d",)
+
+
+def resolve_bake_fitted_tilt(mode, shape_model):
+    """Bool passthrough; "auto" bakes only for pixel-aligned shape backends."""
+    if isinstance(mode, bool):
+        return mode
+    return str(shape_model) in PIXEL_ALIGNED_SHAPE_MODELS
+
 
 def _unit(v):
     v = np.asarray(v, dtype=float)
