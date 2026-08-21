@@ -9,7 +9,7 @@ dynamics for articulated objects. Its physics-estimation step writes, next to
 each object's mobility.urdf:
 
   - ``physics_properties.json`` — pipeline estimates: a ``parts`` list of
-    ``{"name", "mass_kg", "friction", "joint_damping"}`` (the schema stage 10
+    ``{"name", "mass_kg", "friction", "joint_damping"}`` (the schema stage 11
     consumes as parts_properties) and a ``joints`` mapping of joint name to
     ``{"damping", "friction"}``;
   - ``<dynamics damping friction>`` elements inside mobility.urdf itself;
@@ -17,7 +17,7 @@ each object's mobility.urdf:
 and the interactive refinement UI writes user edits to
 ``physics_overrides.json`` (same shapes, ``parts`` keyed by link name).
 
-Stage 10 resolves physics as: pipeline estimates, then user overrides on top.
+Stage 11 resolves physics as: pipeline estimates, then user overrides on top.
 Its own VLM estimation remains only as a fallback for results produced before
 the pipeline's physics step existed. This module is stdlib-only.
 """
@@ -169,7 +169,7 @@ def resolve_articulation_physics(results_dir: str, urdf_path: str | None = None,
     joint_damping lifted onto the child's joint) > values already in the
     URDF's <dynamics> (pipeline-authored or hand-edited) > pipeline estimates
     (physics_properties.json, ``joint_defaults``) > legacy per-part/constant
-    defaults. ``fallback_parts_fn`` (legacy stage-10 VLM estimation) is
+    defaults. ``fallback_parts_fn`` (legacy stage-11 VLM estimation) is
     invoked only when the pipeline file is missing/unusable.
 
     Returns (parts_properties, joint_overrides, joint_defaults, source) where

@@ -37,8 +37,8 @@ def main(cfg):
     mesh_dir = cfg.s8_pose.out_dir + "/canonical_mesh"
     
     # Check if we should use interactive poses
-    use_interactive_pose = cfg.s9_compile.get("use_interactive_pose", False)
-    interactive_suffix = cfg.s9_compile.get("interactive_suffix", "")
+    use_interactive_pose = cfg.s10_compile.get("use_interactive_pose", False)
+    interactive_suffix = cfg.s10_compile.get("interactive_suffix", "")
     
     if use_interactive_pose:
         pose_dir = cfg.s8_pose.out_dir + f"/info_interactive{interactive_suffix}"
@@ -55,7 +55,7 @@ def main(cfg):
         pose_dir = cfg.s8_pose.out_dir + "/info"
         logger.info(f"Using ORIGINAL poses from: {pose_dir}")
     
-    out_dir = cfg.s9_compile.out_dir
+    out_dir = cfg.s10_compile.out_dir
     Path(out_dir).mkdir(parents=True, exist_ok=True)
 
     logger.info("="*60)
@@ -118,8 +118,8 @@ def main(cfg):
     logger.info("="*60)
 
     finalize_stage(
-        stage_cfg=cfg.s9_compile,
-        out_dir=cfg.s9_compile.out_dir,
+        stage_cfg=cfg.s10_compile,
+        out_dir=cfg.s10_compile.out_dir,
         result=StageResult(success=True),
     )
 

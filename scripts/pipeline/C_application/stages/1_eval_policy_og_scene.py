@@ -136,8 +136,8 @@ def load_policy(cfg):
 
 @hydra.main(config_name="real2sim_cfg", config_path=CFG_DIR, version_base="1.3")
 def main(cfg):
-    sim_dir = cfg.s10_sim.out_dir
-    og_dir = cfg.s13_og.out_dir
+    sim_dir = cfg.s11_sim.out_dir
+    og_dir = cfg.s14_og.out_dir
     out_dir = cfg.s15_eval.out_dir
     Path(out_dir).mkdir(parents=True, exist_ok=True)
 
@@ -148,7 +148,7 @@ def main(cfg):
     use_absolute_actions = True
 
     # Resolve the scene JSON path. ``s15_eval.scene_json`` may be:
-    #   - ``null``  -> use the s13_og output ``reconstructed_og_scene.json``.
+    #   - ``null``  -> use the s14_og output ``reconstructed_og_scene.json``.
     #   - a bare scene name (no separators, no .json) -> the canonical layout
     #     ``<SIMFOUNDRY_ASSET_DIR>/scenes/<name>/<name>_scene_state_latest.json``.
     #   - a path ending in ``.json`` (abs path, or relative to ``SIMFOUNDRY_ASSET_DIR`` /

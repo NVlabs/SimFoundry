@@ -329,10 +329,10 @@ def main(cfg):
     out_dir = Path(cfg.propose_scene_task.out_dir).resolve()
 
     if not scene_state_path.exists():
-        scene_state_path = Path(cfg.s13_og.out_dir) / "reconstructed_og_scene.json"
+        scene_state_path = Path(cfg.s14_og.out_dir) / "reconstructed_og_scene.json"
     if not scene_image_path.exists():
         fallback_images = [
-            Path(cfg.s13_og.out_dir) / "auto_generation" / "scene_000.png",
+            Path(cfg.s14_og.out_dir) / "auto_generation" / "scene_000.png",
             Path(cfg.s1_video.out_dir) / "frames_all" / "frame_0001.png",
         ]
         scene_image_path = next((p for p in fallback_images if p.exists()), scene_image_path)

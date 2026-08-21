@@ -146,39 +146,39 @@ s8_pose:          # env: simfoundry
   est_refine_iter: 5  # Number of refinement iterations for FoundationPose
   object_indices: null  # null = all, or [1,2] for selective streaming/reruns
   use_any6d: true
-s8b_articulate_objects:
+s9_articulate_objects:
   rerun: true
-  out_dirname: s8b_articulate_objects
-  out_dir: "${root_dir}/${scene_name}/${s8b_articulate_objects.out_dirname}"
+  out_dirname: s9_articulate_objects
+  out_dir: "${root_dir}/${scene_name}/${s9_articulate_objects.out_dirname}"
   vlm_model: gemini-2.5-pro
   method: hunyuan # or partfield
   # Classification review options:
   interactive_review: true           # If true, prompt user to review/modify VLM classification
   force_articulated: []               # List of object names to force as articulated (overrides VLM)
   force_non_articulated: ["white robotic arm", 'white and black robotic arm', 'small black electronic component', 'blue cup', 'small metallic sensor', 'purple cable']           # List of object names to force as non-articulated (overrides VLM)
-s9_compile:      # env: simfoundry
+s10_compile:      # env: simfoundry
   rerun: true
-  out_dirname: s9_compile
-  out_dir: "${root_dir}/${scene_name}/${s9_compile.out_dirname}"
-s10_sim:          # env: simfoundry
+  out_dirname: s10_compile
+  out_dir: "${root_dir}/${scene_name}/${s10_compile.out_dirname}"
+s11_sim:          # env: simfoundry
   rerun: true
-  out_dirname: s10_sim
-  out_dir: "${root_dir}/${scene_name}/${s10_sim.out_dirname}"
+  out_dirname: s11_sim
+  out_dir: "${root_dir}/${scene_name}/${s11_sim.out_dirname}"
   hull_count: 32
   n_submesh: 10
   vlm_model: gemini-2.5-pro
-s11_physics:      # env: simfoundry
+s12_physics:      # env: simfoundry
   rerun: true
-  out_dirname: s11_physics
-  out_dir: "${root_dir}/${scene_name}/${s11_physics.out_dirname}"
-s12_usd: #env b1k
+  out_dirname: s12_physics
+  out_dir: "${root_dir}/${scene_name}/${s12_physics.out_dirname}"
+s13_usd: #env b1k
   rerun: true
-  out_dirname: s12_usd
-  out_dir: "${root_dir}/${scene_name}/${s12_usd.out_dirname}"
-s13_og:
+  out_dirname: s13_usd
+  out_dir: "${root_dir}/${scene_name}/${s13_usd.out_dirname}"
+s14_og:
   rerun: true
-  out_dirname: s13_og
-  out_dir: "${root_dir}/${scene_name}/${s13_og.out_dirname}"
+  out_dirname: s14_og
+  out_dir: "${root_dir}/${scene_name}/${s14_og.out_dirname}"
   robot_config:
     type: FrankaPanda
     end_effector: robotiq 
@@ -206,9 +206,9 @@ s13_og:
 s14_teleop:
   rerun: true
   task_name: ${task.task_name}                  # Task YAML name (use task=load_scene then task.task_name=serve_the_orange for scene-specific task)
-  scene_json_name: null                            # Name of scene JSON to load (located in SIMFOUNDRY_ASSET_DIR/scenes, without json extension) (null = use s13_og output)
+  scene_json_name: null                            # Name of scene JSON to load (located in SIMFOUNDRY_ASSET_DIR/scenes, without json extension) (null = use s14_og output)
   scene_source: reconstructed  # default is reconstructed, use auto_generation if you want to use auto-generated scenes                  # "reconstructed" | "auto_generation" (only when scene_json_name is null)
-  auto_generation_scene_index: 0                   # Which auto-generated scene to load (0, 1, ...) when scene_source=auto_generation; files are s13_og/auto_generation/scene_000.json etc.
+  auto_generation_scene_index: 0                   # Which auto-generated scene to load (0, 1, ...) when scene_source=auto_generation; files are s14_og/auto_generation/scene_000.json etc.
   use_floor_plane: true
   floor_plane_visible: false
   out_dirname: s14_teleop
@@ -251,7 +251,7 @@ s15_eval:       # env: b1k -- Evaluate Gr00t checkpoint on OmniGibson scene
   # port: 5555 # 8000 for OpenPI, 5555 for Gr00t
   out_dir: "${root_dir}/${scene_name}/${s15_eval.out_dirname}/${s15_eval.policy}"
   asset_id: franka                        # Normalization stats ID: 'franka' (joint pos) or 'droid' (joint vel)
-  scene_json: droid_desk_put_marker_in_cup                # Path to scene JSON (null = use s13_og output)
+  scene_json: droid_desk_put_marker_in_cup                # Path to scene JSON (null = use s14_og output)
   use_floor_plane: true
   floor_plane_visible: false
   external_sensors_cfg: nv_franka_droid   # Located in <CFG_DIR>/external_sensors
@@ -470,7 +470,7 @@ propose_scene_task:   # env: simfoundry -- Propose tasks for a scene using VLM
   rerun: true
   num_tasks: 3                                    # Number of tasks to propose
   vlm_model: gemini-3-pro-preview                 # VLM model to use
-  scene_image_idx: null                           # null = use s13_og/reconstructed_scene.png (from 13_create_og_scene); set to "000", "001" etc. to use s13_og/auto_generation/scene_XXX.png (from 13b)
+  scene_image_idx: null                           # null = use s14_og/reconstructed_scene.png (from 14_create_og_scene); set to "000", "001" etc. to use s14_og/auto_generation/scene_XXX.png (from B stage 6 auto-generation)
   out_dir: "${cfg_dir}/task/${scene_name}"        # Output directory for proposed task YAMLs
   robot_type: franka                              # Robot type: franka, franka_robotiq, yam (affects prompt constraint)
   robot_constraint: null                          # Custom robot constraint string (null = auto from robot_type)

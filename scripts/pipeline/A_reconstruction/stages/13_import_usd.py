@@ -56,12 +56,12 @@ def imported_usd_path(dataset_name: str, obj_category: str, obj_model: str) -> s
 
 @hydra.main(config_name="real2sim_cfg", config_path=CFG_DIR, version_base="1.3")
 def main(cfg):
-    sim_dir = cfg.s10_sim.out_dir
-    out_dir = cfg.s12_usd.out_dir
+    sim_dir = cfg.s11_sim.out_dir
+    out_dir = cfg.s13_usd.out_dir
     Path(out_dir).mkdir(parents=True, exist_ok=True)
 
     # null disables the pass, leaving whatever the importer authored.
-    opacity_threshold = cfg.s12_usd.get("opacity_threshold", 0.5)
+    opacity_threshold = cfg.s13_usd.get("opacity_threshold", 0.5)
 
     # Load scene objects info
     scene_objects_info_fpath = f"{sim_dir}/scene_objects_info.json"
@@ -110,7 +110,7 @@ def main(cfg):
         # For articulated objects, reparent joints in the USD file
         # OmniGibson expects joints to be children of their parent link prims,
         # but Isaac Sim's URDF importer places them in a separate /joints scope
-        usd_path = imported_usd_path(cfg.s12_usd.dataset_name, obj_category, obj_model)
+        usd_path = imported_usd_path(cfg.s13_usd.dataset_name, obj_category, obj_model)
         if not os.path.exists(usd_path):
             raise FileNotFoundError(f"Import produced no USD for {obj_name} at: {usd_path}")
 
@@ -142,8 +142,8 @@ def main(cfg):
     logger.info("="*60)
 
     finalize_stage(
-        stage_cfg=cfg.s12_usd,
-        out_dir=cfg.s12_usd.out_dir,
+        stage_cfg=cfg.s13_usd,
+        out_dir=cfg.s13_usd.out_dir,
         result=StageResult(success=True),
     )
 

@@ -20,11 +20,11 @@ def test_include_gs_defaults_off_because_stage_2c_is_opt_in():
     true, the default A->B path crashed in B stage 6 on a missing gaussian_da3.usdz.
     """
     cfg = OmegaConf.load(CFG_PATH)
-    assert cfg.s13_og.include_gs is False
+    assert cfg.s14_og.include_gs is False
 
 
 def test_b_stage6_guards_the_missing_splat():
-    """B stage 6 must check the splat exists, as stage 13 does.
+    """B stage 6 must check the splat exists, as stage 14 does.
 
     Without the check, USDObject(usd_path=...) raises FileNotFoundError and the process
     segfaults instead of continuing without a background.

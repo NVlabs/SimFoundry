@@ -40,7 +40,7 @@ Useful options:
 - `--stream / --no-stream`: stream stages 5-8 together or run them one at a time.
 - `--max-vram-frac F`: VRAM budget for streamed stages as a fraction of total GPU memory. Default `0.9`, so the same setting works across card sizes.
 - `--max-vram-gb N`: opt-in absolute hard budget in GiB, overriding the fraction. Leave unset unless you need to pin it — with `hard_vram_cap` the budget counts *total* GPU usage, so a value too small for the card stalls stages.
-- `--detect-articulation`: run stage 8b for automatic articulated-object generation. Requires the optional `articulate` environments; ignored with a warning if they are absent.
+- `--detect-articulation`: run stage 9 for automatic articulated-object generation. Requires the optional `articulate` environments; ignored with a warning if they are absent.
 - `--env-nerfstudio NAME`: select the Nerfstudio environment used by stage 2c. Default: `nerfstudio_simfoundry`.
 - `--env-b1k NAME`: env for the OmniGibson stages. Default: `simfoundry`; pass this only if OmniGibson lives in a separate env.
 
@@ -82,12 +82,12 @@ frame throughout.*
 | `6` | `A_reconstruction/stages/6_upsample_object_images.py` | `simfoundry` | Create cleaner object images for mesh generation. | `s6_upsample/` |
 | `7` | `A_reconstruction/stages/7_generate_object_meshes.py` | `hunyuan` (`--env-mesh`) | Generate 3D meshes. | `s7_mesh/` |
 | `8` | `A_reconstruction/stages/8_match_object_poses.py` | `simfoundry` | Estimate object poses. | `s8_pose/` |
-| `8b` | `A_reconstruction/stages/8b_articulate_objects.py` | `simfoundry` | Optional automatic articulation (`--detect-articulation`). Also the source of articulated-object physics: the workflow estimates per-part mass/surface friction and per-joint damping/friction (`results/physics_properties.json` + URDF `<dynamics>`), which stage 10 consumes instead of estimating its own; user edits from the refinement UI (`physics_overrides.json`) take precedence. | `s8b_articulate_objects/` |
-| `9` | `A_reconstruction/stages/9_compile_scene.py` | `simfoundry` | Compile object metadata. | `s9_compile/` |
-| `10` | `A_reconstruction/stages/10_make_objects_sim_ready.py` | `simfoundry` | Build sim-ready URDF/collision assets. | `s10_sim/` |
-| `11` | `A_reconstruction/stages/11_stabilize_physics.py` | `simfoundry` | Settle objects in physics. | `s11_physics/` |
-| `12` | `A_reconstruction/stages/12_import_usd.py` | `simfoundry` | Import assets into USD datasets. | dataset USD assets |
-| `13` | `A_reconstruction/stages/13_create_og_scene.py` | `simfoundry` | Create the final OG scene JSON and preview. | `s13_og/reconstructed_og_scene.json`, `reconstructed_scene.png` |
+| `9` | `A_reconstruction/stages/9_articulate_objects.py` | `simfoundry` | Optional automatic articulation (`--detect-articulation`). Also the source of articulated-object physics: the workflow estimates per-part mass/surface friction and per-joint damping/friction (`results/physics_properties.json` + URDF `<dynamics>`), which stage 11 consumes instead of estimating its own; user edits from the refinement UI (`physics_overrides.json`) take precedence. | `s9_articulate_objects/` |
+| `10` | `A_reconstruction/stages/10_compile_scene.py` | `simfoundry` | Compile object metadata. | `s10_compile/` |
+| `11` | `A_reconstruction/stages/11_make_objects_sim_ready.py` | `simfoundry` | Build sim-ready URDF/collision assets. | `s11_sim/` |
+| `12` | `A_reconstruction/stages/12_stabilize_physics.py` | `simfoundry` | Settle objects in physics. | `s12_physics/` |
+| `13` | `A_reconstruction/stages/13_import_usd.py` | `simfoundry` | Import assets into USD datasets. | dataset USD assets |
+| `14` | `A_reconstruction/stages/14_create_og_scene.py` | `simfoundry` | Create the final OG scene JSON and preview. | `s14_og/reconstructed_og_scene.json`, `reconstructed_scene.png` |
 
 ### Mesh Generators
 
@@ -116,7 +116,7 @@ a separate `--scene-name`.
 
 ### Canonical Frame Selection
 
-Stages 3-13 reconstruct the scene from a *single* frame of the capture: stage 3 fits the
+Stages 3-14 reconstruct the scene from a *single* frame of the capture: stage 3 fits the
 support plane in it, stage 4 makes its camera the world frame, and stage 5 crops every object
 out of it for stages 6-8. A bad frame therefore caps the quality of everything downstream — a
 blurry frame produces blurry meshes, and a frame shot from far away leaves small objects at too
@@ -140,7 +140,7 @@ bash scripts/pipeline/A_reconstruction/run.sh --scene-name pull_scene_2 \
 
 If every candidate is rejected, stage 3 fails with the per-frame reasons; loosen the gate it
 names or pin a frame. Changing the selection after a run invalidates the `image_<idx>_*`
-artifacts stages 4-13 wrote for the previous frame, so rerun from stage 3.
+artifacts stages 4-14 wrote for the previous frame, so rerun from stage 3.
 
 ### Inputs And Outputs
 
@@ -151,9 +151,9 @@ Inputs:
 
 Final outputs:
 
-- `Data/<scene>/s13_og/reconstructed_og_scene.json`
-- `Data/<scene>/s13_og/reconstructed_scene.png`
-- `Data/<scene>/s13_og/settled_poses.json`
+- `Data/<scene>/s14_og/reconstructed_og_scene.json`
+- `Data/<scene>/s14_og/reconstructed_scene.png`
+- `Data/<scene>/s14_og/settled_poses.json`
 
 ## B Augmentation
 
@@ -185,7 +185,7 @@ bash scripts/pipeline/B_augmentation/run.sh --include-p2p
 | `3` | `B_augmentation/stages/3_generate_cousin_meshes.py` | `hunyuan` (`--env-mesh`) | Generate textured cousin meshes. | `cousin_generation/` |
 | `4` | `B_augmentation/stages/4_make_cousins_sim_ready.py` | `simfoundry` | Convert cousin meshes to sim-ready URDFs. | `sim_cousins/` |
 | `5` | `B_augmentation/stages/5_import_cousin_usd.py` | `simfoundry` | Import cousin URDFs as USD assets. | `usd_cousins/`, custom asset dataset entries |
-| `6` | `B_augmentation/stages/6_sample_reconstructed_scene.py` | `simfoundry` | Swap cousins into the reconstructed scene and sample variants. | `s13_og/auto_generation/` |
+| `6` | `B_augmentation/stages/6_sample_reconstructed_scene.py` | `simfoundry` | Swap cousins into the reconstructed scene and sample variants. | `s14_og/auto_generation/` |
 | `7` | `B_augmentation/stages/7_propose_scene_tasks.py` | `simfoundry` | Propose simple task YAMLs for the scene. | `proposed_tasks/*.yaml` |
 | `8` | `B_augmentation/stages/8_match_cousin_p2p.py` | `simfoundry` | Optional point-to-point correspondence between base and cousin meshes. | `cousin_p2p_match/` |
 
@@ -194,8 +194,8 @@ bash scripts/pipeline/B_augmentation/run.sh --include-p2p
 B expects a completed A reconstruction, especially:
 
 - `Data/<scene>/s6_upsample/`
-- `Data/<scene>/s13_og/reconstructed_og_scene.json`
-- imported dataset assets from A Stage 12
+- `Data/<scene>/s14_og/reconstructed_og_scene.json`
+- imported dataset assets from A Stage 13
 
 Important B config keys in `scripts/cfg/real2sim_cfg.yaml`:
 

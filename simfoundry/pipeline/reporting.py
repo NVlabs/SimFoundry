@@ -23,11 +23,12 @@ STAGE_DIRS = {
     "6_upsample": "s6_upsample",
     "7_mesh": "s7_mesh",
     "8_pose": "s8_pose",
-    "9_compile": "s9_compile",
-    "10_sim": "s10_sim",
-    "11_physics": "s11_physics",
-    "12_usd": "s12_usd",
-    "13_og": "s13_og",
+    "9_articulate": "s9_articulate_objects",
+    "10_compile": "s10_compile",
+    "11_sim": "s11_sim",
+    "12_physics": "s12_physics",
+    "13_usd": "s13_usd",
+    "14_og": "s14_og",
 }
 
 
@@ -88,7 +89,7 @@ def _textured_mesh_count(scene_dir: Path) -> int:
 
 
 def _scene_object_count(scene_dir: Path) -> int:
-    payload = _load_json(scene_dir / "s10_sim" / "scene_objects_info.json")
+    payload = _load_json(scene_dir / "s11_sim" / "scene_objects_info.json")
     return len(payload) if isinstance(payload, dict) else 0
 
 
@@ -108,7 +109,7 @@ def build_scene_manifest(scene_dir: str | Path) -> dict[str, Any]:
         "s6_upsampled_objects": _count_files(scene_dir / "s6_upsample" / "upsampled", "*_transparent.png"),
         "s7_textured_meshes": _textured_mesh_count(scene_dir),
         "s8_pose_infos": _count_files(scene_dir / "s8_pose" / "info", "*.json"),
-        "s10_scene_objects": _scene_object_count(scene_dir),
+        "s11_scene_objects": _scene_object_count(scene_dir),
     }
     manifest_core = {
         "scene_dir": str(scene_dir),

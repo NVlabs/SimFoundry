@@ -75,7 +75,7 @@ MIT license texts for the vendored urdfpy, OmniGibson, and Pixal3D portions (ite
 ### 1a. Articulation-stage backends (fetched at install into `deps/articulate-anything/deps/`)
 
 articulate-anything itself (item 12) is MIT, but the articulation feature
-(stage 8b) invokes the following sub-projects —
+(stage 9) invokes the following sub-projects —
 
 | No. | Component | License | Copyright | License Link |
 |-----|-----------|---------|-----------|--------------|

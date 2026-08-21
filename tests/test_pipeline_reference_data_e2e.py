@@ -22,10 +22,17 @@ CORE_STAGE_DIRS = (
     "s5_scene",
     "s7_mesh",
     "s8_pose",
-    "s9_compile",
-    "s10_sim",
-    "s11_physics",
+    "s10_compile",
+    "s11_sim",
+    "s12_physics",
 )
+# Reference snapshots generated before the stage renumbering (articulation 8b -> 9,
+# later stages shifted down one) store these markers under the old dirnames.
+LEGACY_STAGE_DIRS = {
+    "s10_compile": "s9_compile",
+    "s11_sim": "s10_sim",
+    "s12_physics": "s11_physics",
+}
 
 
 def _available_reference_scenes():
@@ -50,6 +57,8 @@ def test_reference_data_contains_core_stage_outputs():
     for scene in scenes:
         for stage in CORE_STAGE_DIRS:
             fpath = DATA_ROOT / scene / stage / "stage_info.json"
+            if not fpath.exists() and stage in LEGACY_STAGE_DIRS:
+                fpath = DATA_ROOT / scene / LEGACY_STAGE_DIRS[stage] / "stage_info.json"
             if not fpath.exists():
                 continue
             info = json.loads(fpath.read_text(encoding="utf-8"))

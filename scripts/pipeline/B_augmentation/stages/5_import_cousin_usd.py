@@ -37,8 +37,8 @@ def main(cfg):
     out_dir = cfg_path(cfg.usd.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # Shared with A_reconstruction stage 12 so cousins and reconstructed objects render alike.
-    opacity_threshold = cfg.s12_usd.get("opacity_threshold", 0.5)
+    # Shared with A_reconstruction stage 13 so cousins and reconstructed objects render alike.
+    opacity_threshold = cfg.s13_usd.get("opacity_threshold", 0.5)
 
     # Load scene objects info
     scene_objects_info_fpath = sim_dir / "scene_objects_info.json"
@@ -91,7 +91,7 @@ def main(cfg):
 
         # Cousin meshes come from the same generators as the reconstructed objects, so they
         # carry the same baked-in transparency; without a cutout threshold they render as a
-        # translucent cloud of particles. See A_reconstruction stage 12.
+        # translucent cloud of particles. See A_reconstruction stage 13.
         if opacity_threshold is not None:
             imported = next((path for path in dst_usd_fpaths if path.exists()), None)
             if imported is not None:

@@ -130,10 +130,27 @@ def link_has_existing_mesh(link, *, urdf_dir: Path, mesh_parts_dir: Path) -> boo
     return False
 
 
-def resolve_articulation_results_dir(s8b_out_dir: str, scene_name: str, obj_phrase: str) -> str:
-    """Locate a stage-8b articulation result directory.
+def resolve_articulation_root(out_dir: str) -> str:
+    """Articulation output root, accepting the pre-renumbering dirname.
 
-    Stage 8b writes to ``<out_dir>/<sanitized scene>/<sanitized object>/results``. Runs
+    The articulation stage wrote to ``s8b_articulate_objects/`` before it was
+    renumbered from 8b to 9 (``s9_articulate_objects/``). Prefer the current
+    dirname; fall back to the legacy one so scenes articulated before the
+    rename keep importing as articulated instead of silently going rigid.
+    """
+    out_dir = str(out_dir)
+    if os.path.isdir(out_dir):
+        return out_dir
+    legacy = os.path.join(os.path.dirname(out_dir.rstrip("/")), "s8b_articulate_objects")
+    if os.path.isdir(legacy):
+        return legacy
+    return out_dir
+
+
+def resolve_articulation_results_dir(s9_out_dir: str, scene_name: str, obj_phrase: str) -> str:
+    """Locate a stage-9 articulation result directory.
+
+    Stage 9 writes to ``<out_dir>/<sanitized scene>/<sanitized object>/results``. Runs
     produced before the sanitizer was shared used the raw, un-lowercased scene and object
     names, so those layouts are still accepted rather than silently falling back to a rigid
     import. The sanitized path always wins when both exist.
@@ -145,14 +162,14 @@ def resolve_articulation_results_dir(s8b_out_dir: str, scene_name: str, obj_phra
     ]
     seen = set()
     for scene_part, obj_part in candidates:
-        results_dir = f"{s8b_out_dir}/{scene_part}/{obj_part}/results"
+        results_dir = f"{s9_out_dir}/{scene_part}/{obj_part}/results"
         if results_dir in seen:
             continue
         seen.add(results_dir)
         if os.path.exists(f"{results_dir}/mobility.urdf"):
             return results_dir
     # Nothing on disk: return the canonical path so the caller's warning names it.
-    return f"{s8b_out_dir}/{candidates[0][0]}/{candidates[0][1]}/results"
+    return f"{s9_out_dir}/{candidates[0][0]}/{candidates[0][1]}/results"
 
 
 def invalid_articulated_links(urdf_path: str, mesh_parts_dir: str) -> list[str]:
@@ -203,20 +220,20 @@ def import_rigid_scene_object(
     result_json = parse_json_response(vlm.get_result_text(result))
     mass, friction = result_json["mass"], result_json["friction"]
 
-    rigid_collision_method = cfg.s10_sim.get("collision_method", "coacd")
+    rigid_collision_method = cfg.s11_sim.get("collision_method", "coacd")
     import_custom_object(
         asset_path=mesh_path,
         category=obj_category,
         model=obj_model,
         dataset_root=out_dir,
         collision_method=rigid_collision_method,
-        hull_count=cfg.s10_sim.hull_count,
+        hull_count=cfg.s11_sim.hull_count,
         up_axis="y",
         scale=rigid_scale,
         check_scale=False,
         rescale=False,
         overwrite=True,
-        n_submesh=cfg.s10_sim.n_submesh,
+        n_submesh=cfg.s11_sim.n_submesh,
         mass=mass,
     )
 
@@ -232,7 +249,7 @@ def import_rigid_scene_object(
 
 def resolve_requested_indices(cfg):
     """Resolve optional per-object filter for partial reruns (e.g. a single object)."""
-    raw = cfg.s10_sim.get("object_indices", None)
+    raw = cfg.s11_sim.get("object_indices", None)
     if raw is None:
         return None
     if isinstance(raw, int):
@@ -246,8 +263,8 @@ def main(cfg):
     img_dir = cfg.s6_upsample.out_dir
     pose_dir = cfg.s8_pose.out_dir
     mesh_dir = pose_dir + "/canonical_mesh"
-    vlm_model = cfg.s10_sim.vlm_model
-    out_dir = cfg.s10_sim.out_dir
+    vlm_model = cfg.s11_sim.vlm_model
+    out_dir = cfg.s11_sim.out_dir
     Path(out_dir).mkdir(parents=True, exist_ok=True)
 
     logger.info("="*60)
@@ -262,8 +279,9 @@ def main(cfg):
         model=vlm_model,
     )
 
-    # Load articulation classification from step 7b
-    articulation_info_path = f"{cfg.s8b_articulate_objects.out_dir}/object_classification.json"
+    # Load articulation classification from stage 9
+    articulation_root = resolve_articulation_root(cfg.s9_articulate_objects.out_dir)
+    articulation_info_path = f"{articulation_root}/object_classification.json"
     if os.path.exists(articulation_info_path):
         with open(articulation_info_path) as f:
             articulation_info = json.load(f)
@@ -291,8 +309,8 @@ def main(cfg):
 
         img_fpath = f"{img_dir}/upsampled/{img_name}.png"
         mesh_path = f"{mesh_dir}/{filename}"
-        if cfg.s9_compile.use_interactive_pose:
-            obj_tf_info_fpath = f"{pose_dir}/info_interactive{cfg.s9_compile.interactive_suffix}/{img_name}.json"
+        if cfg.s10_compile.use_interactive_pose:
+            obj_tf_info_fpath = f"{pose_dir}/info_interactive{cfg.s10_compile.interactive_suffix}/{img_name}.json"
         else:
             obj_tf_info_fpath = f"{pose_dir}/info/{img_name}.json"
         with open(obj_tf_info_fpath, "r") as f:
@@ -309,7 +327,7 @@ def main(cfg):
 
         is_articulated = obj_phrase in articulated_objects
         obj_results_dir = resolve_articulation_results_dir(
-            cfg.s8b_articulate_objects.out_dir, cfg.scene_name, obj_phrase
+            articulation_root, cfg.scene_name, obj_phrase
         )
         mesh_parts_dir = f"{obj_results_dir}/meshes"
         urdf_path = f"{obj_results_dir}/mobility.urdf"
@@ -395,11 +413,11 @@ def main(cfg):
             )
 
         else: # process articulated objects
-            # For articulated objects, mesh parts from step 8b are from the canonical mesh
+            # For articulated objects, mesh parts from stage 9 are from the canonical mesh
             # (already pre-scaled by pre_scale_factor), so we only apply tf_scale.
             # Dynamics come from the articulation pipeline (physics_properties.json
             # + <dynamics> in mobility.urdf, with the refinement UI's
-            # physics_overrides.json on top); the stage-10 VLM estimate remains
+            # physics_overrides.json on top); the stage-11 VLM estimate remains
             # only as a fallback for results predating the pipeline's physics step.
             parts_properties, joint_overrides, joint_defaults, physics_source = resolve_articulation_physics(
                 obj_results_dir,
@@ -412,8 +430,8 @@ def main(cfg):
                 logger.info("Using articulation-pipeline physics for %s", obj_phrase)
             else:
                 logger.warning(
-                    "No physics_properties.json for %s; falling back to stage-10 VLM "
-                    "estimation. Re-run stage 8b (its physics step) to source dynamics "
+                    "No physics_properties.json for %s; falling back to stage-11 VLM "
+                    "estimation. Re-run stage 9 (its physics step) to source dynamics "
                     "from the articulation pipeline.",
                     obj_phrase,
                 )
@@ -427,8 +445,8 @@ def main(cfg):
                 model=obj_model,
                 dataset_root=out_dir,
                 scale=tf_scale,
-                collision_method=cfg.s10_sim.get("collision_method", "coacd"),
-                hull_count=cfg.s10_sim.hull_count,
+                collision_method=cfg.s11_sim.get("collision_method", "coacd"),
+                hull_count=cfg.s11_sim.hull_count,
                 # up_axis="z" is default - no rotation needed since mobility.urdf already works correctly
                 overwrite=True,
                 apply_base_rotation=True,
@@ -466,8 +484,8 @@ def main(cfg):
     logger.info("="*60)
     
     finalize_stage(
-        stage_cfg=cfg.s10_sim,
-        out_dir=cfg.s10_sim.out_dir,
+        stage_cfg=cfg.s11_sim,
+        out_dir=cfg.s11_sim.out_dir,
         result=StageResult(success=True),
     )
 

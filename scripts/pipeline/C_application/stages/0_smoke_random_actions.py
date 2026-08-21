@@ -84,7 +84,7 @@ def main():
     n_steps = int(_parse_override_value(overrides, "application_smoke.n_steps", str(args.n_steps)))
     video_fps = int(_parse_override_value(overrides, "application_smoke.video_fps", str(args.video_fps)))
     task_config = _parse_override_value(overrides, "application_smoke.task_config", args.task_config)
-    scene_json_path = Path(args.scene_json or Path(root_dir) / scene_name / "s13_og" / "reconstructed_og_scene.json")
+    scene_json_path = Path(args.scene_json or Path(root_dir) / scene_name / "s14_og" / "reconstructed_og_scene.json")
     if not scene_json_path.exists():
         raise FileNotFoundError(f"Generated scene JSON not found: {scene_json_path}")
 

@@ -3,7 +3,7 @@
 
 """Canonical-frame selection for the A_reconstruction pipeline.
 
-Stages 3-13 all reconstruct the scene from a *single* frame of the input capture: stage 3
+Stages 3-14 all reconstruct the scene from a *single* frame of the input capture: stage 3
 fits the support plane in it, stage 4 turns that frame's camera into the world frame, and
 stage 5 crops every object out of it, which is what stages 6-8 turn into meshes and poses.
 That frame used to be hard-coded (`s3_ground.img_idx: 0`), so a first frame that happened to

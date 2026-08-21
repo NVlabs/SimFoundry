@@ -659,7 +659,7 @@ def check_resume_frame_matches(out_dir: str, img_idx: int) -> None:
         raise RuntimeError(
             f"{out_dir} holds a decomposition of frame {previous}, but this run is built on "
             f"frame {img_idx}. Resuming would mix object crops from two viewpoints. Move or "
-            f"delete {out_dir} (and the s6-s13 outputs derived from it) and rerun, or pin "
+            f"delete {out_dir} (and the s6-s14 outputs derived from it) and rerun, or pin "
             f"s3_ground.img_idx={previous} to keep the existing decomposition."
         )
     if previous is None and infer_resume_state(out_dir)[0] > 0:

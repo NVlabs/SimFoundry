@@ -19,7 +19,7 @@ bash scripts/pipeline/A_reconstruction/run.sh \
      s1_video.target_w=672 \
      s1_video.target_h=384 \
      s5_scene.pda_geometric_backend=depth_pro \
-     s10_sim.vlm_model=gemini-2.5-pro
+     s11_sim.vlm_model=gemini-2.5-pro
 ```
 
 Step 2: run the background add-on.
@@ -52,7 +52,7 @@ Required from the splat-prep A run:
 - `Data/<scene>/s1_video/input_video.mp4`
 - `Data/<scene>/s2_da/da/exports/npz/results.npz`
 - `Data/<scene>/s4_frame/image_0_cam2world.npy`
-- `Data/<scene>/s13_og/reconstructed_og_scene.json`
+- `Data/<scene>/s14_og/reconstructed_og_scene.json`
 
 Do not mix frames from one run with DA3 output from another run; the metric scale can differ.
 

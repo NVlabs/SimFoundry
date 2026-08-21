@@ -128,8 +128,8 @@ HIGHLIGHT_COLOR = (0.6, 0.9, 0.6)  # Light green RGB for object highlighting
 
 @hydra.main(config_name="real2sim_cfg", config_path=CFG_DIR, version_base="1.3")
 def main(cfg):
-    sim_dir = cfg.s10_sim.out_dir
-    og_dir = cfg.s13_og.out_dir
+    sim_dir = cfg.s11_sim.out_dir
+    og_dir = cfg.s14_og.out_dir
     out_dir = cfg.s14_teleop.out_dir
     Path(out_dir).mkdir(parents=True, exist_ok=True)
 

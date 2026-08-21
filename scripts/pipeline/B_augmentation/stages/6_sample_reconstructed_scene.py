@@ -845,14 +845,14 @@ def automated_generation(
 
 @hydra.main(config_name="real2sim_cfg", config_path=CFG_DIR, version_base="1.3")
 def main(cfg):
-    sim_dir = cfg.s10_sim.out_dir
-    physics_dir = cfg.s11_physics.out_dir
-    out_dir = cfg.s13_og.out_dir
+    sim_dir = cfg.s11_sim.out_dir
+    physics_dir = cfg.s12_physics.out_dir
+    out_dir = cfg.s14_og.out_dir
     Path(out_dir).mkdir(parents=True, exist_ok=True)
 
 
     # Load physics objects info
-    include_gs = cfg.s13_og.include_gs
+    include_gs = cfg.s14_og.include_gs
 
     # TODO: Remove this once include_gs is fully validated
     # assert not include_gs, "TODO: Gaussian background still needs to be validated!"
@@ -890,9 +890,9 @@ def main(cfg):
         "use_skybox": not include_gs,
     }
     robots_cfg = []
-    if cfg.s13_og.include_robot:
+    if cfg.s14_og.include_robot:
         # Add the robot we want to load
-        robot_cfg = OmegaConf.to_container(cfg.s13_og.robot_config, resolve=True)
+        robot_cfg = OmegaConf.to_container(cfg.s14_og.robot_config, resolve=True)
         arms = ["0"]        # TODO: Support bimanual robots
         robot_cfg["controller_config"] = {}
         for arm in arms:
@@ -916,7 +916,7 @@ def main(cfg):
             }
         robots_cfg.append(robot_cfg)
 
-    external_sensors_cfg_path = f"{SIMFOUNDRY_CFG_DIR}/external_sensors/{cfg.s13_og.external_sensors_cfg}.yaml"
+    external_sensors_cfg_path = f"{SIMFOUNDRY_CFG_DIR}/external_sensors/{cfg.s14_og.external_sensors_cfg}.yaml"
     env_cfg = {
         "external_sensors": parse_config(external_sensors_cfg_path)["external_sensors"]
     }
@@ -933,7 +933,7 @@ def main(cfg):
     table = None  # Initialize table variable
 
     if not include_gs:
-        if cfg.s13_og.include_table:
+        if cfg.s14_og.include_table:
             # Add conference table to the scene
             table = DatasetObject(
                 name="conference_table",
@@ -1020,7 +1020,7 @@ def main(cfg):
 
     # Let simulation settle before capturing final poses
     print("\nLetting simulation settle...")
-    settle_steps = cfg.s13_og.get("settle_steps", 60)
+    settle_steps = cfg.s14_og.get("settle_steps", 60)
     for i in range(settle_steps):
         og.sim.step()
         if (i + 1) % 20 == 0:
@@ -1041,7 +1041,7 @@ def main(cfg):
         print(f"  {label}: pos={pos.numpy() if isinstance(pos, th.Tensor) else pos}, ori={ori.numpy() if isinstance(ori, th.Tensor) else ori}")
 
     # Also capture table pose if it exists
-    if cfg.s13_og.include_table and not include_gs and table is not None:
+    if cfg.s14_og.include_table and not include_gs and table is not None:
         table_pos, table_ori = table.get_position_orientation()
         settled_poses["conference_table"] = [
             table_pos.tolist() if isinstance(table_pos, th.Tensor) else list(table_pos),
@@ -1050,7 +1050,7 @@ def main(cfg):
         print(f"  conference_table: pos={table_pos.numpy() if isinstance(table_pos, th.Tensor) else table_pos}, ori={table_ori.numpy() if isinstance(table_ori, th.Tensor) else table_ori}")
 
     # Also capture robot pose if it exists
-    if cfg.s13_og.include_robot:
+    if cfg.s14_og.include_robot:
         robot = env.robots[0]
         robot_pos, robot_ori = robot.get_position_orientation()
         settled_poses["robot"] = [
@@ -1070,11 +1070,11 @@ def main(cfg):
     print("\nExtracting physical relationships...")
     relationships = extract_on_top_relationships(
         objs,
-        table=table if cfg.s13_og.include_table and not include_gs else None,
+        table=table if cfg.s14_og.include_table and not include_gs else None,
         name_to_category=name_to_category,
     )
     print(f"Found {len(relationships['on_top_relationships'])} on_top relationships")
-    if not cfg.s13_og.get("auto_generation", False):
+    if not cfg.s14_og.get("auto_generation", False):
         relationships_path = f"{out_dir}/physical_relationships.json"
         with open(relationships_path, "w") as f:
             json.dump(relationships, f, indent=2)
@@ -1086,7 +1086,7 @@ def main(cfg):
         relationships["on_top_relationships"], all_obj_names
     )
 
-    # Save original relationship groups (used for randomization) under s13_og
+    # Save original relationship groups (used for randomization) under s14_og
     relationship_groups_path = f"{out_dir}/relationship_group.json"
     relationship_groups_data = {
         "groups": [sorted(g) for g in groups],
@@ -1109,12 +1109,12 @@ def main(cfg):
         #     usd_path=gs_path,
         # )
 
-        # Same guard stage 13 uses. Without it, a missing splat is a FileNotFoundError inside
+        # Same guard stage 14 uses. Without it, a missing splat is a FileNotFoundError inside
         # USDObject followed by a segfault, rather than a scene without a background.
         if not os.path.exists(gs_path_da3):
             logger.warning(
                 "include_gs=True but the GS USDZ was not found at %s. Run the "
-                "auto_bg_reconstruction pipeline to produce it, or set s13_og.include_gs=false. "
+                "auto_bg_reconstruction pipeline to produce it, or set s14_og.include_gs=false. "
                 "Skipping the GS background for this run.",
                 gs_path_da3,
             )
@@ -1135,16 +1135,16 @@ def main(cfg):
         # TODO: Get camK2cam0 tf as well, since 3DGS is taken wrt first cam frame
 
 
-    if cfg.s13_og.include_robot:
+    if cfg.s14_og.include_robot:
         # Spawn / position the robot
         robot = env.robots[0]
         og.sim.play()
         robot.reset()
         robot.keep_still()
-        robot_position = th.tensor(cfg.s13_og.robot_config.position)
+        robot_position = th.tensor(cfg.s14_og.robot_config.position)
         robot.set_position_orientation(
             position=robot_position,
-            orientation=th.tensor(cfg.s13_og.robot_config.orientation),
+            orientation=th.tensor(cfg.s14_og.robot_config.orientation),
         )
         print(f"Robot '{robot.name}' positioned at {robot_position}")
         # Let robot settle
@@ -1154,12 +1154,12 @@ def main(cfg):
     print("\n" + "="*60)
     print("Scene created successfully!")
     print("="*60)
-    if cfg.s13_og.include_table and not include_gs:
+    if cfg.s14_og.include_table and not include_gs:
         print(f"Table: conference_table at {table_position}")
         print(f"Table top surface Z: {z_offset:.3f}")
     print(f"N Objects: {len(objs)}")
     print(f"  - {', '.join(list(objs.keys())[:5])}{'...' if len(objs) > 5 else ''}")
-    if cfg.s13_og.include_robot:
+    if cfg.s14_og.include_robot:
         print(f"Robot: {robot.name} at {robot_position}")
     print("="*60 + "\n")
 
@@ -1168,18 +1168,18 @@ def main(cfg):
     json_path = f"{out_dir}/reconstructed_og_scene.json"
     og.sim.save(json_paths=[json_path])
 
-    robot_ref = env.robots[0] if cfg.s13_og.include_robot else None
-    table_ref = table if cfg.s13_og.include_table and not include_gs else None
+    robot_ref = env.robots[0] if cfg.s14_og.include_robot else None
+    table_ref = table if cfg.s14_og.include_table and not include_gs else None
 
-    auto_mode = cfg.s13_og.get("auto_generation", False)
+    auto_mode = cfg.s14_og.get("auto_generation", False)
     if auto_mode:
-        iter_num = cfg.s13_og.get("auto_iter_num", 10)
-        cam_pos_list = cfg.s13_og.get("auto_camera_pos", [-0.0466, -0.7612, 0.5355])
-        cam_ori_list = cfg.s13_og.get("auto_camera_ori", [0.5219, -0.0213, -0.0347, 0.8521])
-        n_calibration_trials = cfg.s13_og.get("auto_calibration_trials", 5)
-        calibration_perturbation = cfg.s13_og.get("auto_calibration_perturbation", 0.001)
+        iter_num = cfg.s14_og.get("auto_iter_num", 10)
+        cam_pos_list = cfg.s14_og.get("auto_camera_pos", [-0.0466, -0.7612, 0.5355])
+        cam_ori_list = cfg.s14_og.get("auto_camera_ori", [0.5219, -0.0213, -0.0347, 0.8521])
+        n_calibration_trials = cfg.s14_og.get("auto_calibration_trials", 5)
+        calibration_perturbation = cfg.s14_og.get("auto_calibration_perturbation", 0.001)
 
-        check_touching = cfg.s13_og.get("check_touching", True)
+        check_touching = cfg.s14_og.get("check_touching", True)
         if n_calibration_trials <= 0:
             print("Skipping calibration trials; using relationships extracted from the settled original scene.")
             calibrated_rels = {
@@ -1199,12 +1199,12 @@ def main(cfg):
                 sim_dir=sim_dir,
                 n_trials=n_calibration_trials,
                 perturbation=calibration_perturbation,
-                settle_steps=cfg.s13_og.get("randomize_settle_steps", 20),
+                settle_steps=cfg.s14_og.get("randomize_settle_steps", 20),
                 name_to_category=name_to_category,
                 check_touching=check_touching,
             )
 
-        # Save calibrated relationships as physical_relationships.json (single relationship file for s13_og)
+        # Save calibrated relationships as physical_relationships.json (single relationship file for s14_og)
         relationships_path = f"{out_dir}/physical_relationships.json"
         with open(relationships_path, "w") as f:
             json.dump(calibrated_rels, f, indent=2)
@@ -1227,15 +1227,15 @@ def main(cfg):
             obj_frictions=obj_frictions,
             sim_dir=sim_dir,
             table=table_ref,
-            xy_range=cfg.s13_og.get("randomize_xy_range", 0.02),
-            settle_steps=cfg.s13_og.get("randomize_settle_steps", 20),
+            xy_range=cfg.s14_og.get("randomize_xy_range", 0.02),
+            settle_steps=cfg.s14_og.get("randomize_settle_steps", 20),
             iter_num=iter_num,
             camera_pos=th.tensor(cam_pos_list),
             camera_ori=th.tensor(cam_ori_list),
             calibrated_relationships=calibrated_rels,
             name_to_category=name_to_category,
             check_touching=check_touching,
-            z_rotation_deg=cfg.s13_og.get("randomize_z_rotation_deg", 360),
+            z_rotation_deg=cfg.s14_og.get("randomize_z_rotation_deg", 360),
         )
     else:
         interactive_randomize_loop(
@@ -1250,9 +1250,9 @@ def main(cfg):
             sim_dir=sim_dir,
             table=table_ref,
             robot=robot_ref,
-            xy_range=cfg.s13_og.get("randomize_xy_range", 0.02),
-            settle_steps=cfg.s13_og.get("randomize_settle_steps", 20),
-            z_rotation_deg=cfg.s13_og.get("randomize_z_rotation_deg", 360),
+            xy_range=cfg.s14_og.get("randomize_xy_range", 0.02),
+            settle_steps=cfg.s14_og.get("randomize_settle_steps", 20),
+            z_rotation_deg=cfg.s14_og.get("randomize_z_rotation_deg", 360),
         )
 
     og.shutdown()
@@ -1265,8 +1265,8 @@ def end_stage(cfg, success=False, additional_info: dict = None):
 
     # TODO: should this be a general function that can be used for all stages? or should we have a separate function for each stage?
     """
-    save_dir = cfg.s13_og.out_dir
-    stage_cfg = OmegaConf.to_object(cfg.s13_og)
+    save_dir = cfg.s14_og.out_dir
+    stage_cfg = OmegaConf.to_object(cfg.s14_og)
     stage_cfg['success'] = success
     if additional_info is not None:
         stage_cfg.update(additional_info)

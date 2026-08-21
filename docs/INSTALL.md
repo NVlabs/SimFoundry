@@ -24,7 +24,7 @@ VRAM:
   offloading. 24 GiB works for the standard video pipeline with that flag.
 - More VRAM improves throughput for streamed reconstruction and high-resolution background
   runs. Pass `--max-vram-gb N` only to pin an absolute cap.
-- The optional articulation stage (8b) needs a minimum of 18 GiB — see
+- The optional articulation stage (9) needs a minimum of 18 GiB — see
   [Articulation Dependencies](#articulation-dependencies).
 
 ## 1. Clone The Repository
@@ -89,7 +89,7 @@ Optional environments:
 | Env | Purpose | Script |
 |---|---|---|
 | `3dgrut` | Convert Gaussian splats to USDZ for auto-background scenes. | `install_3dgrut.sh` |
-| `articulate` | Articulation generation dependencies (stage 8b). | `install_articulate.sh` |
+| `articulate` | Articulation generation dependencies (stage 9). | `install_articulate.sh` |
 
 Optional mesh-generation backends. Pass the env they live in to the pipeline with
 `--env-mesh NAME`, and select the backend with `s7_mesh.shape_model` / `s7_mesh.texture_model`.
@@ -150,7 +150,7 @@ cannot accept are dropped with a warning. `seed` defaults to the global `seed`.
 
 Caveats, in rough order of how likely they are to bite:
 
-- **Validated on exactly one object.** `trashcan_closed` completed stages 7 → 12 plus 8b
+- **Validated on exactly one object.** `trashcan_closed` completed stages 7 → 13 plus 9
   articulation on an RTX 4090 at `low_vram=true` / resolution 1024 (stage 7 ≈ 133 s; 281k verts,
   4096² PBR). Multi-object scenes, resolution 1536, and cousin generation are **unexercised** —
   treat `pixal3d` as experimental outside that envelope.
@@ -313,7 +313,7 @@ See [scripts/pipeline/A_reconstruction/stages/auto_bg_reconstruction/README.md](
 Articulation is optional. If these environments are not installed, `--detect-articulation` is
 ignored with a warning and the rest of the reconstruction pipeline runs normally.
 
-Articulation (stage 8b, `--detect-articulation`) is an optional component installed by:
+Articulation (stage 9, `--detect-articulation`) is an optional component installed by:
 
 ```bash
 bash scripts/installation/install_articulate.sh --default
@@ -325,7 +325,7 @@ conda environment per segmentation backend: `articulate-anything-{hunyuan,partfi
 Requirements specific to articulation:
 
 - **VRAM** — articulation needs a minimum of 18 GiB of GPU memory. The 16 GiB minimum for
-  the standard pipeline does not cover stage 8b: the segmentation and part-decomposition
+  the standard pipeline does not cover stage 9: the segmentation and part-decomposition
   models allocate outside the pipeline's VRAM scheduler.
 - **Source** — the fork is cloned from
   [`nadunRanawaka1/articulate-anything-sf`](https://github.com/nadunRanawaka1/articulate-anything-sf).

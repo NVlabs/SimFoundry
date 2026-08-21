@@ -8,24 +8,24 @@ from pathlib import Path
 import pytest
 from omegaconf import OmegaConf
 
-_STAGE8B_SCRIPT = (
+_STAGE9_SCRIPT = (
     Path(__file__).resolve().parents[1]
-    / "scripts/pipeline/A_reconstruction/stages/8b_articulate_objects.py"
+    / "scripts/pipeline/A_reconstruction/stages/9_articulate_objects.py"
 )
 
-# Stage 8b (articulation) is an optional component; these tests skip when it is absent.
+# Stage 9 (articulation) is an optional component; these tests skip when it is absent.
 pytestmark = pytest.mark.skipif(
-    not _STAGE8B_SCRIPT.is_file(),
-    reason="articulation stage 8b is not available in this release",
+    not _STAGE9_SCRIPT.is_file(),
+    reason="articulation stage 9 is not available in this release",
 )
 
 
-def _load_stage8b_module():
+def _load_stage9_module():
     repo_root = Path(__file__).resolve().parents[1]
-    script_path = repo_root / "scripts/pipeline/A_reconstruction/stages/8b_articulate_objects.py"
+    script_path = repo_root / "scripts/pipeline/A_reconstruction/stages/9_articulate_objects.py"
     cwd = os.getcwd()
     try:
-        spec = importlib.util.spec_from_file_location("stage8b_articulate_objects", script_path)
+        spec = importlib.util.spec_from_file_location("stage9_articulate_objects", script_path)
         module = importlib.util.module_from_spec(spec)
         assert spec.loader is not None
         spec.loader.exec_module(module)
@@ -41,13 +41,13 @@ def _cfg(**overrides):
         "interactive_review": False,
     }
     values.update(overrides)
-    return OmegaConf.create({"s8b_articulate_objects": values})
+    return OmegaConf.create({"s9_articulate_objects": values})
 
 
 def test_parse_articulated_object_selection_accepts_only_detected_names():
-    stage8b = _load_stage8b_module()
+    stage9 = _load_stage9_module()
 
-    articulated, non_articulated, ignored, raw = stage8b.parse_articulated_object_selection(
+    articulated, non_articulated, ignored, raw = stage9.parse_articulated_object_selection(
         """
         ```json
         {"articulated_objects": ["wooden desk organizer", "cabinet", "iter_12"]}
@@ -63,9 +63,9 @@ def test_parse_articulated_object_selection_accepts_only_detected_names():
 
 
 def test_parse_articulated_object_selection_supports_json_list_and_normalized_names():
-    stage8b = _load_stage8b_module()
+    stage9 = _load_stage9_module()
 
-    articulated, non_articulated, ignored, raw = stage8b.parse_articulated_object_selection(
+    articulated, non_articulated, ignored, raw = stage9.parse_articulated_object_selection(
         '["Wooden_Desk Organizer"]',
         ["wooden desk organizer", "white bottle"],
     )
@@ -77,9 +77,9 @@ def test_parse_articulated_object_selection_supports_json_list_and_normalized_na
 
 
 def test_force_articulated_override_can_add_detected_object():
-    stage8b = _load_stage8b_module()
+    stage9 = _load_stage9_module()
 
-    articulated, non_articulated = stage8b.review_classification(
+    articulated, non_articulated = stage9.review_classification(
         articulated=[],
         non_articulated=["red marker"],
         object_list={"red marker": "iter_1", "wooden desk organizer": "iter_12"},

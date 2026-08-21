@@ -10,17 +10,17 @@
 #       s1_video/frames_subsampled_<N>/  (672x384) + s1_video/input_video.mp4
 #       s2_da/da/exports/npz/results.npz (orig-DA3, <N> frames, DA3 backend)
 #       s4_frame/image_<N>_cam2world.npy
-#       s13_og/reconstructed_og_scene.json
+#       s14_og/reconstructed_og_scene.json
 #   Canonical splat-prep command (run BEFORE this script):
 #       OMNIGIBSON_HEADLESS=1 scripts/pipeline/A_reconstruction/run.sh \
 #         --scene-name <scene> --video-fpath <video> --no-stream -- \
 #         s1_video.splat_prep=true s1_video.n_subsampled_frames=400 \
 #         s1_video.target_w=672 s1_video.target_h=384 \
-#         s5_scene.pda_geometric_backend=depth_pro s10_sim.vlm_model=gemini-2.5-pro
-#   (Stage 2 uses the DA3 backend by default; stage 13 auto-exits via s13_og.interactive=false.)
+#         s5_scene.pda_geometric_backend=depth_pro s11_sim.vlm_model=gemini-2.5-pro
+#   (Stage 2 uses the DA3 backend by default; stage 14 auto-exits via s14_og.interactive=false.)
 #
 # This script REUSES those outputs — it does NOT re-subsample, re-run orig-DA3, or
-# re-run stages 3-13. It runs:
+# re-run stages 3-14. It runs:
 #   Steps 1-4 — background ingest: stage VOID input (symlink canonical frames + video) ->
 #             quadmask -> VOID Pass 1/2 chunked -> void-DA3 @ res448 -> seed PLY.
 #   Steps 5-7 — splat (splatfacto-big + SO3xR3) -> bridge to OG world -> build assets.
@@ -60,7 +60,7 @@ ASSETS_DIR="${REPO_ROOT}/assets/scenes/${SCENE}"
 LOG_DIR="${DATA_DIR}/_logs"
 
 # Mamba env names — flip if your install uses different names. (Foreground-stage envs
-# hunyuan/any6d are not needed: stages 3-13 belong to the canonical reconstruction.)
+# hunyuan/any6d are not needed: stages 3-14 belong to the canonical reconstruction.)
 SIMFOUNDRY_ENV="simfoundry"
 DA3_ENV="da3"
 
@@ -71,7 +71,7 @@ cd "$REPO_ROOT"
 
 if [[ "$CLEAN" -eq 1 ]]; then
     # Background-only: clean ONLY the auto_bg-owned outputs. The canonical
-    # reconstruction (s1_video / s2_da / s3-s13) is a precondition and is preserved.
+    # reconstruction (s1_video / s2_da / s3-s14) is a precondition and is preserved.
     echo "[orchestrator] --clean: removing $DATA_DIR/auto_bg and $ASSETS_DIR"
     rm -rf "$DATA_DIR/auto_bg" "$ASSETS_DIR"
 fi
@@ -146,7 +146,7 @@ S1_FRAMES_DIR="${DATA_DIR}/s1_video/frames_subsampled_${NUM_FRAMES}"
 S1_VIDEO_MP4="${DATA_DIR}/s1_video/input_video.mp4"
 S2_DA_NPZ="${DATA_DIR}/s2_da/da/exports/npz/results.npz"
 S4_FRAME_DIR="${DATA_DIR}/s4_frame"
-S13_OG_JSON="${DATA_DIR}/s13_og/reconstructed_og_scene.json"
+S14_OG_JSON="${DATA_DIR}/s14_og/reconstructed_og_scene.json"
 
 precondition_fail() {
     echo "[orchestrator] PRECONDITION FAILED: $1" >&2
@@ -161,7 +161,7 @@ precondition_fail() {
 [orchestrator]     s1_video.target_w=672 s1_video.target_h=384 \\
 [orchestrator]     s5_scene.pda_geometric_backend=depth_pro
 [orchestrator]
-[orchestrator] (Stages 5/10 use Vertex AI Gemini; stage 2 uses DA3; stage 13 auto-exits via s13_og.interactive=false.)
+[orchestrator] (Stages 5/11 use Vertex AI Gemini; stage 2 uses DA3; stage 14 auto-exits via s14_og.interactive=false.)
 EOF
     exit 1
 }
@@ -169,7 +169,7 @@ EOF
 [[ -f "$S2_DA_NPZ" ]]    || precondition_fail "missing orig-DA3 npz: $S2_DA_NPZ"
 [[ -f "$S1_VIDEO_MP4" ]] || precondition_fail "missing $S1_VIDEO_MP4 (canonical run must use s1_video.splat_prep=true)"
 [[ -d "$S1_FRAMES_DIR" ]] || precondition_fail "missing frames dir: $S1_FRAMES_DIR"
-[[ -f "$S13_OG_JSON" ]]  || precondition_fail "missing OG scene state: $S13_OG_JSON (canonical stage 13)"
+[[ -f "$S14_OG_JSON" ]]  || precondition_fail "missing OG scene state: $S14_OG_JSON (canonical stage 14)"
 ls "${S4_FRAME_DIR}"/image_*_cam2world.npy >/dev/null 2>&1 \
     || precondition_fail "missing s4_frame/image_<N>_cam2world.npy (canonical stage 4)"
 
@@ -247,8 +247,8 @@ run_or_skip "4 build_seed_ply" "$SIMFOUNDRY_ENV" \
 # Top-level convenience symlink: auto_bg/clean_frames -> void/pass2/cleaned_frames.
 ln -sfn "void/pass2/cleaned_frames" "${AUTO_BG_DIR}/clean_frames"
 
-# (Foreground stages 3-13 are NOT run here — they belong to the canonical reconstruction,
-# verified by the precondition above. s4_frame + s13_og are reused by steps 6-7.)
+# (Foreground stages 3-14 are NOT run here — they belong to the canonical reconstruction,
+# verified by the precondition above. s4_frame + s14_og are reused by steps 6-7.)
 
 # ===================== Splat + bridge + assets (steps 5-7) =====================
 

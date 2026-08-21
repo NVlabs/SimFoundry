@@ -250,8 +250,8 @@ class InteractiveSceneEditor:
                 'dataset_name', 'category', 'model', and optionally 'name'
             usd_objects (list): List of USD object specs as dicts with keys:
                 'category', 'usd_path', and optionally 'name'
-            scene_objects_info_path (str): Path to scene_objects_info.json from pipeline stage 10
-            pb_scene_poses_path (str): Path to pb_scene_poses.json from pipeline stage 11 (s11_physics)
+            scene_objects_info_path (str): Path to scene_objects_info.json from pipeline stage 11
+            pb_scene_poses_path (str): Path to pb_scene_poses.json from pipeline stage 12 (s12_physics)
             scene_objects_categories (list): List of category names to filter when loading from 
                 scene_objects_info. If None, all categories are loaded.
             cam2world_tf (th.Tensor): 4x4 camera-to-world transform for positioning background
@@ -616,7 +616,7 @@ class InteractiveSceneEditor:
             self._apply_skybox_lighting()
         elif self.gs_background_path is not None and not self._has_skybox():
             # GS background needs ambient lighting from the skybox to composite correctly.
-            # The scene JSON may have been saved with use_skybox=False (e.g. stage 13 runs
+            # The scene JSON may have been saved with use_skybox=False (e.g. stage 14 runs
             # with include_gs=True disable the skybox). Force-add one so NuRec has a
             # lit scene to composite against — without it GS renders at ~4% brightness.
             print("[load_scene] Adding skybox for GS ambient lighting (scene JSON had use_skybox=False)")
@@ -978,7 +978,7 @@ class InteractiveSceneEditor:
         """
         Load objects from scene_objects_info.json and pb_scene_poses.json files.
         
-        This method loads objects using the same format as 13_create_og_scene.py,
+        This method loads objects using the same format as 14_create_og_scene.py,
         but creates USDObjects (not DatasetObjects) so they can be saved/copied properly.
         """
         if not self.scene_objects_info_path or not self.pb_scene_poses_path:
@@ -2976,7 +2976,7 @@ def parse_args():
         "--scene_objects_info",
         type=str,
         default=None,
-        help="Path to scene_objects_info.json file from pipeline stage 10 (s10_sim). "
+        help="Path to scene_objects_info.json file from pipeline stage 11 (s11_sim). "
              "Use together with --pb_scene_poses to load objects with their poses."
     )
     
@@ -2984,7 +2984,7 @@ def parse_args():
         "--pb_scene_poses",
         type=str,
         default=None,
-        help="Path to pb_scene_poses.json file from pipeline stage 11 (s11_physics). "
+        help="Path to pb_scene_poses.json file from pipeline stage 12 (s12_physics). "
              "Use together with --scene_objects_info to load objects with their poses."
     )
     

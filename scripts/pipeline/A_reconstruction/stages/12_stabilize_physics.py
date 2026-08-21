@@ -120,12 +120,12 @@ def stabilize_all_objects(obj_ids, pos_delta_threshold=1e-4, quat_delta_threshol
 def main(cfg):
     ground_img_idx = resolve_img_idx(cfg)
     frame_dir = cfg.s4_frame.out_dir
-    if cfg.s9_compile.use_interactive_pose:
-        pose_dir = cfg.s8_pose.out_dir + f"/info_interactive{cfg.s9_compile.interactive_suffix}"
+    if cfg.s10_compile.use_interactive_pose:
+        pose_dir = cfg.s8_pose.out_dir + f"/info_interactive{cfg.s10_compile.interactive_suffix}"
     else:
         pose_dir = cfg.s8_pose.out_dir + "/info"
-    sim_dir = cfg.s10_sim.out_dir
-    out_dir = cfg.s11_physics.out_dir
+    sim_dir = cfg.s11_sim.out_dir
+    out_dir = cfg.s12_physics.out_dir
     Path(out_dir).mkdir(parents=True, exist_ok=True)
 
     logger.info("="*60)
@@ -157,7 +157,7 @@ def main(cfg):
     plane_id = p.loadURDF("plane.urdf")
 
     # Check loading mode
-    load_at_once = cfg.s11_physics.get("load_at_once", False)
+    load_at_once = cfg.s12_physics.get("load_at_once", False)
     z_offset = 0.05
     objs_pb_info = dict()
 
@@ -415,8 +415,8 @@ def main(cfg):
     logger.info("="*60)
     
     finalize_stage(
-        stage_cfg=cfg.s11_physics,
-        out_dir=cfg.s11_physics.out_dir,
+        stage_cfg=cfg.s12_physics,
+        out_dir=cfg.s12_physics.out_dir,
         result=StageResult(success=True),
     )
 

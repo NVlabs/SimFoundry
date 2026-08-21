@@ -43,7 +43,7 @@ bootstrap_hydra_workdir(__file__)
 def take_scene_picture(save_path, camera_pos=None, camera_ori=None, focal_length=12.0):
     """
     Set viewer camera pose, render, and save the current view as a PNG.
-    Same logic as in 13b_og_scene_sampling for consistency.
+    Same logic as in B_augmentation/stages/6b_sample_asset_scene.py for consistency.
     Uses a lower focal length (wider FOV) so all tabletop objects fit in frame.
 
     Args:
@@ -102,7 +102,7 @@ def run_interactive_viewer(env):
 
 def exit_after_success(cfg):
     """Bypass brittle OmniGibson/Python atexit teardown in batch pipeline runs."""
-    if not cfg.s13_og.get("fast_process_exit", True):
+    if not cfg.s14_og.get("fast_process_exit", True):
         og.shutdown()
         return
 
@@ -122,7 +122,7 @@ def validate_scene_assets(scene_objects_info, dataset_name):
             missing.append(usd_path)
     if missing:
         missing_lines = "\n".join(f"  - {path}" for path in missing)
-        raise FileNotFoundError(f"Stage 13 cannot load {len(missing)} USD asset(s):\n{missing_lines}")
+        raise FileNotFoundError(f"Stage 14 cannot load {len(missing)} USD asset(s):\n{missing_lines}")
 
 
 def validate_robot_assets(robot_cfg):
@@ -141,26 +141,26 @@ def validate_robot_assets(robot_cfg):
     if os.path.exists(usd_path):
         return
     raise FileNotFoundError(
-        "Stage 13 cannot load the configured Franka robot asset:\n"
+        "Stage 14 cannot load the configured Franka robot asset:\n"
         f"  - end_effector: {end_effector}\n"
         f"  - expected USD: {usd_path}\n"
         "The default 'gripper' end effector is included in the public OmniGibson robot assets. "
         "Robotiq configs additionally require the SimFoundry robot asset bundle, which "
         "scripts/installation/install_simfoundry.sh fetches automatically. Re-run that installer, "
         "or pass --robot-asset-fallback-root <repo-with-assets> if you have a local copy, "
-        "or override s13_og.robot_config.end_effector=gripper."
+        "or override s14_og.robot_config.end_effector=gripper."
     )
 
 @hydra.main(config_name="real2sim_cfg", config_path=CFG_DIR, version_base="1.3")
 def main(cfg):
-    sim_dir = cfg.s10_sim.out_dir
-    physics_dir = cfg.s11_physics.out_dir
-    out_dir = cfg.s13_og.out_dir
+    sim_dir = cfg.s11_sim.out_dir
+    physics_dir = cfg.s12_physics.out_dir
+    out_dir = cfg.s14_og.out_dir
     Path(out_dir).mkdir(parents=True, exist_ok=True)
 
 
     # Load physics objects info
-    include_gs = cfg.s13_og.include_gs
+    include_gs = cfg.s14_og.include_gs
 
 
     scene_objects_info_fpath = f"{sim_dir}/scene_objects_info.json"
@@ -181,7 +181,7 @@ def main(cfg):
         obj_frictions = dict()
         obj_poses = dict()
 
-    dataset_name = str(cfg.s13_og.get("dataset_name", "real2sim-assets"))
+    dataset_name = str(cfg.s14_og.get("dataset_name", "real2sim-assets"))
     validate_scene_assets(scene_objects_info, dataset_name)
 
     # Create scene config
@@ -193,9 +193,9 @@ def main(cfg):
         "use_skybox": not include_gs,
     }
     robots_cfg = []
-    if cfg.s13_og.include_robot:
+    if cfg.s14_og.include_robot:
         # Add the robot we want to load
-        robot_cfg = OmegaConf.to_container(cfg.s13_og.robot_config, resolve=True)
+        robot_cfg = OmegaConf.to_container(cfg.s14_og.robot_config, resolve=True)
         validate_robot_assets(robot_cfg)
         arms = ["0"]        # TODO: Support bimanual robots
         robot_cfg["controller_config"] = {}
@@ -220,7 +220,7 @@ def main(cfg):
             }
         robots_cfg.append(robot_cfg)
 
-    external_sensors_cfg_path = f"{SIMFOUNDRY_CFG_DIR}/external_sensors/{cfg.s13_og.external_sensors_cfg}.yaml"
+    external_sensors_cfg_path = f"{SIMFOUNDRY_CFG_DIR}/external_sensors/{cfg.s14_og.external_sensors_cfg}.yaml"
     env_cfg = {
         "external_sensors": parse_config(external_sensors_cfg_path)["external_sensors"]
     }
@@ -239,7 +239,7 @@ def main(cfg):
     table = None  # Initialize table variable
 
     if not include_gs:
-        if cfg.s13_og.include_table:
+        if cfg.s14_og.include_table:
             # Add conference table to the scene
             table = DatasetObject(
                 name="conference_table",
@@ -326,7 +326,7 @@ def main(cfg):
 
     # Let simulation settle before capturing final poses
     print("\nLetting simulation settle...")
-    settle_steps = cfg.s13_og.get("settle_steps", 100)
+    settle_steps = cfg.s14_og.get("settle_steps", 100)
     for i in range(settle_steps):
         og.sim.step()
         if (i + 1) % 20 == 0:
@@ -345,7 +345,7 @@ def main(cfg):
         print(f"  {obj_name}: pos={pos.numpy() if isinstance(pos, th.Tensor) else pos}, ori={ori.numpy() if isinstance(ori, th.Tensor) else ori}")
 
     # Also capture table pose if it exists
-    if cfg.s13_og.include_table and not include_gs and table is not None:
+    if cfg.s14_og.include_table and not include_gs and table is not None:
         table_pos, table_ori = table.get_position_orientation()
         settled_poses["conference_table"] = [
             table_pos.tolist() if isinstance(table_pos, th.Tensor) else list(table_pos),
@@ -354,7 +354,7 @@ def main(cfg):
         print(f"  conference_table: pos={table_pos.numpy() if isinstance(table_pos, th.Tensor) else table_pos}, ori={table_ori.numpy() if isinstance(table_ori, th.Tensor) else table_ori}")
 
     # Also capture robot pose if it exists
-    if cfg.s13_og.include_robot:
+    if cfg.s14_og.include_robot:
         robot = env.robots[0]
         robot_pos, robot_ori = robot.get_position_orientation()
         settled_poses["robot"] = [
@@ -407,7 +407,7 @@ def main(cfg):
    
 
     # joint_targets = th.tensor([])
-    if cfg.s13_og.include_robot:
+    if cfg.s14_og.include_robot:
         # Spawn the robot
         robot = env.robots[0]
 
@@ -426,11 +426,11 @@ def main(cfg):
         # joint_targets = robot.default_arm_poses["gripper_down"]
         # joint_targets = robot.default_arm_poses["home"]
         # joint_targets = th.cat([robot.reset_joint_pos[:-2], th.tensor([1.0])])
-        robot_position = th.tensor(cfg.s13_og.robot_config.position)
+        robot_position = th.tensor(cfg.s14_og.robot_config.position)
 
         robot.set_position_orientation(
             position=robot_position,
-            orientation=th.tensor(cfg.s13_og.robot_config.orientation),
+            orientation=th.tensor(cfg.s14_og.robot_config.orientation),
         )
 
         print(f"Robot '{robot.name}' positioned at {robot_position}")
@@ -443,12 +443,12 @@ def main(cfg):
     print("\n" + "="*60)
     print("Scene created successfully!")
     print("="*60)
-    if cfg.s13_og.include_table:
+    if cfg.s14_og.include_table:
         print(f"Table: conference_table at {table_position}")
         print(f"Table top surface Z: {z_offset:.3f}")
     print(f"N Objects: {len(objs)}")
     print(f"  - {', '.join(list(objs.keys())[:5])}{'...' if len(objs) > 5 else ''}")
-    if cfg.s13_og.include_robot:
+    if cfg.s14_og.include_robot:
         print(f"Robot: {robot.name} at {robot_position}")
     print("="*60 + "\n")
 
@@ -459,28 +459,28 @@ def main(cfg):
 
     img_path = f"{out_dir}/reconstructed_scene.png"
     image_captured = False
-    if cfg.s13_og.get("capture_image", True):
+    if cfg.s14_og.get("capture_image", True):
         image_captured = take_scene_picture(
             img_path,
-            camera_pos=cfg.s13_og.auto_camera_pos,
-            camera_ori=cfg.s13_og.auto_camera_ori,
+            camera_pos=cfg.s14_og.auto_camera_pos,
+            camera_ori=cfg.s14_og.auto_camera_ori,
         )
     
     finalize_stage(
-        stage_cfg=cfg.s13_og,
-        out_dir=cfg.s13_og.out_dir,
+        stage_cfg=cfg.s14_og,
+        out_dir=cfg.s14_og.out_dir,
         result=StageResult(
             success=True,
             additional_info={
                 "scene_json": json_path,
                 "preview_image": img_path if image_captured else None,
                 "num_objects": len(objs),
-                "interactive": bool(cfg.s13_og.get("interactive", False)),
+                "interactive": bool(cfg.s14_og.get("interactive", False)),
             },
         ),
     )
 
-    if cfg.s13_og.get("interactive", False):
+    if cfg.s14_og.get("interactive", False):
         run_interactive_viewer(env)
         og.shutdown()
     else:

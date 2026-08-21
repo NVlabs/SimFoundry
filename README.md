@@ -263,8 +263,8 @@ Pipeline data is written under `Data/<scene_name>/`. Key outputs:
 
 | Path | Description |
 |---|---|
-| `s13_og/reconstructed_og_scene.json` | Final OmniGibson scene descriptor |
-| `s13_og/reconstructed_scene.png` | Scene preview image |
+| `s14_og/reconstructed_og_scene.json` | Final OmniGibson scene descriptor |
+| `s14_og/reconstructed_scene.png` | Scene preview image |
 | `prompt_cousin_structured/` | Digital cousin image proposals |
 | `sim_cousins/` and `usd_cousins/` | Simulation-ready cousin assets |
 | `proposed_tasks/` | Generated task YAMLs |

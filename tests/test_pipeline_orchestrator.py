@@ -87,15 +87,15 @@ def test_stage_2c_uses_dedicated_nerfstudio_environment():
 
 @pytest.mark.skipif(
     not articulation_available(),
-    reason="articulation stage 8b is not available in this release",
+    reason="articulation stage 9 is not available in this release",
 )
 def test_reconstruction_stage_plan_can_insert_articulation():
     default_ids = [spec.stage_id for spec in get_stage_plan("video", pipeline_name="reconstruction")]
     articulation_ids = [spec.stage_id for spec in get_stage_plan("video", pipeline_name="reconstruction", detect_articulation=True)]
 
-    assert "8b" not in default_ids
-    assert articulation_ids[articulation_ids.index("8") + 1] == "8b"
-    assert articulation_ids[articulation_ids.index("8b") + 1] == "9"
+    assert "9" not in default_ids
+    assert articulation_ids[articulation_ids.index("8") + 1] == "9"
+    assert articulation_ids[articulation_ids.index("9") + 1] == "10"
 
 
 def test_run_pipeline_partial_multi_step(tmp_path, monkeypatch):

@@ -3,10 +3,10 @@
 
 """
 Materialise an `assets/scenes/<scene>/` directory in the nv_desk style from the
-outputs of stages 9-13 + the BG splat produced by the auto-bg pipeline.
+outputs of stages 10-14 + the BG splat produced by the auto-bg pipeline.
 
 Inputs:
-  - Stage-13 scene state JSON:  Data/<scene>/s13_og/reconstructed_og_scene.json
+  - Stage-14 scene state JSON:  Data/<scene>/s14_og/reconstructed_og_scene.json
   - Imported dataset USDs:      deps/BEHAVIOR-1K/datasets/<dataset_name>/objects/<cat>/<model>/
   - Trained BG splat PLY:       passed via --bg-splat-ply (default
                                 Data/<scene>/auto_bg/splat/export/<scene>_bg.ply).
@@ -20,7 +20,7 @@ Outputs:
   - assets/scenes/<scene>/<scene>_scene_state_auto_bg.json
 
 What this script does:
-  1. Read stage-13 scene state.
+  1. Read stage-14 scene state.
   2. For each `DatasetObject` entry, copy (or symlink) the dataset object tree
      under assets/scenes/<scene>/objects/ and rewrite the init_info entry to
      `USDObject` with an explicit absolute `usd_path`.
@@ -34,7 +34,7 @@ What this script does:
      gaussians. Falls back to identity pose when the sidecar is absent
      (pre-pose-sidecar PLYs / legacy flows).
   5. Inject viewer_camera_state / lighting_state / ground_plane_info defaults
-     from the reference nv_desk scene state when missing in stage-13's output.
+     from the reference nv_desk scene state when missing in stage-14's output.
   6. Recompute `expected_file_hash` for the BG USDZ.
 
 Run from simfoundry env (Hydra override syntax):
@@ -118,7 +118,7 @@ def _copy_asset_tree(src_dir: Path, dst_dir: Path) -> None:
 
 
 def _resolve_dataset_obj_dir(dataset_name: str, category: str, model: str) -> Path:
-    # Stage 12 imports into custom-assets/, but stage-13 init_info still
+    # Stage 13 imports into custom-assets/, but stage-14 init_info still
     # hardcodes dataset_name='real2sim-assets'. Prefer the newer USD when both
     # datasets carry the same (category, model).
     datasets_root = REPO_ROOT / "deps" / "BEHAVIOR-1K" / "datasets"
@@ -223,7 +223,7 @@ def main(cfg):
         sys.exit("scene_name is required (set scene_name=<scene>)")
 
     scene = cfg.scene_name
-    scene_state = Path(sec.scene_state).resolve() if sec.scene_state else REPO_ROOT / "Data" / scene / "s13_og" / "reconstructed_og_scene.json"
+    scene_state = Path(sec.scene_state).resolve() if sec.scene_state else REPO_ROOT / "Data" / scene / "s14_og" / "reconstructed_og_scene.json"
     bg_ply = Path(sec.bg_splat_ply).resolve() if sec.bg_splat_ply else \
         REPO_ROOT / "Data" / scene / "auto_bg" / "splat" / "export" / f"{scene}_bg.ply"
     # Resolve out_scene_dir to absolute so all usd_path entries in the written
@@ -233,11 +233,11 @@ def main(cfg):
     out_state_name = sec.out_state_name or f"{scene}_scene_state_auto_bg.json"
 
     if not scene_state.exists():
-        sys.exit(f"missing stage-13 scene state: {scene_state}")
+        sys.exit(f"missing stage-14 scene state: {scene_state}")
     out_scene_dir.mkdir(parents=True, exist_ok=True)
     (out_scene_dir / "objects").mkdir(exist_ok=True)
 
-    logger.info("Loading stage-13 scene state: %s", scene_state)
+    logger.info("Loading stage-14 scene state: %s", scene_state)
     state = json.loads(scene_state.read_text())
     obj_init = state.setdefault("objects_info", {}).setdefault("init_info", {})
     obj_reg = state.setdefault("state", {}).setdefault("registry", {}).setdefault("object_registry", {})
@@ -311,7 +311,7 @@ def main(cfg):
     else:
         logger.info("--skip-bg-splat: gs_background not injected.")
 
-    # 3. Defaults for top-level keys missing in the stage-13 state.
+    # 3. Defaults for top-level keys missing in the stage-14 state.
     if REF_SCENE_STATE.exists():
         ref = json.loads(REF_SCENE_STATE.read_text())
         for k in ("viewer_camera_state", "lighting_state", "ground_plane_info"):

@@ -92,9 +92,9 @@ def find_object_by_prefix(scene, prefix: str):
 
 @hydra.main(config_name="real2sim_cfg", config_path=CFG_DIR, version_base="1.3")
 def main(cfg):
-    sim_dir = cfg.s10_sim.out_dir
-    physics_dir = cfg.s11_physics.out_dir
-    og_dir = cfg.s13_og.out_dir
+    sim_dir = cfg.s11_sim.out_dir
+    physics_dir = cfg.s12_physics.out_dir
+    og_dir = cfg.s14_og.out_dir
     out_dir = cfg.s14_teleop.out_dir
     Path(out_dir).mkdir(parents=True, exist_ok=True)
 
@@ -129,7 +129,7 @@ def main(cfg):
         "include_robots": True,
     }
     # # Add the robot we want to load
-    # robot_name = cfg.s13_og.robot
+    # robot_name = cfg.s14_og.robot
     # robot_cfg = {
     #     "type": robot_name,
     #     "obs_modalities": ["rgb"],

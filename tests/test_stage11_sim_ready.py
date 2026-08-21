@@ -8,19 +8,19 @@ import sys
 
 import pytest
 
-# These target a refactor of stage 10 into discover_sim_ready_jobs / ConversionTask /
-# convert_objects_parallel that is not in this release: 10_make_objects_sim_ready.py defines
+# These target a refactor of stage 11 into discover_sim_ready_jobs / ConversionTask /
+# convert_objects_parallel that is not in this release: 11_make_objects_sim_ready.py defines
 # none of them (it has resolve_requested_indices and import_rigid_scene_object instead).
 # Skipped rather than deleted so the intended interface survives for whoever lands that
 # refactor -- and so `pytest` stays usable as the documented install check.
 pytestmark = pytest.mark.skip(
-    reason="stage 10 refactor (discover_sim_ready_jobs / ConversionTask) is not in this release"
+    reason="stage 11 refactor (discover_sim_ready_jobs / ConversionTask) is not in this release"
 )
 
 
-def load_stage10_module(repo_root: Path):
-    module_path = repo_root / "scripts" / "pipeline" / "A_reconstruction" / "stages" / "10_make_objects_sim_ready.py"
-    name = "stage10_make_objects_sim_ready_for_tests"
+def load_stage11_module(repo_root: Path):
+    module_path = repo_root / "scripts" / "pipeline" / "A_reconstruction" / "stages" / "11_make_objects_sim_ready.py"
+    name = "stage11_make_objects_sim_ready_for_tests"
     spec = importlib.util.spec_from_file_location(name, module_path)
     module = importlib.util.module_from_spec(spec)
     sys.modules[name] = module
@@ -35,14 +35,14 @@ def load_stage10_module(repo_root: Path):
 
 def test_discover_sim_ready_jobs_filters_requested_indices(tmp_path):
     repo_root = Path(__file__).resolve().parents[1]
-    stage10 = load_stage10_module(repo_root)
+    stage11 = load_stage11_module(repo_root)
     mesh_dir = tmp_path / "pose" / "canonical_mesh"
     mesh_dir.mkdir(parents=True)
     (mesh_dir / "iter_1.glb").write_bytes(b"mesh")
     (mesh_dir / "iter_2.glb").write_bytes(b"mesh")
     (mesh_dir / "ignore.txt").write_text("x", encoding="utf-8")
 
-    jobs = stage10.discover_sim_ready_jobs(
+    jobs = stage11.discover_sim_ready_jobs(
         scene_dir=str(tmp_path / "scene"),
         img_dir=str(tmp_path / "img"),
         pose_dir=str(tmp_path / "pose"),
@@ -59,15 +59,15 @@ def test_discover_sim_ready_jobs_filters_requested_indices(tmp_path):
 
 def test_convert_objects_parallel_invokes_each_conversion_once(monkeypatch, tmp_path):
     repo_root = Path(__file__).resolve().parents[1]
-    stage10 = load_stage10_module(repo_root)
+    stage11 = load_stage11_module(repo_root)
     calls = []
 
     def fake_import_custom_object(**kwargs):
         calls.append(kwargs)
 
-    monkeypatch.setattr(stage10, "import_custom_object", fake_import_custom_object)
+    monkeypatch.setattr(stage11, "import_custom_object", fake_import_custom_object)
     tasks = [
-        stage10.ConversionTask(
+        stage11.ConversionTask(
             idx=idx,
             category="cup",
             model=f"aaaaa{idx}",
@@ -85,7 +85,7 @@ def test_convert_objects_parallel_invokes_each_conversion_once(monkeypatch, tmp_
         for idx in (1, 2)
     ]
 
-    results = stage10.convert_objects(tasks, parallel_workers=2)
+    results = stage11.convert_objects(tasks, parallel_workers=2)
 
     assert sorted(results) == [1, 2]
     assert len(calls) == 2

@@ -3,7 +3,7 @@
 
 """Import a URDF asset into OmniGibson's USD format.
 
-Replaces `python -m omnigibson.examples.objects.import_custom_object` for stage 12.
+Replaces `python -m omnigibson.examples.objects.import_custom_object` for stage 13.
 
 That example script is unusable on current OmniGibson `main`: it calls
 `import_og_asset_from_urdf(..., keep_instanceable=not no_keep_instanceable)`, but the
@@ -13,11 +13,11 @@ function no longer declares `keep_instanceable`, so every invocation dies with
 
 Upstream dropped the parameter and now controls instancing with the module constant
 `_ALLOW_INSTANCING = False` in `omnigibson/utils/asset_conversion_utils.py` — which is exactly
-the behavior stage 12 was asking for by passing `--no_keep_instanceable`. The example simply was
+the behavior stage 13 was asking for by passing `--no_keep_instanceable`. The example simply was
 not updated alongside the function.
 
-Rather than patch a gitignored third-party checkout, stage 12 calls this module. Only the URDF
-branch of the example is reproduced, because SimFoundry always passes a `.urdf` (stage 10 writes
+Rather than patch a gitignored third-party checkout, stage 13 calls this module. Only the URDF
+branch of the example is reproduced, because SimFoundry always passes a `.urdf` (stage 11 writes
 it) and never the raw-mesh branch that needs `generate_urdf_for_mesh`.
 
 Arguments are filtered against the installed signature, so this works both on the commit
@@ -43,7 +43,7 @@ def build_supported_kwargs(import_fn, requested):
 
     Args:
         import_fn (callable): `import_og_asset_from_urdf`
-        requested (dict): Arguments stage 12 wants to pass
+        requested (dict): Arguments stage 13 wants to pass
 
     Returns:
         tuple[dict, list[str]]: (accepted kwargs, sorted names that were dropped)

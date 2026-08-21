@@ -149,8 +149,8 @@ CMD+=(
   "generate_cousins_combination.num_variations_used_per_object=2"
   "generate_cousins_combination.num_obj_to_swap=2"
   "generate_cousins_combination.max_combinations=2"
-  "s13_og.auto_generation=true"
-  "s13_og.auto_iter_num=2"
+  "s14_og.auto_generation=true"
+  "s14_og.auto_iter_num=2"
   "propose_scene_task.num_tasks=2"
   "${HYDRA_OVERRIDES[@]}"
 )

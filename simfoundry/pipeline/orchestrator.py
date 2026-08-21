@@ -47,11 +47,11 @@ TIMING_LOG_ENV_VAR = "SIMFOUNDRY_PIPELINE_TIMING_LOG"
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CFG_PATH = REPO_ROOT / "scripts" / "cfg" / "real2sim_cfg.yaml"
 
-# Stage 8b (articulation) is optional: it joins the plan only when it can actually run, so an
+# Stage 9 (articulation) is optional: it joins the plan only when it can actually run, so an
 # install without it degrades to a warning rather than a failure.
-ARTICULATION_STAGE_SCRIPT = "scripts/pipeline/A_reconstruction/stages/8b_articulate_objects.py"
+ARTICULATION_STAGE_SCRIPT = "scripts/pipeline/A_reconstruction/stages/9_articulate_objects.py"
 ARTICULATION_DEPS_DIR = "deps/articulate-anything"
-# Mirrors CONDA_ENVS in 8b_articulate_objects.py; stage 8b shells out to these.
+# Mirrors CONDA_ENVS in 9_articulate_objects.py; stage 9 shells out to these.
 ARTICULATION_ENVS = ("articulate-anything-hunyuan", "articulate-anything-partfield")
 
 
@@ -70,11 +70,11 @@ def _conda_envs_dirs() -> list[Path]:
 
 
 def articulation_available() -> bool:
-    """Whether stage 8b can actually run here.
+    """Whether stage 9 can actually run here.
 
     The stage script alone is not enough: it ships in every checkout, so testing only for it
-    meant the documented "ignored with a warning" path never triggered and stage 8b was
-    scheduled into plans that could not run it. Stage 8b also needs the articulate-anything
+    meant the documented "ignored with a warning" path never triggered and stage 9 was
+    scheduled into plans that could not run it. Stage 9 also needs the articulate-anything
     checkout and one of its conda envs, so check for those too. When the conda layout cannot be
     determined, report unavailable — degrading to a warning is the documented behaviour and is
     safer than scheduling a stage that will fail mid-run.
@@ -178,20 +178,20 @@ def get_reconstruction_stage_plan(input_mode: str, *, detect_articulation: bool 
     ]
     if detect_articulation:
         if articulation_available():
-            plan.append(StageSpec("8b", f"{base}/8b_articulate_objects.py", "s8b_articulate_objects", "simfoundry", "Detect and decompose articulated objects"))
+            plan.append(StageSpec("9", f"{base}/9_articulate_objects.py", "s9_articulate_objects", "simfoundry", "Detect and decompose articulated objects"))
         else:
             print(
-                "WARNING: articulation was requested but stage 8b is not available in this "
+                "WARNING: articulation was requested but stage 9 is not available in this "
                 "release; continuing without it.",
                 file=sys.stderr,
             )
     plan.extend(
         [
-            StageSpec("9", f"{base}/9_compile_scene.py", "s9_compile", "simfoundry", "Compile scene"),
-            StageSpec("10", f"{base}/10_make_objects_sim_ready.py", "s10_sim", "simfoundry", "Make sim-ready objects"),
-            StageSpec("11", f"{base}/11_stabilize_physics.py", "s11_physics", "simfoundry", "Stabilize physics"),
-            StageSpec("12", f"{base}/12_import_usd.py", "s12_usd", "simfoundry", "Import USD assets"),
-            StageSpec("13", f"{base}/13_create_og_scene.py", "s13_og", "simfoundry", "Create OmniGibson scene"),
+            StageSpec("10", f"{base}/10_compile_scene.py", "s10_compile", "simfoundry", "Compile scene"),
+            StageSpec("11", f"{base}/11_make_objects_sim_ready.py", "s11_sim", "simfoundry", "Make sim-ready objects"),
+            StageSpec("12", f"{base}/12_stabilize_physics.py", "s12_physics", "simfoundry", "Stabilize physics"),
+            StageSpec("13", f"{base}/13_import_usd.py", "s13_usd", "simfoundry", "Import USD assets"),
+            StageSpec("14", f"{base}/14_create_og_scene.py", "s14_og", "simfoundry", "Create OmniGibson scene"),
         ]
     )
     return plan
@@ -206,7 +206,7 @@ def get_augmentation_stage_plan(*, include_p2p: bool = False) -> list[StageSpec]
         StageSpec("3", f"{base}/3_generate_cousin_meshes.py", "cousin_generation", "mesh", "Generate cousin meshes"),
         StageSpec("4", f"{base}/4_make_cousins_sim_ready.py", "sim", "simfoundry", "Make cousin assets sim-ready"),
         StageSpec("5", f"{base}/5_import_cousin_usd.py", "usd", "b1k", "Import cousin USD assets"),
-        StageSpec("6", f"{base}/6_sample_reconstructed_scene.py", "s13_og", "simfoundry", "Sample reconstructed scene variations"),
+        StageSpec("6", f"{base}/6_sample_reconstructed_scene.py", "s14_og", "simfoundry", "Sample reconstructed scene variations"),
         StageSpec("7", f"{base}/7_propose_scene_tasks.py", "propose_scene_task", "simfoundry", "Propose scene tasks"),
     ]
     if include_p2p:

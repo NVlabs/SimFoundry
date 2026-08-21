@@ -139,7 +139,7 @@ done
 
 ### 3b. Google Cloud / Gemini
 
-All VLM stages (A stages 3, 5, 6, 10 and the whole B pipeline) need Gemini. There are
+All VLM stages (A stages 3, 5, 6, 11 and the whole B pipeline) need Gemini. There are
 two routes:
 
 **Vertex AI (default).** Needs Application Default Credentials, which require an
@@ -353,15 +353,15 @@ bash scripts/pipeline/C_application/run.sh --scene-name <name> --mode smoke-rand
   printed by every VLM stage; disables only the FLUX backend.
 - `AttributeError: 'NoneType' object has no attribute 'GetCamera'` from
   `omni.kit.widget.viewport` — Isaac Sim's headless shutdown, fires repeatedly in stages
-  10-13.
+  11-14.
 
 Filter both out when monitoring, or real failures get lost in them.
 
 Useful flags: `--include`/`--exclude` to select stages, `--dry-run` to print the plan,
-`--detect-articulation` for stage 8b, `--bg-splat` for stage 2c.
+`--detect-articulation` for stage 9, `--bg-splat` for stage 2c.
 
 **Articulation needs a minimum of 18 GiB VRAM.** The 16 GiB minimum covers only the
-standard pipeline; stage 8b's segmentation models allocate outside the VRAM scheduler.
+standard pipeline; stage 9's segmentation models allocate outside the VRAM scheduler.
 
 **`--detect-articulation` degrades gracefully.** The availability check now verifies the
 `deps/articulate-anything` checkout and the `articulate-anything-*` conda envs, not just
@@ -389,7 +389,7 @@ Env-name overrides, if yours differ from the defaults:
 | `void` | `install_void.sh` | auto-BG inpainting (optional) |
 | `nerfstudio_simfoundry` | `install_nerfstudio.sh` | stage 2c splat training (optional) |
 | `3dgrut` | `install_3dgrut.sh` | PLY → USDZ (optional) |
-| `articulate-anything-{hunyuan,partfield}` | `install_articulate.sh` | stage 8b (optional) |
+| `articulate-anything-{hunyuan,partfield}` | `install_articulate.sh` | stage 9 (optional) |
 
 There is **no** `b1k` env, and none is needed — `--env-b1k` defaults to `simfoundry`
 in all three pipelines. Pass it only if you keep OmniGibson in a separate environment.

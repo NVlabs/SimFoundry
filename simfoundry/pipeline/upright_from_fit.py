@@ -10,7 +10,7 @@ canonical frame instead). Stage 8's full-SO(3) fit against the scene's partial p
 cloud measures exactly that error: the direction in mesh coordinates that the fit
 sends onto the scene's gravity axis is the object's true up. The helpers here compute
 the minimal rotation that moves that direction onto the mesh convention's +Y so the
-tilt can be baked into ``canonical_mesh`` (which stages 8b/9/10 and cousin generation
+tilt can be baked into ``canonical_mesh`` (which stages 9/10/11 and cousin generation
 consume) while the stored pose keeps only gravity yaw + translation + scale.
 """
 

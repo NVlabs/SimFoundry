@@ -7,7 +7,7 @@
 #
 # auto_bg adds a BG 3DGS splat to an EXISTING canonical reconstruction. The canonical
 # pipeline (run FIRST in splat-prep mode — see canonical_run_overrides below) owns
-# stage 1 (subsample) + stage 2 (orig-DA3) + stages 3-13; this add-on REUSES those
+# stage 1 (subsample) + stage 2 (orig-DA3) + stages 3-14; this add-on REUSES those
 # outputs and runs only:
 #   Background ingest (steps 1-4): stage VOID input (symlinked from canonical s1_video) ->
 #             quadmask -> VOID Pass 1/2 chunked -> void-DA3 -> seed PLY.
@@ -116,7 +116,7 @@ s3_pass2:                                         # env: simfoundry — run_void
 
 # Original-frame DA3 is OWNED by the canonical reconstruction (stage 2 / DA3 backend),
 # run BEFORE this add-on. It lives at the path below; both the canonical foreground
-# (stages 3-13) and the BG splat read it, so bg and fg share one DA3 world. auto_bg
+# (stages 3-14) and the BG splat read it, so bg and fg share one DA3 world. auto_bg
 # REUSES it (the orchestrator asserts it exists with num_frames frames) — it never
 # re-runs orig-DA3.
 orig_da3_npz: "${root_dir}/${scene_name}/s2_da/da/exports/npz/results.npz"
@@ -137,7 +137,7 @@ s4_seed_ply:                                      # env: simfoundry — build_se
   max_points: 200000                              # Random subsample target for the seed PLY
 
 # ===== Canonical-run overrides required for auto_bg =====
-# Stages 1-13 are NOT run by this add-on — they belong to the canonical reconstruction,
+# Stages 1-14 are NOT run by this add-on — they belong to the canonical reconstruction,
 # which must be run in splat-prep mode FIRST. Pass these overrides to that run (after the
 # `--` in A_reconstruction/run.sh) so the reused outputs match what auto_bg expects:
 canonical_run_overrides:
@@ -147,10 +147,10 @@ canonical_run_overrides:
   s1_video_target_h: 384
   s2_depth_backend: da3                           # orig-DA3 must be DA3 (the precondition checks the npz schema)
   s5_scene_pda_geometric_backend: depth_pro # PDA geometric backend for the gmask sub-stage
-  s10_sim_vlm_model: gemini-2.5-pro               # plain override (key exists; no `+`)
-  # Stage 13: auto-exits via os._exit(0) when interactive=false (the default); run headless:
-  s13_og_interactive: false                       # true keeps the OmniGibson viewer alive (hangs the batch run)
-  s13_og_headless: true                           # OMNIGIBSON_HEADLESS=1 env var on the canonical run
+  s11_sim_vlm_model: gemini-2.5-pro               # plain override (key exists; no `+`)
+  # Stage 14: auto-exits via os._exit(0) when interactive=false (the default); run headless:
+  s14_og_interactive: false                       # true keeps the OmniGibson viewer alive (hangs the batch run)
+  s14_og_headless: true                           # OMNIGIBSON_HEADLESS=1 env var on the canonical run
 
 # ===== Splat + assets (steps 5-7) =====
 
@@ -195,7 +195,7 @@ s6_bridge:                                        # env: simfoundry — bridge_b
 
 s7_build_assets:                                  # env: simfoundry — build_og_scene_assets.py
   rerun: true
-  scene_state: "${root_dir}/${scene_name}/s13_og/reconstructed_og_scene.json"
+  scene_state: "${root_dir}/${scene_name}/s14_og/reconstructed_og_scene.json"
   bg_splat_ply: "${s6_bridge.out_ply}"            # Sidecar auto-discovered at <bg_splat_ply>.pose.json
   out_scene_dir: "${assets_dir}/${scene_name}"
   out_state_name: "${scene_name}_scene_state_auto_bg.json"

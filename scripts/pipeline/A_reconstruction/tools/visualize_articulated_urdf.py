@@ -22,12 +22,12 @@ from simfoundry.utils.python_utils import sanitize_path_component
 
 
 def default_urdf_path(root_dir: Path, scene_name: str, object_name: str) -> Path:
-    """Resolve a stage-8b URDF, accepting the pre-sanitizer layout for older runs."""
-    s8b_dir = root_dir / scene_name / "s8b_articulate_objects"
-    sanitized = s8b_dir / sanitize_path_component(scene_name) / sanitize_path_component(object_name) / "results" / "mobility.urdf"
+    """Resolve a stage-9 URDF, accepting the pre-sanitizer layout for older runs."""
+    s9_dir = root_dir / scene_name / "s9_articulate_objects"
+    sanitized = s9_dir / sanitize_path_component(scene_name) / sanitize_path_component(object_name) / "results" / "mobility.urdf"
     if sanitized.is_file():
         return sanitized
-    legacy = s8b_dir / scene_name / object_name.replace(" ", "_").replace("/", "_") / "results" / "mobility.urdf"
+    legacy = s9_dir / scene_name / object_name.replace(" ", "_").replace("/", "_") / "results" / "mobility.urdf"
     return legacy if legacy.is_file() else sanitized
 
 
@@ -151,7 +151,7 @@ def sweep_value(lower: float, upper: float, frame_idx: int, total_frames: int, c
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--urdf", type=Path, default=None, help="URDF to visualize. Defaults to the scene/object stage 8b output.")
+    parser.add_argument("--urdf", type=Path, default=None, help="URDF to visualize. Defaults to the scene/object stage 9 output.")
     parser.add_argument("--root-dir", type=Path, default=Path("Data"), help="Pipeline root directory.")
     parser.add_argument("--scene-name", default="pull_scene_0", help="Scene name used when --urdf is omitted.")
     parser.add_argument("--object-name", default="wooden desk organizer", help="Articulated object name used when --urdf is omitted.")

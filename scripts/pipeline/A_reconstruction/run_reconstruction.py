@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unified runner for steps 1-13 with optional streaming for contiguous stages 5-8."""
+"""Unified runner for steps 1-14 with optional streaming for contiguous stages 5-8."""
 
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ def main():
     parser.add_argument("--stream-5-8", action="store_true", help="Enable streaming for a contiguous subsequence in stages 5-8")
     parser.add_argument("--stream-start-stage", type=int, default=5, help="Streaming subsequence start stage (5-8)")
     parser.add_argument("--stream-end-stage", type=int, default=8, help="Streaming subsequence end stage (5-8)")
-    parser.add_argument("--detect-articulation", action="store_true", help="Run stage 8b after pose matching to decompose articulated objects (requires the optional articulate envs; ignored with a warning if absent)")
+    parser.add_argument("--detect-articulation", action="store_true", help="Run stage 9 after pose matching to decompose articulated objects (requires the optional articulate envs; ignored with a warning if absent)")
     parser.add_argument("--bg-splat", action="store_true", help="Include stage 2c (nerfstudio background Gaussian splat). Opt-in only — not enabled by default.")
     parser.add_argument("--skip-successful", action="store_true", help="Skip stages whose stage_info.json records success=true for this scene. Markers mean 'completed once', not 'up to date': re-running an earlier stage does not invalidate downstream markers.")
     parser.add_argument("overrides", nargs="*", help="Additional Hydra overrides forwarded to each stage")

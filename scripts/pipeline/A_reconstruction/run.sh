@@ -12,7 +12,7 @@ usage() {
   cat <<'EOF'
 Usage: scripts/pipeline/A_reconstruction/run.sh [options] [-- hydra_override=...]
 
-Runs the canonical A_reconstruction 1-13 real2sim pipeline.
+Runs the canonical A_reconstruction 1-14 real2sim pipeline.
 
 Defaults target the local fixture:
   root_dir    = <repo>/Data
@@ -39,7 +39,7 @@ Options:
   --stream-end-stage N            Streaming end stage, 5-8. Default: 8
   --max-vram-frac F               Streaming VRAM budget as a fraction of total GPU memory. Default: stream_subseq.max_vram_frac (0.9)
   --max-vram-gb N                 Opt-in absolute hard VRAM budget for streaming, in GiB. Default: unset (uses the fraction)
-  --detect-articulation           Run automated articulation decomposition stage 8b after stage 8.
+  --detect-articulation           Run automated articulation decomposition stage 9 after stage 8.
   --bg-splat                      Include stage 2c (nerfstudio background Gaussian splat). Opt-in only — not run by default.
   --skip-successful               Skip stages already recorded as successful for this scene
                                   (stage_info.json). Means "completed once", not "up to date":
@@ -307,7 +307,7 @@ if [[ -n "${MAX_VRAM_GB}" ]]; then
   CMD+=("stream_subseq.max_vram_gb=${MAX_VRAM_GB}")
 fi
 if [[ "${DETECT_ARTICULATION}" == "1" ]]; then
-  CMD+=("s8b_articulate_objects.interactive_review=false")
+  CMD+=("s9_articulate_objects.interactive_review=false")
 fi
 CMD+=("${HYDRA_OVERRIDES[@]}")
 

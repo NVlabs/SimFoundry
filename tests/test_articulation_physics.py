@@ -1,12 +1,12 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Stage 10 sources articulated-object physics from the articulation pipeline.
+"""Stage 11 sources articulated-object physics from the articulation pipeline.
 
 The articulation pipeline writes results/physics_properties.json (estimates)
 and the refinement UI writes results/physics_overrides.json (user edits);
 simfoundry.pipeline.articulation_physics resolves them with user edits on top
-and falls back to stage 10's legacy VLM estimation only when the pipeline file
+and falls back to stage 11's legacy VLM estimation only when the pipeline file
 is absent. These tests lock that precedence and the <dynamics> preservation
 contract used by import_articulated_object.
 """
