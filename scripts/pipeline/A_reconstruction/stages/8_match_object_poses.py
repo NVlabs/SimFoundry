@@ -33,7 +33,7 @@ from simfoundry.utils.processing_utils import compute_point_cloud_from_depth, pa
 from simfoundry.utils.prompt_utils import prompt_topk_image_select
 from simfoundry.pipeline.stage_utils import StageResult, bootstrap_hydra_workdir, finalize_stage, resolve_base_iteration
 from simfoundry.pipeline.front_canonicalization import canonicalize_front, yaw_snap_to_axes
-from simfoundry.pipeline.upright_from_fit import decide_tilt, tilt_from_fit
+from simfoundry.pipeline.upright_from_fit import decide_tilt, resolve_bake_fitted_tilt, tilt_from_fit
 from simfoundry.pipeline.frame_selection import resolve_img_idx
 from simfoundry.utils.python_utils import atomic_output_path
 import multiprocessing
@@ -354,6 +354,12 @@ def main(cfg):
     if requested_indices is not None:
         logger.info("Filtering to requested object indices: %s", sorted(requested_indices))
 
+    bake_fitted_tilt = resolve_bake_fitted_tilt(
+        cfg.s8_pose.get("bake_fitted_tilt", "auto"), cfg.s7_mesh.shape_model)
+    logger.info(f"Tilt baking {'enabled' if bake_fitted_tilt else 'disabled'} "
+                f"(bake_fitted_tilt={cfg.s8_pose.get('bake_fitted_tilt', 'auto')}, "
+                f"shape_model={cfg.s7_mesh.shape_model})")
+
     # Helper function to extract iteration number for proper numerical sorting
     def get_iter_num(filename):
         """Extract iteration number from filename for numerical sorting"""
@@ -540,7 +546,7 @@ def main(cfg):
         tilt_rot = None
         tilt_info = {"tilt_deg": 0.0, "consensus_spread_deg": 0.0,
                      "applied_tilt_deg": 0.0, "status": "disabled"}
-        if cfg.s8_pose.get("bake_fitted_tilt", True):
+        if bake_fitted_tilt:
             tilt_rot, tilt_info = decide_tilt(
                 info_sorted, gravity_up_cam,
                 min_tilt_deg=cfg.s8_pose.get("min_tilt_deg", 10.0),
@@ -612,7 +618,13 @@ def main(cfg):
         snap_info = {"snap_yaw_deg": 0.0, "status": "disabled"}
         if cfg.s8_pose.get("front_yaw_snap", True):
             if tilt_info["status"] == "baked":
-                snap_rot, snap_info = yaw_snap_to_axes(np.asarray(canonical_mesh_tm.vertices))
+                # TRELLIS.2 GLBs load as a Scene; take world-frame vertices either way.
+                snap_verts = (
+                    canonical_mesh_tm.dump(concatenate=True).vertices
+                    if isinstance(canonical_mesh_tm, trimesh.Scene)
+                    else canonical_mesh_tm.vertices
+                )
+                snap_rot, snap_info = yaw_snap_to_axes(np.asarray(snap_verts))
                 if snap_rot is not None:
                     _snap_tf = np.eye(4)
                     _snap_tf[:3, :3] = snap_rot
@@ -758,7 +770,7 @@ def main(cfg):
                 # FoundationPose recovered the true 43-deg tilt.) If the pre-FP bake
                 # already uprighted the mesh, the residual here falls below min_tilt_deg
                 # and nothing happens.
-                if cfg.s8_pose.get("bake_fitted_tilt", True):
+                if bake_fitted_tilt:
                     fp_tilt_deg, fp_tilt_rot = tilt_from_fit(
                         top_info["tf_z_up"].rot, gravity_up_cam)
                     tilt_info["fp_tilt_deg"] = fp_tilt_deg
