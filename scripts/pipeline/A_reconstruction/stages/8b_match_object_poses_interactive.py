@@ -944,31 +944,6 @@ def main(cfg):
             # Load canonical mesh in open3d
             canonical_mesh = o3d.io.read_triangle_mesh(canonical_mesh_fpath, enable_post_processing=True)
 
-        # # shutil.copy2(src=mesh_path, dst=canonical_mesh_fpath)
-        # canonical_mesh = deepcopy(mesh)
-        # canonical_mesh = canonical_mesh.scale(pre_scale_factor, center=np.zeros(3))
-        # o3d.io.write_triangle_mesh(canonical_mesh_fpath, canonical_mesh)
-
-        # if cfg.visualize:
-        #     # draw result
-        #     for top_info in info_sorted:
-        #         result = top_info["result"]
-        #         source.paint_uniform_color([1, 0, 0])
-        #         target.paint_uniform_color([0, 1, 0])
-        #         result.paint_uniform_color([0, 0, 1])
-        #         result_check = copy.deepcopy(target)
-        #         pts = np.asarray(result_check.points)
-        #         pts = top_info["tf_z_up"].scale * np.dot(pts, top_info["tf_z_up"].rot.T) + top_info["tf_z_up"].t
-        #         result_check.points = o3d.utility.Vector3dVector(pts)
-        #         # result_check.points = top_info["tf"].transform(result_check.points)
-        #         result_check.paint_uniform_color([0, 1, 1])
-        #         # o3d.visualization.draw_geometries([mesh, source, target, result, result_check])
-        #         # o3d.visualization.draw_geometries([source, target, result, result_check])
-        #         print(f"SCALE: {top_info['tf_z_up'].scale}")
-        #         o3d.visualization.draw_geometries([source, target, result_check])
-        #
-        #         # from IPython import embed; embed()
-
         # Potentially load Any6D if requested (skip when resuming)
         use_any6d = cfg.s8_pose.use_any6d
         if use_any6d and not is_resuming:
@@ -1073,8 +1048,12 @@ def main(cfg):
                     # Image.open(tmp_ref_img_path).show()
                 # Sto
 
-                # Update canonical mesh
-                est.mesh.export(canonical_mesh_fpath)
+                # Update canonical mesh: re-export the GLB at Any6D's scale and centering
+                # (est.mesh is the centered copy) to maintain metallic appearance
+                a6d_scaled_mesh = trimesh.load(canonical_mesh_fpath)
+                a6d_scaled_mesh.apply_scale(top_info["tf_z_up"].scale)
+                a6d_scaled_mesh.apply_translation(-(a6d_scaled_mesh.bounds[0] + a6d_scaled_mesh.bounds[1]) / 2.0)
+                a6d_scaled_mesh.export(canonical_mesh_fpath)
                 canonical_mesh = o3d.io.read_triangle_mesh(canonical_mesh_fpath, enable_post_processing=True)
 
                 # Update transform

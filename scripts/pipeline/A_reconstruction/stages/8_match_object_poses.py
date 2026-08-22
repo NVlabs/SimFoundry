@@ -749,8 +749,11 @@ def main(cfg):
                     # Save visualization
                     Image.fromarray(vis).save(f"{out_dir}/fit/{img_name}_foundationpose_fit.png")
 
-                # Update canonical mesh
-                est.mesh_ori.export(canonical_mesh_fpath)
+                # Update canonical mesh: re-export the GLB written above at the scale
+                # FoundationPose registered at to maintain metallic appearance
+                fp_scaled_mesh = trimesh.load(canonical_mesh_fpath)
+                fp_scaled_mesh.apply_scale(top_info["tf_z_up"].scale)
+                fp_scaled_mesh.export(canonical_mesh_fpath)
                 canonical_mesh = o3d.io.read_triangle_mesh(canonical_mesh_fpath, enable_post_processing=True)
 
                 # Update transform
@@ -764,12 +767,7 @@ def main(cfg):
 
                 # FoundationPose is the pose authority when enabled, and unlike the CPD
                 # restarts it disambiguates symmetry flips by rendering the textured mesh
-                # against the RGB-D observation — so re-derive the tilt from ITS pose.
-                # (Observed: CPD restarts agreed within 0.2 deg on an upside-down fit of a
-                # boxy object, implying a 153-deg tilt that the gate rejected, while
-                # FoundationPose recovered the true 43-deg tilt.) If the pre-FP bake
-                # already uprighted the mesh, the residual here falls below min_tilt_deg
-                # and nothing happens.
+                # against the RGB-D observation — so re-derive the tilt from its pose.
                 if bake_fitted_tilt:
                     fp_tilt_deg, fp_tilt_rot = tilt_from_fit(
                         top_info["tf_z_up"].rot, gravity_up_cam)
