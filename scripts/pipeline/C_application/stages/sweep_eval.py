@@ -18,7 +18,7 @@ Usage (gr00t):
         --policy-type gr00t \
         --checkpoint-dir /path/to/checkpoints \
         --checkpoint-interval 2000 \
-        --eval-config put_away_trash \
+        --eval-config throw_away_trash \
         --embodiment-tag OXE_DROID_JOINT_POSITION_RELATIVE_RANDOM_VIEW \
         --output-dir ./sweep_results
 
@@ -27,7 +27,7 @@ Usage (openpi):
         --policy-type openpi \
         --checkpoint-dir /path/to/openpi/checkpoints/experiment_name \
         --checkpoint-interval 1000 \
-        --eval-config put_away_trash \
+        --eval-config throw_away_trash \
         --openpi-policy-config pi05_droid_jointpos \
         --output-dir ./sweep_results
 
@@ -35,7 +35,7 @@ Usage (openpi):
     python sweep_eval.py \
         --checkpoint-dir /path/to/checkpoints \
         --checkpoint-interval 2000 \
-        --eval-config put_away_trash \
+        --eval-config throw_away_trash \
         --embodiment-tag OXE_DROID_JOINT_POSITION_RELATIVE_RANDOM_VIEW \
         --dry-run
 
@@ -47,7 +47,7 @@ Usage (openpi):
     #   checkpoint_dir: /path/to/checkpoints
     #   checkpoint_interval: 2000
     #   checkpoint_range: "2000:30000"  # optional
-    #   eval_config: put_away_trash
+    #   eval_config: throw_away_trash
     #   eval_overrides:                 # optional
     #     - "s15_eval.n_episodes=10"
     #   # --- gr00t-specific ---
@@ -750,7 +750,7 @@ def parse_args():
 
     # Evaluation config
     parser.add_argument("--eval-config", default=None,
-                        help="Hydra config name for 15_eval_policy_og_scene.py (e.g. put_away_trash)")
+                        help="Hydra config name for 15_eval_policy_og_scene.py (e.g. throw_away_trash)")
     parser.add_argument("--eval-overrides", nargs="*", default=None,
                         help="Extra Hydra overrides forwarded to the eval script")
 

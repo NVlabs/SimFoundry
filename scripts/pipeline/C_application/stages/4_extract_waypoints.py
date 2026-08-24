@@ -45,7 +45,7 @@ TASK_EXPECTED_SEQUENCES = {
     'yam_workstation_stack_bowls_rescaled_minimal': ['pick', 'place'],
     'yam_workstation_stack_bowls': ['pick', 'place', 'pick', 'place'],
     'droid_desk_stack_dishware': ['pick', 'place', 'pick', 'place'],
-    'droid_desk_put_away_trash': ['pick', 'open', 'pick', 'place', 'close'],
+    'droid_desk_throw_away_trash': ['pick', 'open', 'pick', 'place', 'close'],
     'droid_desk_put_away_marker': ['open', 'pick', 'place', 'close'],
     'place_eraser_on_tray': ['pick', 'place'],
     'nv_desk_place_baseball_in_bowl': ['pick', 'place'],

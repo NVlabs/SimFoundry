@@ -8,11 +8,11 @@ mamba activate simfoundry_teleop
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 DATA_PATH="${REPO_ROOT}/Data"
-SCENE_NAME=droid_desk_put_away_trash
+SCENE_NAME=droid_desk_throw_away_trash
 
 python interactive_scene_editor.py \
 --scene_name ${SCENE_NAME} \
---mesh_background ${REPO_ROOT}/assets/mesh_backgrounds/droid_desk_mesh.usd \
+--mesh_background ${REPO_ROOT}/assets/backgrounds/mesh_bg/droid_desk_mesh.usd \
 --cam2world ${DATA_PATH}/${SCENE_NAME}/s4_frame/image_0_cam2world.npy \
 --scene_objects_info ${DATA_PATH}/${SCENE_NAME}/s11_sim/scene_objects_info.json \
 --pb_scene_poses ${DATA_PATH}/${SCENE_NAME}/s12_physics/pb_scene_poses.json \

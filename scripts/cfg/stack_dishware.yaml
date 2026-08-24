@@ -34,7 +34,7 @@ s1_video:     # env: simfoundry
   rerun: true  # Set to true to rerun the step, false to skip
   out_dirname: s1_video
   out_dir: "${root_dir}/${scene_name}/${s1_video.out_dirname}"
-  video_fpath: "path/to/Data/put_away_trash/droid_desk_trash.mp4"
+  video_fpath: "path/to/Data/throw_away_trash/droid_desk_trash.mp4"
   n_subsampled_frames: 15
 s2_fs:      # env: fs
   rerun: true

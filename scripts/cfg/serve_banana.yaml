@@ -34,7 +34,7 @@ s1_video:     # env: simfoundry
   rerun: true  # Set to true to rerun the step, false to skip
   out_dirname: s1_video
   out_dir: "${root_dir}/${scene_name}/${s1_video.out_dirname}"
-  video_fpath: "path/to/Data/put_away_trash/droid_desk_trash.mp4"
+  video_fpath: "path/to/Data/throw_away_trash/droid_desk_trash.mp4"
   n_subsampled_frames: 15
 s2_fs:      # env: fs
   rerun: true
@@ -171,7 +171,7 @@ s14_og:
 s14_teleop:
   rerun: true
   task_name: ${task.task_name}                  # Located in <CFG_DIR>/task -- specify via task=... in command line
-  scene_json_name: droid_desk_put_away_trash                            # Name of scene JSON to load (located in SIMFOUNDRY_ASSET_DIR/scenes, without json extension) (null = use s14_og output)
+  scene_json_name: droid_desk_throw_away_trash                            # Name of scene JSON to load (located in SIMFOUNDRY_ASSET_DIR/scenes, without json extension) (null = use s14_og output)
   use_floor_plane: true
   out_dirname: s14_teleop
   out_dir: "${root_dir}/${scene_name}/${s14_teleop.out_dirname}"

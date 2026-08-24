@@ -139,8 +139,15 @@ def apply_realistic_render_settings(og, lazy, gs_pending=False) -> None:
     # Determine whether a GS background is active or about to be loaded.
     has_gs = gauss_prim is not None or gs_pending
 
+    floor_hidden = False
+    if og.sim.floor_plane is not None:
+        floor_vis = og.sim.floor_plane.prim.GetAttribute("visibility")
+        floor_hidden = floor_vis is not None and floor_vis.Get() == lazy.pxr.UsdGeom.Tokens.invisible
+
     if floor_mesh is None:
         print("[render] no floor mesh found — skipping matte + proxy setup")
+    elif floor_hidden and not has_gs:
+        print(f"[render] floor mesh {floor_mesh.GetPrimPath()} → left invisible (floor_plane_visible=False)")
     else:
         # Matte floor: only when NO GS active.
         # NuRec registered compositing runs as a post-process AFTER the RTX render.
