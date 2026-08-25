@@ -1,0 +1,33 @@
+# Dependencies for the light scene editor.
+#
+# Install with scripts/installation/install_light_editor.sh, which creates the
+# dedicated `simfoundry-editor` conda env. It must be a SEPARATE env, not the
+# simfoundry env: Isaac Sim ships its own pxr that is only importable once
+# Kit is running, and installing usd-core alongside it risks shadowing that
+# copy.
+#
+# Nothing here needs a GPU, Isaac Sim, or OmniGibson.
+
+# Tested together with usd-core 26.8, trimesh 4.12.2, Pillow 12.2.0,
+# and NumPy 2.4.4. Upper bounds protect the extractor from unreviewed major
+# API changes while still allowing compatible security/bug-fix releases.
+usd-core>=24.8,<27
+trimesh>=4.0,<5
+pillow>=10,<13
+numpy>=1.26,<3
+pyyaml>=6,<7
+# Round-trip mode (comments, key order, formatting) for the task-yaml range
+# editor's writes. Without it, saving a task config still works but falls
+# back to a plain PyYAML dump that discards comments.
+ruamel.yaml>=0.17,<1
+
+# The "Generate task" panel's Gemini call (task_propose.py). A pure API
+# client, not a GPU dependency -- fine for this venv. Without it, that one
+# panel reports "not installed" instead of the rest of the editor breaking.
+google-genai>=0.3,<2
+
+# trimesh treats SciPy as optional and degrades quietly without it: convex-hull
+# generation raises and vertex normals fall back to an unweighted path. Both
+# matter for importing a mesh from disk -- a failed hull means the collider
+# silently becomes the full triangle mesh -- so it is a hard dependency here.
+scipy>=1.11,<2

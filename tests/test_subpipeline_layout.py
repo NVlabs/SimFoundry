@@ -31,6 +31,13 @@ def test_automated_pipeline_scripts_have_no_live_breakpoints():
     offenders = []
     for root in scanned_roots:
         for path in sorted(root.rglob("*.py")) + sorted(root.rglob("*.sh")):
+            # The light editor keeps its own virtualenv at
+            # scripts/interactive/light_editor/.venv-light, which is inside a scanned root
+            # and full of third-party code that legitimately ships debugger calls (pip's
+            # vendored distlib, for one). Only our own sources are in scope, so skip any
+            # dot-directory rather than reporting a dependency's residue as ours.
+            if any(part.startswith(".") for part in path.relative_to(REPO_ROOT).parts):
+                continue
             text = path.read_text(encoding="utf-8", errors="ignore")
             for needle in needles:
                 if needle in text:

@@ -1,0 +1,1723 @@
+<!--
+SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+SPDX-License-Identifier: Apache-2.0
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SimFoundry Light Scene Editor</title>
+<style>
+  :root {
+    --bg: #14161a; --panel: #1d2026; --line: #2c313a;
+    --text: #d8dce3; --dim: #858d9b; --accent: #76b900; --warn: #e0a33e;
+    /* Monospace is reserved for `.mono` and the data fields (transform
+       numbers, object IDs, the export command); everything else is sans. */
+    --font-sans: ui-sans-serif, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, Menlo, Consolas, monospace;
+    /* Panel width. app.js rewrites it on drag and restores it from
+       localStorage; this value is the default and the fallback. */
+    --panel-w: 330px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; height: 100vh; display: flex; background: var(--bg);
+         color: var(--text); font: 14px/1.5 var(--font-sans); }
+  .mono, .obj > span:first-child, #xform input, #xform .quat, .field input,
+  #x-command, #cam-center, #picker-path, #launcher-roots, #scenename,
+  #size-frame, #xform-clip {
+    font-family: var(--font-mono);
+  }
+  #viewport { flex: 1; position: relative; min-width: 0; }
+  canvas { display: block; }
+
+  /* One rule for every number field's spin arrows: always visible, fixed
+     height. Panels that opt out do so by name below. */
+  input[type="number"]::-webkit-inner-spin-button { opacity: 1; height: 14px;
+                                                    margin-left: 1px; }
+
+  /* The panel scrolls as a whole rather than squeezing sections. Width stays
+     shrinkable (not `flex: 0 0`): a pinned basis wider than the window would
+     overflow the page; flex clamps it, and app.js clamps it again. */
+  #panel { width: var(--panel-w); background: var(--panel); border-left: 1px solid var(--line);
+           display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; }
+
+  /* Panel resize handle. A real flex item, not an overlay: a handle floating
+     over the viewport's right edge would sit on the preview panes. */
+  #panel-grip { flex: none; width: 6px; cursor: col-resize; background: var(--line);
+                user-select: none; -webkit-user-select: none; touch-action: none; }
+  #panel-grip:hover, #panel-grip:focus-visible, body.resizing #panel-grip {
+    background: var(--accent); outline: none; }
+  /* On the whole document: during a drag the pointer leaves the 6px handle. */
+  body.resizing { cursor: col-resize; user-select: none; -webkit-user-select: none; }
+  .section { padding: 10px 12px; border-bottom: 1px solid var(--line); flex-shrink: 0; }
+  .section h2 { margin: 0 0 8px; font-size: 12px; letter-spacing: .08em;
+                text-transform: uppercase; color: var(--dim); font-weight: 600; }
+  /* A section header that collapses its own section to a title-only strip. */
+  .section h2[role="button"] { cursor: pointer; user-select: none;
+                                -webkit-user-select: none; display: flex;
+                                align-items: center; gap: 5px; margin-bottom: 8px; }
+  .section h2[role="button"]:hover { color: var(--text); }
+  .section h2[role="button"]:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+  .section h2 .chevron { display: inline-block; font-size: 10px;
+                          transition: transform .12s ease; }
+  .section.collapsed h2 .chevron { transform: rotate(-90deg); }
+  .section.collapsed h2 { margin-bottom: 0; }
+  #ground-section.collapsed #ground-collapsible { display: none; }
+  /* A subsection heading inside one .section. */
+  .subhead { font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
+             color: var(--dim); font-weight: 600; margin-top: 14px;
+             padding-top: 10px; border-top: 1px solid var(--line); }
+  .subhead.warn { color: var(--warn); }
+  /* Two subsections side by side where they fit; stacked on a narrow panel. */
+  .dual { display: grid; gap: 0 14px;
+          grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+  #task-gen-section.collapsed #task-gen-collapsible { display: none; }
+  /* Collapsible; defaults to open. */
+  #task-section.collapsed #task-collapsible { display: none; }
+  /* Collapsible; defaults to closed. */
+  #arrange-section.collapsed #arrange-collapsible { display: none; }
+  #objects.collapsed #objects-collapsible { display: none; }
+  #selected-section.collapsed #selected-collapsible { display: none; }
+
+  #objects { flex-shrink: 0; }
+  /* Height from the custom property; the grip below drags it. */
+  #objlist { height: var(--objlist-h, 220px); overflow-y: auto; }
+  /* Drag handle for the object list's height. */
+  #objlist-grip { height: 6px; margin: 6px 0; cursor: row-resize;
+                  background: var(--line); border-radius: 3px;
+                  user-select: none; -webkit-user-select: none; touch-action: none; }
+  #objlist-grip:hover, #objlist-grip:focus-visible, body.resizing-objlist #objlist-grip {
+    background: var(--accent); outline: none; }
+  body.resizing-objlist { cursor: row-resize; user-select: none; -webkit-user-select: none; }
+  .obj { padding: 6px 8px; border-radius: 4px; cursor: pointer; display: flex;
+         justify-content: space-between; gap: 8px; font-size: 12px; }
+  /* min-width: 0 lets a long name truncate instead of pushing the status tag
+     out of view. */
+  .obj > span:first-child { min-width: 0; overflow: hidden;
+                            text-overflow: ellipsis; white-space: nowrap; }
+  .obj .tag { flex: none; }
+  .obj:hover { background: #262b33; }
+  .obj.sel { background: #2f3a1c; outline: 1px solid var(--accent); }
+  .obj.locked { color: var(--dim); cursor: default; }
+  .obj.error { color: var(--warn); }
+  .obj .tag { font-size: 10px; color: var(--dim); }
+  /* Removed objects stay listed, struck through, one click from restore. */
+  .obj.gone { color: var(--dim); text-decoration: line-through; opacity: .7; }
+  .obj.gone .tag { text-decoration: none; color: var(--warn); }
+  /* A layout warning or a settled-away object: a notice, not an error. */
+  .obj.warn .tag { color: var(--warn); }
+  /* Hidden in the view only: dimmed, not struck through. */
+  .obj.hidden-view { color: var(--dim); }
+  .obj-right { flex: none; display: flex; align-items: center; gap: 6px; }
+  .obj .eye { flex: none; width: auto; background: none; border: none;
+              padding: 2px 4px; font-size: 12px; line-height: 1; cursor: pointer;
+              border-radius: 3px; opacity: .55; }
+  .obj .eye:hover { background: #30363f; opacity: 1; }
+  .obj.hidden-view .eye { opacity: .35; }
+  .obj.hidden-view .eye:hover { opacity: .8; }
+
+  /* auto-fill grid: rows flow down and scroll, fitting two columns when the
+     modal is wide. */
+  #liblist { max-height: 42vh; overflow-y: auto; min-height: 120px;
+             border: 1px solid var(--line); border-radius: 4px; padding: 4px;
+             display: grid; align-content: start; gap: 1px 18px;
+             grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+  /* minmax(0, …) lets long names truncate instead of widening the grid; the
+     row's title attribute has the full path. */
+  .asset { padding: 5px 8px; border-radius: 4px; cursor: pointer;
+           display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, auto);
+           gap: 12px; align-items: baseline; }
+  .asset:hover { background: #262b33; }
+  .asset > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .asset .tag { font-size: 11px; color: var(--dim); text-align: right; }
+
+  /* Shown only while a drag carrying files is over the window. */
+  #drop-overlay[hidden] { display: none; }
+  #drop-overlay { position: absolute; inset: 12px; z-index: 30; display: flex;
+                  align-items: center; justify-content: center; pointer-events: none;
+                  border: 2px dashed var(--accent); border-radius: 10px;
+                  background: rgba(118, 185, 0, .08); }
+  #drop-overlay span { background: var(--panel); border: 1px solid var(--accent);
+                       border-radius: 6px; padding: 10px 18px; color: var(--text);
+                       font-size: 13px; }
+
+  /* --- server-side file picker ----------------------------------------- */
+  /* z-index 58: above every modal that opens it — library (40), export (45),
+     launcher (55) — and below the confirm dialog (70). */
+  #picker-modal[hidden] { display: none; }
+  #picker-modal { position: fixed; inset: 0; z-index: 58;
+                  display: flex; align-items: center; justify-content: center; }
+  #picker-backdrop { position: absolute; inset: 0; background: rgba(6, 8, 11, .6); }
+  #picker-card { position: relative; display: flex; flex-direction: column;
+                 width: min(720px, 92vw); height: min(600px, 86vh);
+                 background: var(--panel); border: 1px solid var(--line);
+                 border-radius: 8px; box-shadow: 0 18px 60px rgba(0, 0, 0, .55); }
+  #picker-head { display: flex; align-items: center; justify-content: space-between;
+                 padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  #picker-head h2 { margin: 0; font-size: 12px; letter-spacing: .08em;
+                    text-transform: uppercase; color: var(--dim); font-weight: 600; }
+  #picker-places { display: flex; gap: 6px; flex-wrap: wrap;
+                   padding: 10px 16px 0; }
+  #picker-bar { display: flex; align-items: center; gap: 8px; padding: 10px 16px; }
+  #picker-path { flex: 1; font-size: 12px; color: var(--text); background: #14171c;
+                 border: 1px solid var(--line); border-radius: 3px; padding: 4px 6px;
+                 font-family: inherit; }
+  #picker-path:focus { outline: 1px solid var(--accent); }
+  #btn-picker-go { padding: 4px 8px; width: auto; }
+  #picker-list { flex: 1; overflow-y: auto; margin: 0 16px;
+                 border: 1px solid var(--line); border-radius: 4px; padding: 4px; }
+  .pick { display: grid; grid-template-columns: 18px minmax(0, 1fr) minmax(0, auto);
+          gap: 10px; align-items: baseline; padding: 5px 8px; border-radius: 4px;
+          cursor: pointer; }
+  .pick:hover { background: #262b33; }
+  .pick .glyph { color: var(--dim); }
+  .pick .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pick .meta { font-size: 11px; color: var(--dim); text-align: right; white-space: nowrap; }
+  .pick.dir .name { color: var(--text); }
+  .pick.file .name { color: var(--accent); }
+  /* A file listed by a folder picker: visible for orientation, not
+     clickable. */
+  .pick.inert { cursor: default; }
+  .pick.inert:hover { background: transparent; }
+  .pick.inert .name, .pick.inert .glyph, .pick.inert .meta { color: var(--dim); }
+  #picker-foot { display: flex; align-items: center; justify-content: space-between;
+                 gap: 12px; padding: 12px 16px; }
+  #picker-foot .hint { margin: 0; }
+
+  /* --- the scene launcher ----------------------------------------------- */
+  /* z-index 55: above the library, below the file picker the launcher itself
+     opens. */
+  #launcher-modal[hidden], #compose-modal[hidden], #confirm-modal[hidden] { display: none; }
+  #launcher-modal, #compose-modal { position: fixed; inset: 0; z-index: 55;
+                    display: flex; align-items: center; justify-content: center; }
+  #launcher-backdrop, #compose-backdrop, #confirm-backdrop {
+    position: absolute; inset: 0; background: rgba(6, 8, 11, .6); }
+  #launcher-card, #compose-card { position: relative; display: flex;
+                 flex-direction: column; background: var(--panel);
+                 border: 1px solid var(--line); border-radius: 8px;
+                 box-shadow: 0 18px 60px rgba(0, 0, 0, .55); }
+  #launcher-card { width: min(720px, 92vw); height: min(640px, 88vh); }
+  #compose-card { width: min(640px, 92vw); max-height: 88vh; }
+  #launcher-head, #compose-head { display: flex; align-items: center;
+                 justify-content: space-between; gap: 12px;
+                 padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  #launcher-head h2, #compose-head h2 { margin: 0; font-size: 12px;
+                 letter-spacing: .08em; text-transform: uppercase;
+                 color: var(--dim); font-weight: 600; }
+  #launcher-body { flex: 1; display: flex; flex-direction: column;
+                   min-height: 0; padding: 10px 16px 0; }
+  #launcher-list { flex: 1; overflow-y: auto; border: 1px solid var(--line);
+                   border-radius: 4px; padding: 4px; }
+  #launcher-foot, #compose-foot { display: flex; align-items: center;
+                 justify-content: space-between; gap: 12px; padding: 12px 16px; }
+  #launcher-foot .hint, #compose-foot .hint { margin: 0; }
+  /* `flex: 1 1 0`: the roots line is the one that gives way, ellipsised from
+     the right. */
+  #launcher-roots { color: var(--dim); overflow: hidden; text-overflow: ellipsis;
+                    white-space: nowrap; flex: 1 1 0; min-width: 0; }
+
+  /* Group headings inside the scene list. */
+  .scene-group { font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+                 color: var(--dim); padding: 8px 8px 4px; }
+  /* The Scene panel's recent-scenes strip, styled like the launcher list. */
+  #scene-recent { margin-top: 6px; }
+  #scene-recent[hidden] { display: none; }
+  /* A fixed window of about five rows; only the rows scroll. */
+  #scene-recent-list { max-height: 148px; overflow-y: auto;
+                       overscroll-behavior: contain; }
+  #scene-recent .scene-group { padding: 4px 0; }
+  #scene-recent .scene { padding: 4px 2px; font-size: 12px; }
+  /* min-width: 0 — a select will not shrink below its widest option on its
+     own, and here it must yield to the scene name. */
+  #scene-recent .task-pick { min-width: 0; }
+  /* In the narrow sidebar the Switch button gets its own full-width line. */
+  #scene-recent .scene.armed .switch { grid-column: 1 / -1; width: 100%;
+                                       margin-top: 4px; }
+
+  .task-pick { max-width: 110px; font-size: 11px; padding: 2px 4px; background: #14171c;
+               color: var(--text); border: 1px solid var(--line); border-radius: 3px; }
+  .task-browse { padding: 2px 5px; font-size: 11px; width: auto; }
+
+  /* The panel's own task picker fills the row; the launcher's has a scene name
+     beside it to leave room for. */
+  #task-pick { flex: 1; max-width: none; }
+
+  .task-group { border: 1px solid var(--line); border-radius: 4px; padding: 6px;
+                margin-bottom: 6px; }
+  .task-group-head { display: flex; align-items: center; justify-content: space-between;
+                      margin-bottom: 4px; }
+  .task-group-head strong { font-size: 12px; }
+  .task-group-head button { padding: 2px 5px; font-size: 12px; width: auto; }
+  .task-group .field { margin-bottom: 4px; }
+  .task-group .field:last-child { margin-bottom: 0; }
+  /* Labels size to their own text so three-decimal values are not clipped. */
+  .task-group .field label { width: auto; flex: none; }
+  .task-group .field input:disabled { color: var(--dim); background: #1a1d22; }
+  /* Hints under the group name: what it binds, what its ranges run into. */
+  .task-group .note { color: var(--dim); font-size: 11px; line-height: 1.45;
+                      margin: 0 0 4px; word-break: break-word; }
+  .task-group .note.warn { color: var(--warn); }
+  /* name · meta · saves · task · browse · room */
+  /* The name track gets a floor and the meta track yields; both ellipsise
+     when the row is genuinely too narrow. */
+  .scene { display: grid;
+           grid-template-columns: minmax(min(160px, 100%), auto) minmax(0, 1fr)
+                                  auto auto auto auto auto;
+           gap: 10px; align-items: baseline; padding: 6px 8px; border-radius: 4px;
+           cursor: pointer; }
+  .scene:hover { background: #262b33; }
+  .scene.current { background: #2f3a1c; outline: 1px solid var(--accent); cursor: default; }
+  /* Armed: clicked once, waiting to be confirmed; only an armed row shows its
+     Switch button. */
+  .scene.armed { background: #2b3140; outline: 1px solid var(--accent); }
+  .scene .switch { display: none; font-size: 11px; padding: 1px 8px;
+                   white-space: nowrap; }
+  .scene.armed .switch { display: inline-block; }
+  .scene > .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .scene .meta { font-size: 11px; color: var(--dim); text-align: right;
+                 overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* A scene with missing assets still lists; clicking it shows the server's
+     reason. */
+  .scene.broken .meta { color: var(--warn); }
+  .scene .history { font-size: 11px; color: var(--dim); background: none;
+                    border: 1px solid var(--line); border-radius: 3px;
+                    padding: 1px 5px; }
+  .scene .history:hover { background: #30363f; color: var(--text); }
+  /* One line each; the full path is in the row's title. Flex so the label
+     ellipsizes while the Switch button keeps its width. */
+  .variant { padding: 4px 8px 4px 26px; border-radius: 4px; cursor: pointer;
+             font-size: 12px; color: var(--dim);
+             display: flex; align-items: center; gap: 8px; }
+  .variant > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .variant:hover { background: #262b33; color: var(--text); }
+  .variant.canonical { color: var(--text); }
+  .variant.armed { background: #2b3140; outline: 1px solid var(--accent);
+                   color: var(--text); }
+  .variant .switch { display: none; font-size: 11px; padding: 1px 8px;
+                     white-space: nowrap; margin-left: auto; flex: none; }
+  .variant.armed .switch { display: inline-block; }
+
+  /* --- new scene from a template ---------------------------------------- */
+  #compose-body { overflow-y: auto; padding: 4px 16px 12px; }
+  .step { padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .step:last-child { border-bottom: none; }
+  .step h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 4px;
+             font-size: 12px; letter-spacing: .06em; text-transform: uppercase;
+             color: var(--text); font-weight: 600; }
+  .step .num { display: inline-flex; align-items: center; justify-content: center;
+               width: 16px; height: 16px; border-radius: 50%; font-size: 11px;
+               background: var(--line); color: var(--text); }
+  .step p.hint { margin: 0 0 6px; }
+  #compose-template { width: 100%; background: #12151a; color: var(--text);
+                      border: 1px solid var(--line); border-radius: 4px;
+                      padding: 5px 6px; font: inherit; font-size: 12px; }
+  #compose-objects { max-height: 190px; overflow-y: auto; border: 1px solid var(--line);
+                     border-radius: 4px; padding: 4px; }
+  .keep { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, auto);
+          gap: 8px; align-items: baseline; padding: 4px 6px; border-radius: 4px; }
+  .keep:hover { background: #262b33; }
+  .keep .tag { font-size: 11px; color: var(--dim); text-align: right; }
+  /* The robot and the background always come along: a scene without them
+     cannot be evaluated. */
+  .keep.locked { color: var(--dim); }
+  .keep.locked input { visibility: hidden; }
+  #compose-name.bad { border-color: var(--warn); }
+  /* Joints, for an articulated prop: one card per degree of freedom, stacked.
+     Kept tight to leave room for the preview beside them. */
+  #joints-grid { display: flex; flex-direction: column; gap: 6px; }
+  #joints-grid .xrow { border: 1px solid var(--line); border-radius: 6px;
+                       padding: 6px 7px; background: #171a1f; }
+  #joints-grid .jtop { display: flex; justify-content: space-between;
+                       align-items: baseline; gap: 8px; margin-bottom: 4px; }
+  /* Joint names share a long asset prefix; JS strips it and the title holds
+     the full name. */
+  #joints-grid .jname { font-size: 12px; white-space: nowrap;
+                        overflow: hidden; text-overflow: ellipsis; }
+  #joints-grid .jkind { color: var(--dim); font-size: 11px; white-space: nowrap; }
+  /* DOM order is load-bearing: a row's first three <input>s are value, lower
+     and upper, in that order, and the slider comes after them. */
+  #joints-grid .jfields { display: grid; align-items: center; gap: 3px 6px;
+                          grid-template-columns: repeat(3, minmax(0, 1fr)) auto; }
+  #joints-grid .jlabel { color: #626a77; font-size: 11px; text-transform: uppercase;
+                         letter-spacing: .04em; }
+  #joints-grid input[type="number"] { width: 100%; min-width: 0; background: #14171c;
+                 color: var(--text); border: 1px solid var(--line); border-radius: 3px;
+                 padding: 2px 4px; font: inherit; font-size: 11px; text-align: right;
+                 font-family: var(--font-mono); }
+  #joints-grid input[type="number"]:focus { outline: 1px solid var(--accent); }
+  #joints-grid input:disabled { opacity: .45; }
+  #joints-grid .tools { display: flex; gap: 2px; grid-row: span 2; align-self: center; }
+  #joints-grid .tools button { padding: 2px 4px; font-size: 12px; line-height: 1.1; }
+  /* The handle sits at the value; the two ends show the limits. */
+  #joints-grid .jslide { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+  #joints-grid .jend { color: var(--dim); font-size: 11px; white-space: nowrap;
+                       font-family: var(--font-mono); }
+  #joints-grid input[type="range"] { flex: 1; min-width: 0; accent-color: var(--accent); }
+  #joints-grid .jfoot { display: flex; align-items: center; gap: 8px;
+                        justify-content: space-between; margin-top: 4px; }
+  /* The readout wraps, the button does not. */
+  #joints-grid .jtravel { color: var(--dim); font-size: 11px; min-width: 0; }
+  #joints-grid .jfoot button { padding: 2px 6px; font-size: 11px;
+                               white-space: nowrap; flex: none; }
+  #joints-grid .jwhy { margin-top: 6px; }
+  #joints-grid .jwhy[hidden] { display: none; }
+  /* A saved value outside the asset's authored limits: flagged, never
+     clamped. */
+  #joints-grid input.past-limit { border-color: var(--warn); }
+
+  /* An out-of-range mass or friction: flagged, never silently clamped. */
+  #p-mass.bad, #p-friction.bad { border-color: var(--warn); }
+  /* label input ↺ , twice. The inputs take the slack (1fr) so the panel can be
+     narrowed to its minimum without the two labels wrapping under each other. */
+  #physics-row { display: grid; align-items: center; gap: 4px;
+                 grid-template-columns: auto 1fr auto auto 1fr auto; }
+  #physics-row .xname { color: var(--dim); font-size: 12px; white-space: nowrap; }
+  /* Matched to `#xform input` below, box for box. */
+  #physics-row input { width: 100%; min-width: 0; background: #14171c;
+                       color: var(--text); border: 1px solid var(--line);
+                       border-radius: 3px; padding: 3px 4px; font: inherit;
+                       font-size: 12px; line-height: 19.2px; }
+  #physics-row input:focus { outline: 1px solid var(--accent); }
+  #physics-row button { padding: 2px 5px; font-size: 12px; line-height: 1.1; }
+  #compose-where { margin-top: 6px; word-break: break-all; }
+
+  /* --- the joint editor -------------------------------------------------- */
+  /* z-index 59: above the library (40), export (45), launcher (55) and file
+     picker (58); below the connection banner (60), help (65) and confirm (70). */
+  #joint-modal[hidden] { display: none; }
+  #joint-modal { position: fixed; inset: 0; z-index: 59; }
+  /* Lighter than the other backdrops, so the scene behind stays visible. */
+  #joint-backdrop { position: absolute; inset: 0; background: rgba(6, 8, 11, .45); }
+  /* Absolutely placed because the header drags it: the drag swaps the centring
+     transform for measured left/top. Resizable with the browser's own grip;
+     the preview re-measures its box every frame (buildJointPreview), and the
+     size is remembered per browser (JOINT_SIZE_KEY in app.js). */
+  #joint-card { position: absolute; left: 50%; top: 50%;
+                transform: translate(-50%, -50%);
+                display: flex; flex-direction: column;
+                width: min(1040px, 94vw); height: min(600px, 86vh);
+                /* The floor is the two columns' minima (300 + 320) plus
+                   borders. */
+                min-width: 660px; min-height: 340px;
+                max-width: 96vw; max-height: 92vh;
+                resize: both; overflow: hidden;
+                background: var(--panel);
+                border: 1px solid var(--line); border-radius: 8px;
+                box-shadow: 0 18px 60px rgba(0, 0, 0, .55); }
+  #joint-head { display: flex; align-items: center; justify-content: space-between;
+                gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line);
+                cursor: move; user-select: none; -webkit-user-select: none;
+                touch-action: none; }
+  #joint-head h2 { margin: 0; font-size: 12px; letter-spacing: .08em;
+                   text-transform: uppercase; color: var(--dim); font-weight: 600;
+                   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #joint-head button { flex: none; }
+  /* Picture left, rows right. `min-height: 0` is load-bearing: without it a
+     flex child refuses to shrink and the rows grow the card past its
+     max-height instead of scrolling. */
+  #joint-main { flex: 1 1 0; display: flex; min-height: 0; }
+  /* Zero flex basis: the picture takes everything the rows do not. */
+  #joint-preview { flex: 1 1 0; min-width: 300px; background: #101318; }
+  #joint-preview canvas { display: block; }
+  #joint-preview .hint { margin: 0; padding: 10px 12px; }
+  /* A fixed column: the rows have a natural width. */
+  #joint-body { flex: 0 0 clamp(320px, 32%, 420px); min-height: 0;
+                border-left: 1px solid var(--line);
+                padding: 8px 10px 10px; overflow-y: auto; }
+
+  /* --- unsaved-work confirmation ---------------------------------------- */
+  #confirm-modal { position: fixed; inset: 0; z-index: 70;
+                   display: flex; align-items: center; justify-content: center; }
+  #confirm-card { position: relative; width: min(460px, 92vw); padding: 16px;
+                  background: var(--panel); border: 1px solid var(--line);
+                  border-radius: 8px; box-shadow: 0 18px 60px rgba(0, 0, 0, .6); }
+  #confirm-card h2 { margin: 0 0 8px; font-size: 12px; letter-spacing: .08em;
+                     text-transform: uppercase; color: var(--dim); font-weight: 600; }
+  #confirm-body { font-size: 12px; line-height: 1.6; margin-bottom: 14px; }
+  #confirm-body ul { margin: 6px 0 0; padding-left: 18px; color: var(--dim); }
+  #confirm-actions { display: flex; justify-content: flex-end; gap: 8px; }
+  #confirm-actions button { width: auto; }
+
+  #check-note.warn { cursor: pointer; text-decoration: underline dotted; }
+  .warn-modal-body { max-height: 50vh; overflow-y: auto; }
+  .warn-modal-heading { color: var(--dim); font-size: 11px; letter-spacing: .06em;
+                         text-transform: uppercase; margin: 10px 0 4px; }
+  .warn-modal-heading:first-child { margin-top: 0; }
+  .warn-modal-row { display: block; width: 100%; text-align: left; background: none;
+                     border: 1px solid transparent; border-radius: 4px; padding: 4px 6px;
+                     margin: 0 -6px 2px; color: var(--text); }
+  button.warn-modal-row:hover { background: #30363f; border-color: var(--line); cursor: pointer; }
+  .warn-modal-row.static { color: var(--dim); }
+
+  /* --- asset detail ----------------------------------------------------- */
+  #asset-detail[hidden] { display: none; }
+  #asset-detail { margin-top: 10px; padding: 10px; border: 1px solid var(--line);
+                  border-radius: 6px; background: #171a1f; }
+  #detail-grid { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 14px; }
+  #detail-preview { width: 220px; height: 165px; border: 1px solid var(--line);
+                    border-radius: 4px; background: #101318; display: block; }
+  #detail-facts { font-size: 12px; line-height: 1.7; }
+  #detail-facts .k { color: var(--dim); display: inline-block; min-width: 74px; }
+  #detail-facts .warn { color: var(--warn); }
+
+  /* Placement mode: the pointer is placing an object, not orbiting. */
+  #viewport.placing canvas { cursor: copy; }
+
+  /* --- review & export overlay ----------------------------------------- */
+  #export-modal[hidden] { display: none; }
+  #export-modal { position: fixed; inset: 0; z-index: 45;
+                  display: flex; align-items: center; justify-content: center; }
+  #export-backdrop { position: absolute; inset: 0; background: rgba(6, 8, 11, .6); }
+  #export-card { position: relative; display: flex; flex-direction: column;
+                 width: min(720px, 92vw); max-height: 88vh;
+                 background: var(--panel); border: 1px solid var(--line);
+                 border-radius: 8px; box-shadow: 0 18px 60px rgba(0, 0, 0, .55); }
+  #export-head, #export-foot { display: flex; align-items: center;
+                               justify-content: space-between; padding: 12px 16px; }
+  #export-head { border-bottom: 1px solid var(--line); }
+  #export-foot { border-top: 1px solid var(--line); gap: 12px; }
+  #export-head h2 { margin: 0; font-size: 12px; letter-spacing: .08em;
+                    text-transform: uppercase; color: var(--dim); font-weight: 600; }
+  #export-body { flex: 1; overflow-y: auto; padding: 4px 16px 16px; }
+  .xsec { padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .xsec:last-child { border-bottom: none; }
+  .xsec h3 { margin: 0 0 6px; font-size: 11px; letter-spacing: .08em;
+             text-transform: uppercase; color: var(--dim); font-weight: 600; }
+  .xrow { font-size: 12px; line-height: 1.6; word-break: break-all; }
+  .xrow .dim { color: var(--dim); }
+  .xcheck { display: flex; gap: 6px; align-items: center; margin-top: 8px;
+            font-size: 12px; color: var(--dim); }
+  #x-task { width: 100%; background: #14171c; border: 1px solid var(--line);
+            color: var(--text); border-radius: 3px; padding: 4px 6px;
+            font: inherit; font-size: 12px; }
+  /* Selectable, wrapping, monospace: meant to be read and copied. */
+  #x-command { margin: 0 0 8px; padding: 8px 10px; background: #14171c;
+               border: 1px solid var(--line); border-radius: 4px;
+               font: inherit; font-size: 12px; color: var(--text);
+               white-space: pre-wrap; word-break: break-all; user-select: text;
+               max-height: 150px; overflow-y: auto; }
+  .xwarn { font-size: 12px; line-height: 1.6; color: var(--warn); }
+  .xwarn.ok { color: var(--accent); }
+
+  #task-gen-prompt { width: 100%; box-sizing: border-box; resize: vertical;
+                      background: #14171c; border: 1px solid var(--line);
+                      color: var(--text); border-radius: 3px; padding: 6px 8px;
+                      font: inherit; font-size: 12px; }
+  #task-gen-prompt:focus { outline: 1px solid var(--accent); }
+  #task-gen-yaml { margin: 0 0 6px; padding: 8px 10px; background: #14171c;
+                    border: 1px solid var(--line); border-radius: 4px;
+                    font-family: var(--font-mono); font-size: 11px; color: var(--text);
+                    white-space: pre-wrap; word-break: break-all; user-select: text;
+                    max-height: 220px; overflow-y: auto; }
+
+  /* --- asset library overlay ------------------------------------------- */
+  #library-modal[hidden] { display: none; }
+  #library-modal { position: fixed; inset: 0; z-index: 40;
+                   display: flex; align-items: center; justify-content: center; }
+  #library-backdrop { position: absolute; inset: 0; background: rgba(6, 8, 11, .6); }
+  #library-card { position: relative; display: flex; flex-direction: column;
+                  width: min(760px, 92vw); height: min(680px, 88vh);
+                  background: var(--panel); border: 1px solid var(--line);
+                  border-radius: 8px; box-shadow: 0 18px 60px rgba(0, 0, 0, .55); }
+  #library-head { display: flex; align-items: center; justify-content: space-between;
+                  padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  /* Same look as .section h2, restated for the modal. */
+  #library-head h2, #library-body h2 {
+    margin: 0; font-size: 12px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--dim); font-weight: 600; }
+  #library-body h2 { margin: 14px 0 8px; }
+  #library-body { flex: 1; display: flex; flex-direction: column;
+                  padding: 12px 16px 16px; overflow-y: auto; gap: 2px; }
+  /* Hint rows span the whole grid. */
+  #liblist > .hint { grid-column: 1 / -1; }
+  .asset .variant { color: var(--dim); font-size: 12px; }
+  .hint { font-size: 12px; color: var(--dim); margin-top: 6px; }
+  .hint code { color: var(--text); }
+  .hint.warn { color: var(--warn); }
+  .field select { flex: 1; background: #14171c; border: 1px solid var(--line);
+                  color: var(--text); border-radius: 3px; padding: 3px 5px;
+                  font: inherit; font-size: 12px; }
+
+  button { background: #262b33; color: var(--text); border: 1px solid var(--line);
+           border-radius: 4px; padding: 5px 9px; cursor: pointer; font: inherit; font-size: 12px; }
+  button:hover { background: #30363f; }
+  button.on { background: var(--accent); color: #10130a; border-color: var(--accent); }
+  button.primary { background: var(--accent); color: #10130a; border-color: var(--accent);
+                   font-weight: 600; width: 100%; padding: 8px; }
+  button:disabled { opacity: .4; cursor: default; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; }
+  /* Smaller text and padding fit the seven view toggles on one line; a narrow
+     panel still wraps. */
+  #visibility-section .row { gap: 4px; }
+  #visibility-section .row button { font-size: 11px; padding: 4px 7px; }
+
+  .field { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+  .field label { color: var(--dim); width: 46px; font-size: 12px; }
+  /* A field's unit, quieter than its name. */
+  .field label .unit { color: #626a77; }
+  /* In the Layout action rows the label sizes to its own words. */
+  #arrange-section .row .field label { width: auto; flex: none; white-space: nowrap; }
+  /* min-width: 0 — an <input>'s automatic minimum is its default size, far
+     wider than these columns. */
+  .field input { flex: 1; width: 100%; min-width: 0; background: #14171c;
+                 border: 1px solid var(--line);
+                 color: var(--text); border-radius: 3px; padding: 3px 5px; font: inherit;
+                 font-size: 12px; text-align: right; }
+  .field input:focus { outline: 1px solid var(--accent); }
+
+  /* --- the transform inspector ------------------------------------------ */
+  /* One grid so the X/Y/Z header lines up with the columns. The 46px name
+     column fits "size mm", the longest name, on one line. */
+  #xform { display: grid; align-items: center; gap: 3px 4px;
+           grid-template-columns: 46px repeat(3, minmax(0, 1fr)) auto; }
+  #xform .xrow { display: contents; }
+  /* Below the breakpoint the size/scale tool buttons drop to a line of their
+     own: `grid-column: 2 / -1` cannot fit beside three occupied columns, so
+     auto-placement moves it down a row. The breakpoint is measured against
+     the widest tools cell. */
+  #panel { container-type: inline-size; container-name: panel; }
+  @container panel (max-width: 416px) {
+    #xform #size-row .tools, #xform #scale-row .tools {
+      grid-column: 2 / -1; justify-content: flex-start;
+    }
+  }
+  /* `display: contents` outranks the UA's `[hidden]`, so a hidden row must be
+     said twice. */
+  #xform .xrow[hidden] { display: none; }
+  /* Inline display:none from JS hides a contents wrapper's cells with it. */
+  #xform .xname { color: var(--dim); font-size: 12px; white-space: nowrap; }
+  /* The unit, quieter than the name. */
+  #xform .unit { color: #626a77; }
+  /* The size row's unit is a button that cycles m/cm/mm. */
+  #xform button.unit { background: none; border: none; padding: 0 2px;
+                       font: inherit; font-size: 12px; color: #626a77;
+                       border-bottom: 1px dotted #4a515c; border-radius: 0; }
+  #xform button.unit:hover:not(:disabled) { color: var(--text);
+                                            border-bottom-color: var(--accent); }
+  #xform button.unit:disabled { opacity: .45; }
+  #xform input { width: 100%; min-width: 0; background: #14171c; color: var(--text);
+                 border: 1px solid var(--line); border-left-width: 3px;
+                 border-radius: 3px; padding: 3px 4px; font: inherit;
+                 font-size: 12px; text-align: right; }
+  /* Spinner arrows: room for them comes out of the right padding so digits
+     never clip or reflow on hover. They step by the input's own `step` — 5 mm,
+     5°, 5% of scale. */
+  #xform input { appearance: auto; -moz-appearance: number-input;
+                 padding-right: 1px; }
+  /* Spin-button height is set globally — see
+     `input[type="number"]::-webkit-inner-spin-button` near the top. */
+  /* No spinner when the selection disagrees: the box is empty, and the HTML
+     step algorithm would step an empty box from zero. */
+  #xform input.mixed { appearance: textfield; -moz-appearance: textfield; }
+  #xform input.mixed::-webkit-outer-spin-button,
+  #xform input.mixed::-webkit-inner-spin-button { appearance: none; margin: 0; }
+  #xform input:focus { outline: 1px solid var(--accent); }
+  #xform input:disabled { opacity: .45; }
+  /* Mixed selection: the box is empty rather than showing one member's value.
+     Typing here still sets every member. */
+  #xform input.mixed { border-bottom-style: dotted; }
+  #xform input.mixed::placeholder { color: var(--dim); font-style: italic; }
+  #xform .quat { grid-column: 2 / 5; text-align: right; font-size: 12px;
+                 color: var(--dim); overflow: hidden; text-overflow: ellipsis;
+                 white-space: nowrap; }
+
+  /* X red, Y green, Z blue — the gizmo's own colours. */
+  .ax-x { --axis: #e05c5c; }
+  .ax-y { --axis: #6ac46a; }
+  .ax-z { --axis: #5c8ce0; }
+  #xform input.ax-x, #xform input.ax-y, #xform input.ax-z { border-left-color: var(--axis); }
+  #xform .axis-head { color: var(--axis); font-size: 11px; font-weight: 600;
+                      text-align: center; letter-spacing: .12em; }
+
+  #xform .tools { display: flex; gap: 2px; }
+  #xform .tools button { padding: 2px 4px; font-size: 12px; line-height: 1.1;
+                         background: none; color: var(--dim); border-radius: 3px; }
+  #xform .tools button:hover:not(:disabled) { background: #30363f; color: var(--text); }
+  #xform .tools button.on { background: var(--accent); color: #10130a;
+                            border-color: var(--accent); }
+
+  #tabs { display: flex; border-bottom: 1px solid var(--line); }
+  #tabs button { flex: 1; border: none; border-radius: 0; padding: 9px 0;
+                 background: #171a1f; color: var(--dim); font-size: 12px;
+                 border-bottom: 2px solid transparent; }
+  #tabs button:hover { background: #21252c; color: var(--text); }
+  #tabs button.on { background: var(--panel); color: var(--text);
+                    border-bottom-color: var(--accent); font-weight: 600; }
+  #tabs button:disabled { opacity: .35; cursor: default; }
+
+  #status { padding: 8px 12px; min-height: 34px; color: var(--dim); font-size: 12px;
+            word-break: break-all; }
+  #status.ok { color: var(--accent); } #status.err { color: var(--warn); }
+  /* The status line, pinned to the foot of the panel. Sticky on the section,
+     not #status — a sticky box only moves within its containing block. Panel
+     background so what scrolls under does not read through. */
+  #panel > .section:has(> #status) { position: sticky; bottom: 0;
+            background: var(--panel); }
+  /* Tabs and view toggles, pinned to the head of the panel. `flex: none`
+     keeps its height in the flex column; panel background so sections do not
+     read through as they pass under. */
+  #panel-head { position: sticky; top: 0; z-index: 2; flex: none;
+                background: var(--panel); }
+
+  /* Check / Save / promote on one line. Save flexes because its label grows;
+     the other two keep their content width. */
+  #save-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  #save-row #btn-check { flex: none; }
+  #save-row #btn-save { flex: 1 1 180px; width: auto; min-width: 0; padding: 8px 10px; }
+  #promote-label { display: flex; align-items: center; gap: 5px; flex: none;
+                   font-size: 12px; color: var(--dim); cursor: pointer;
+                   white-space: nowrap; }
+  #promote-label code { font-family: var(--font-mono); font-size: 11px; }
+  /* One short current-state sentence, written by updateHint() in app.js; the
+     full key reference is the Help drawer. */
+  #hint { position: absolute; left: 12px; bottom: 10px; color: var(--dim);
+          max-width: calc(100% - 24px);
+          font-size: 12px; pointer-events: none; text-shadow: 0 1px 3px #000; }
+
+  /* The gizmo mode toolbar, centred at the top of the viewport. */
+  #gizmo-toolbar { position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+                   z-index: 10; display: flex; gap: 6px;
+                   background: rgba(20, 22, 26, .78); backdrop-filter: blur(2px);
+                   border: 1px solid var(--line); border-radius: 6px; padding: 6px; }
+
+  /* Same floating-pill look as the gizmo toolbar. */
+  #view-switcher { display: flex; gap: 6px;
+                    background: rgba(20, 22, 26, .78); backdrop-filter: blur(2px);
+                    border: 1px solid var(--line); border-radius: 6px; padding: 6px; }
+  #view-switcher[hidden] { display: none; }
+  #view-switcher button { font-size: 12px; }
+
+  /* Undo, Redo and Help, in the same floating-pill look. `flex: none`: this
+     pill keeps its width and the other pills take the squeeze on a narrow
+     window. */
+  #viewport-tools { display: flex; gap: 6px; align-items: center; flex: none;
+                    background: rgba(20, 22, 26, .78); backdrop-filter: blur(2px);
+                    border: 1px solid var(--line); border-radius: 6px; padding: 6px; }
+  #viewport-tools button { font-size: 12px; }
+  /* Undo-stack depth readout; `nowrap` so the pill's height never changes. */
+  #histinfo { color: var(--dim); font-size: 12px; white-space: nowrap; }
+
+  /* One flex strip holding all three pills. z-index 29: above the preview
+     panes (`applyPipStacking` hands those 20 + index), below the drop overlay
+     at 30; `defaultPipLayout` starts the first pane row below this strip. */
+  #viewport-top { position: absolute; top: 10px; left: 10px; right: 10px;
+                  z-index: 29; display: flex; align-items: flex-start; gap: 8px;
+                  pointer-events: none; overflow: hidden; }
+  /* The row positions the children. `pointer-events` comes back on so the gap
+     between pills stays click-through; `min-width: 0` lets a cramped window
+     narrow them. */
+  #viewport-top > * { position: static; transform: none; pointer-events: auto;
+                      min-width: 0; }
+  /* Each pill anchors itself: the tools pill takes the right edge on its own
+     margin because the mode bar is not always in the row (hidden on the
+     Cameras tab, or reparented after a drag). The mode bar centres in what is
+     left. */
+  #viewport-top > #gizmo-toolbar { margin-left: auto; }
+  #viewport-top > #viewport-tools { margin-left: auto; }
+
+  /* A dragged-out toolbar is reparented to #viewport (the strip clips) and
+     positioned directly; z-index matches the strip's 29. `transform: none` is
+     load-bearing: the base rule centres the bar with translateX(-50%), and
+     after reparenting `#viewport-top > *` no longer cancels it. */
+  #gizmo-toolbar.placed { position: absolute; z-index: 29; margin: 0;
+                          transform: none;
+                          top: var(--gizmo-top); left: var(--gizmo-left); }
+  /* The bar drags everywhere its buttons are not; buttons keep the pointer
+     cursor. */
+  #gizmo-toolbar { cursor: move; }
+  #gizmo-toolbar button { cursor: pointer; }
+  #gizmo-toolbar.dragging { cursor: grabbing; user-select: none; }
+
+  /* Crosshair at the sensor centre while flying a camera. */
+  #reticle { position: absolute; inset: 0; pointer-events: none; display: none; }
+  #viewport.flying #reticle { display: block; }
+  #viewport.flying canvas { cursor: crosshair; }
+  #reticle::before, #reticle::after { content: ''; position: absolute; left: 50%;
+    top: 50%; background: #ffffff; opacity: .5; }
+  #reticle::before { width: 15px; height: 1px; transform: translate(-50%, -50%); }
+  #reticle::after { width: 1px; height: 15px; transform: translate(-50%, -50%); }
+
+  /* Live previews of the exterior sensors. The picture is rendered into the
+     page's one WebGL canvas with a scissor rectangle; everything here is
+     chrome around a deliberately transparent hole. Overlapping panes bleed
+     each other's chrome, but the picture stays correct (panes draw in DOM
+     stacking order). */
+  #pips { position: absolute; inset: 0; pointer-events: none; }
+  #pips[hidden] { display: none; }
+  .pip { position: absolute; pointer-events: auto; background: transparent;
+         border: 1px solid var(--pip-color, var(--accent)); border-radius: 3px;
+         box-shadow: 0 2px 12px rgba(0, 0, 0, .5);
+         user-select: none; -webkit-user-select: none; }
+  .pip-head { display: flex; align-items: center; gap: 5px; height: 18px;
+              padding: 0 3px 0 5px; font-size: 11px; line-height: 18px;
+              background: rgba(6, 8, 11, .82); cursor: move;
+              user-select: none; -webkit-user-select: none; }
+  /* Colour ties the pane to its frustum and its object-list row. */
+  .pip-dot { width: 7px; height: 7px; border-radius: 50%; flex: none;
+             background: var(--pip-color); }
+  .pip-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+              white-space: nowrap; color: var(--text); }
+  /* Which policy input this camera lands in. Warn-coloured when the task
+     configs disagree about it — see the tooltip for who says what. */
+  .pip-key { color: var(--dim); white-space: nowrap; flex: none; }
+  .pip-key.uncertain { color: var(--warn); }
+  .pip-min { flex: none; border: none; background: none; color: var(--dim);
+             padding: 0 3px; font: inherit; font-size: 12px; line-height: 1;
+             border-radius: 2px; cursor: pointer; }
+  .pip-min:hover { background: #30363f; color: var(--text); }
+  .pip-body { position: relative; cursor: pointer; }
+  .pip-foot { display: flex; align-items: center; gap: 5px; height: 15px;
+              padding: 0 2px 0 5px; font-size: 10px; line-height: 15px;
+              background: rgba(6, 8, 11, .82); color: var(--dim);
+              user-select: none; -webkit-user-select: none; }
+  .pip-res { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+             white-space: nowrap; }
+  .pip-grip { flex: none; width: 11px; height: 11px; cursor: nwse-resize;
+              background:
+                linear-gradient(-45deg, transparent 44%, var(--dim) 44%, var(--dim) 56%, transparent 56%),
+                linear-gradient(-45deg, transparent 74%, var(--dim) 74%, var(--dim) 86%, transparent 86%); }
+  .pip.min .pip-body, .pip.min .pip-foot { display: none; }
+
+  /* Composition guides. The rectangles and thirds survive the non-uniform
+     viewBox scaling; the centre cross would not and is drawn in CSS. Explicit
+     width/height: an <svg> is a replaced element, so `auto` resolves against
+     the viewBox ratio rather than the insets. */
+  .pip-safe { position: absolute; inset: 0; width: 100%; height: 100%;
+              pointer-events: none; }
+  .pip-safe[hidden] { display: none; }
+  .pip-cross { position: absolute; inset: 0; pointer-events: none; }
+  .pip-cross[hidden] { display: none; }
+  .pip-cross::before, .pip-cross::after {
+    content: ''; position: absolute; left: 50%; top: 50%;
+    background: #ffffff; opacity: .45; }
+  .pip-cross::before { width: 11px; height: 1px; transform: translate(-50%, -50%); }
+  .pip-cross::after { width: 1px; height: 11px; transform: translate(-50%, -50%); }
+
+  /* Not the status line: this must survive whatever the user does next. */
+  #conn-banner[hidden] { display: none; }
+  #conn-banner { position: absolute; top: 0; left: 0; right: 0; z-index: 60;
+                 background: var(--warn); color: #1a1206; font-size: 12px;
+                 font-weight: 600; padding: 7px 12px; text-align: center; }
+
+  .legend { color: var(--dim); font-size: 12px; line-height: 1.8; }
+  .legend kbd { background: #14171c; border: 1px solid var(--line); border-radius: 3px;
+                padding: 0 4px; color: var(--text); font: inherit; font-family: var(--font-mono);
+                font-size: 12px; }
+
+  /* --- help drawer -------------------------------------------------------- */
+  #help-modal[hidden], #tour-modal[hidden] { display: none; }
+  #help-modal, #tour-modal { position: fixed; inset: 0; z-index: 65;
+                              display: flex; align-items: center; justify-content: center; }
+  /* z-index 35: under every window the user actually asked for — the tour is
+     the only modal that opens itself. */
+  #tour-modal { z-index: 35; }
+  #help-backdrop, #tour-backdrop { position: absolute; inset: 0; background: rgba(6, 8, 11, .6); }
+  #help-card { position: relative; display: flex; flex-direction: column;
+               width: min(560px, 92vw); max-height: 84vh; background: var(--panel);
+               border: 1px solid var(--line); border-radius: 8px;
+               box-shadow: 0 18px 60px rgba(0, 0, 0, .55); }
+  #help-head { display: flex; align-items: center; justify-content: space-between;
+               padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  #help-head h2 { margin: 0; font-size: 13px; letter-spacing: .04em; color: var(--text);
+                  font-weight: 600; }
+  #help-body { flex: 1; overflow-y: auto; padding: 4px 16px 8px; }
+  .help-sec { padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .help-sec:last-child { border-bottom: none; }
+  .help-sec h3 { margin: 0 0 6px; font-size: 12px; letter-spacing: .04em;
+                 text-transform: uppercase; color: var(--text); font-weight: 600; }
+  #help-foot { display: flex; align-items: center; justify-content: space-between;
+               gap: 12px; padding: 12px 16px; border-top: 1px solid var(--line); }
+
+  /* --- first-run walkthrough ---------------------------------------------- */
+  #tour-card { position: relative; display: flex; flex-direction: column;
+               width: min(420px, 92vw); background: var(--panel);
+               border: 1px solid var(--line); border-radius: 8px;
+               box-shadow: 0 18px 60px rgba(0, 0, 0, .55); }
+  #tour-head { display: flex; align-items: center; justify-content: space-between;
+               padding: 14px 16px 0; }
+  #tour-head h2 { margin: 0; font-size: 13px; letter-spacing: .04em; color: var(--dim);
+                  text-transform: uppercase; font-weight: 600; }
+  #tour-body { padding: 10px 16px 4px; }
+  #tour-text { margin: 0; font-size: 14px; line-height: 1.6; color: var(--text); }
+  #tour-foot { display: flex; align-items: center; justify-content: space-between;
+               gap: 12px; padding: 14px 16px 16px; }
+  #tour-dots { display: flex; gap: 6px; }
+  #tour-dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--line); }
+  #tour-dots span.on { background: var(--accent); }
+  #loading { position: absolute; inset: 0; display: flex; align-items: center;
+             justify-content: center; color: var(--dim); font-size: 14px; }
+  .dirty { color: var(--warn); }
+</style>
+</head>
+<body>
+  <div id="viewport">
+    <div id="conn-banner" hidden></div>
+    <div id="loading">Loading scene…</div>
+    <div id="reticle"></div>
+    <!-- One preview pane per exterior sensor, built by app.js. -->
+    <div id="pips"></div>
+    <!-- Moves only the editor's own camera to stand where a sensor stands;
+         tab, selection and gizmo are untouched. Built by app.js
+         (refreshViewSwitcher / lookFrom). -->
+    <div id="viewport-top">
+    <div id="view-switcher" hidden></div>
+    <div id="gizmo-toolbar">
+      <button id="m-translate" class="on"
+              title="Drag the arrows to move the selection (M)">Move</button>
+      <button id="m-rotate"
+              title="Drag the rings to turn the selection (R)">Rotate</button>
+      <button id="m-scale"
+              title="Drag one handle to scale a single axis. +/&minus; scale uniformly without leaving Move">Scale</button>
+      <button id="m-snap" title="Snap move/rotate/scale to fixed steps (1 cm / 15° / 5%) instead of free dragging">Snap: off</button>
+      <button id="m-world" class="on"
+              title="Which way the gizmo's arrows point: World keeps them on the room's fixed axes, Local turns them with the object. Scale always uses Local, whatever this says.">World</button>
+    </div>
+    <!-- History readout, Undo, Redo and Help. The count leads so the
+         right-anchored buttons keep their pixels as it grows. -->
+    <div id="viewport-tools">
+      <span id="histinfo"></span>
+      <button id="btn-undo" disabled title="Undo last transform (Ctrl+Z)">Undo</button>
+      <button id="btn-redo" disabled title="Redo (Ctrl+Shift+Z)">Redo</button>
+      <button id="btn-help" title="Keyboard shortcuts and a short walkthrough (?)">? Help</button>
+    </div>
+    </div><!-- /#viewport-top -->
+    <div id="drop-overlay" hidden><span>Drop to import</span></div>
+    <!-- The overview keymap, written here and again in `updateHint` in
+         app.js. Keep the two copies in sync. -->
+    <div id="hint">WASD walks the view &middot; click an object to select it, or drop a file in to import it &middot; ? for every key</div>
+  </div>
+
+  <!-- Drag to trade width between viewport and panel; double-click resets;
+       arrow keys also work. -->
+  <div id="panel-grip" tabindex="0" role="separator" aria-orientation="vertical"
+       aria-label="Panel width"
+       title="Drag to resize the panel · double-click to reset · arrow keys also work"></div>
+
+  <div id="panel">
+    <div id="panel-head">
+    <div id="tabs">
+      <button id="tab-objects" class="on">Objects</button>
+      <button id="tab-cameras" disabled title="Start the server with --cameras">Cameras</button>
+    </div>
+
+    <!-- View toggles only: nothing here touches what gets saved. Lit means
+         "on screen right now". -->
+    <div class="section" id="visibility-section">
+      <h2>Visibility</h2>
+      <div class="row">
+        <button id="m-bg" class="on" title="The scanned background — mesh or Gaussian splat">Background</button>
+        <button id="m-grid" class="on"
+                title="The ground grid and origin axes — a ruler, not part of the scene (Shift+G)">Grid</button>
+        <button id="m-floor" hidden
+                title="The editor's stand-in for OmniGibson's collision floor. A view setting only — whether the simulator draws it is the checkbox in the Objects tab's Ground plane section">Ground plane</button>
+        <button id="m-cams" hidden class="on" title="Camera bodies and frustum lines (C)">Cams</button>
+        <button id="m-pip" class="on" title="What the exterior cameras see — drag, resize or minimise each pane (V)">Cam views</button>
+        <button id="m-guides" class="on" title="Safe-frame, thirds and centre guides inside the camera previews (G)">Guides</button>
+        <button id="m-boxes" title="A wireframe box around every object's bounding box">Bounding boxes</button>
+      </div>
+    </div>
+
+    </div><!-- #panel-head -->
+
+    <div class="section">
+      <h2>Scene</h2>
+      <div id="scenename" style="font-size: 12px; word-break:break-all; color:var(--dim)"></div>
+      <div class="row" style="margin-top:8px">
+        <button id="btn-launcher" style="flex:1" title="Open another scene, or start a new one (O)">Open scene…</button>
+      </div>
+      <div id="scene-recent" hidden></div>
+    </div>
+
+    <div class="section" id="objects">
+      <!-- The title doubles as the fold toggle. The label is its own span
+           because the tab switch rewrites it ("Objects"/"Cameras"), and a
+           textContent write on the h2 would take the chevron with it. -->
+      <h2 id="objects-heading" role="button" tabindex="0" aria-expanded="true" aria-controls="objects-collapsible">
+        <span class="chevron">&#9662;</span> <span id="objects-heading-label">Objects</span>
+      </h2>
+      <div id="objects-collapsible">
+      <div id="objlist"></div>
+      <div id="objlist-grip" role="separator" aria-orientation="horizontal"
+           aria-label="Resize object list" tabindex="0"></div>
+      <div class="row" style="margin-top:8px" id="object-actions">
+        <button id="btn-library" title="Import an asset from another scene or this scene's own object library">+ Add object</button>
+        <button id="btn-duplicate" disabled title="Import a second copy of the selected object (Ctrl+D)">Duplicate</button>
+        <button id="btn-remove" disabled title="Leave the selected object out of the saved scene (Del) — undoable">Remove</button>
+        <button id="btn-anchor" title="Use the selected object as the anchor">Set as anchor</button>
+      </div>
+      </div><!-- #objects-collapsible -->
+    </div>
+
+
+    <div class="section" id="selected-section">
+      <h2 id="selected-toggle" role="button" tabindex="0" aria-expanded="true" aria-controls="selected-collapsible">
+        <span class="chevron">&#9662;</span> Selected
+      </h2>
+      <div id="selected-collapsible">
+      <div id="selname">(none)</div>
+      <!-- The multi-selection pivot note; shown only when more than one
+           object is selected. -->
+      <div id="pivot-note" class="hint" style="display:none"></div>
+      <div style="height:8px"></div>
+      <!-- One grid so the X/Y/Z header lines up with the columns; the axis
+           colours are the gizmo's own. -->
+      <div id="xform">
+        <span></span>
+        <span class="axis-head ax-x">X</span>
+        <span class="axis-head ax-y">Y</span>
+        <span class="axis-head ax-z">Z</span>
+        <span></span>
+
+        <div class="xrow">
+          <span class="xname"
+                title="Where the object is in the scene's own world frame — metres, Z-up, and not relative to the robot, the table or the room. It locates the asset's origin, which is wherever the pipeline left it rather than the centre or the base of what it drew.">pos <span class="unit">m</span></span>
+          <input id="p0" class="ax-x" type="number" step="0.005" disabled aria-label="Position X, metres">
+          <input id="p1" class="ax-y" type="number" step="0.005" disabled aria-label="Position Y, metres">
+          <input id="p2" class="ax-z" type="number" step="0.005" disabled aria-label="Position Z, metres">
+          <span class="tools">
+            <button id="rst-position" disabled title="Reset position to the last saved value">&#8634;</button>
+          </span>
+        </div>
+
+        <!-- The same position in the robot's frame. Hidden when the scene has
+             no robot, and when the robot itself is selected. -->
+        <div class="xrow" id="robot-pos-row">
+          <span class="xname"
+                title="The same position measured from the robot's base — +X forward, +Y left, +Z up, metres. This is the frame a task config's workspace_bounds is written in, so these are the numbers to compare against it. Editing either row moves the object; the other follows.">robot <span class="unit">m</span></span>
+          <input id="bp0" class="ax-x" type="number" step="0.005" disabled aria-label="Position X from the robot base, metres">
+          <input id="bp1" class="ax-y" type="number" step="0.005" disabled aria-label="Position Y from the robot base, metres">
+          <input id="bp2" class="ax-z" type="number" step="0.005" disabled aria-label="Position Z from the robot base, metres">
+          <span class="tools">
+            <button id="rst-robot" disabled
+                    title="Reset position to the last saved value — this row and the pos row are two readings of the same stored position, so this is the pos row's reset">&#8634;</button>
+          </span>
+        </div>
+
+        <!-- Degrees, extrinsic XYZ about the world axes. The quaternion below
+             is what the scene JSON stores; this row is an editing convenience
+             over it. -->
+        <div class="xrow" id="rot-row">
+          <span class="xname">rot <span class="unit">&deg;</span></span>
+          <input id="r0" class="ax-x" type="number" step="5" disabled
+                 aria-label="Rotation about world X, degrees" title="Roll about world X">
+          <input id="r1" class="ax-y" type="number" step="5" disabled
+                 aria-label="Rotation about world Y, degrees" title="Pitch about world Y">
+          <input id="r2" class="ax-z" type="number" step="5" disabled
+                 aria-label="Rotation about world Z, degrees" title="Yaw about world Z">
+          <span class="tools">
+            <button id="rst-rotation" disabled title="Reset rotation to the last saved value">&#8634;</button>
+          </span>
+        </div>
+
+        <!-- Bounding-box size in metres, solved back into `scale`; scale is
+             still the only thing the scene JSON stores. -->
+        <div class="xrow" id="size-row">
+          <span class="xname"
+                title="The object's bounding box — the smallest box that contains it, along its own axes, same order as the scale row below">size
+            <button id="m-size-unit" class="unit"
+                    title="Metres. Click for centimetres, then millimetres.">m</button></span>
+          <input id="b0" class="ax-x" type="number" step="0.005" min="0" disabled
+                 aria-label="Bounding box size along the object's own X, metres">
+          <input id="b1" class="ax-y" type="number" step="0.005" min="0" disabled
+                 aria-label="Bounding box size along the object's own Y, metres">
+          <input id="b2" class="ax-z" type="number" step="0.005" min="0" disabled
+                 aria-label="Bounding box size along the object's own Z, metres">
+          <!-- The tools column is shared by every row, so this, the widest
+               cell, sets the field width for all of them; the container
+               breakpoint above is measured against it — re-measure before
+               adding a fifth button. -->
+          <span class="tools">
+            <button id="m-size-base" disabled
+                    title="Keep the base planted: resize about the bottom of the box, so a prop stays standing on its surface instead of sinking or floating">base</button>
+            <button id="btn-copy-size" disabled title="Copy this object's size — its bounding-box dimensions, independent of where it sits">Copy</button>
+            <button id="btn-paste-size" disabled title="Nothing copied yet">Paste</button>
+            <button id="rst-size" disabled
+                    title="Reset size to the last saved value — size is the asset's native size times its scale, so this restores the saved scale">&#8634;</button>
+          </span>
+        </div>
+
+        <div class="xrow" id="scale-row">
+          <span class="xname" title="Multiplier on the asset's authored size — 1 is as modelled">scale</span>
+          <input id="s0" class="ax-x" type="number" step="0.05" disabled aria-label="Scale X, multiplier">
+          <input id="s1" class="ax-y" type="number" step="0.05" disabled aria-label="Scale Y, multiplier">
+          <input id="s2" class="ax-z" type="number" step="0.05" disabled aria-label="Scale Z, multiplier">
+          <span class="tools">
+            <button id="m-uniform" disabled
+                    title="Uniform scale: keep all three axes equal, typing or dragging">Uniform</button>
+            <button id="rst-scale" disabled title="Reset scale to the last saved value">&#8634;</button>
+          </span>
+        </div>
+
+        <div class="xrow">
+          <span class="xname">quat</span>
+          <span id="v-ori" class="quat">-</span>
+          <span></span>
+        </div>
+      </div>
+      <!-- Size is measured along the object's own axes; this note appears
+           only when those disagree with the room's. -->
+      <div class="hint" id="size-frame" style="display:none; margin:4px 0 0"></div>
+      <!-- Warns where OmniGibson will not reproduce the size this row
+           promises; the causes are authored in the USD and invisible here. -->
+      <div class="hint" id="size-warn"
+           style="display:none; margin:4px 0 0; color:var(--warn)"></div>
+      <div class="row" style="margin-top:6px">
+        <button id="btn-upright" disabled title="Remove tilt, keep the heading — Shift clears all rotation to identity. Neither is reset, which restores the saved angle">Upright</button>
+        <button id="btn-copy-xform" disabled title="Copy this object's position, rotation and scale">Copy transform</button>
+        <button id="btn-paste-xform" disabled title="Paste a copied position, rotation and scale onto the selection">Paste transform</button>
+      </div>
+      <div class="hint" id="xform-clip"
+           style="margin:4px 0 0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap"></div>
+      <div class="hint" style="margin:2px 0 0">arrows nudge &middot; Shift 5&nbsp;cm &middot; Alt 1&nbsp;mm<br>
+        +/&minus; scale 5% &middot; Alt 1% &middot; always uniform</div>
+      <div id="sel-frame" style="font-size: 12px; color:var(--dim); display:none">
+        relative to the robot base — type here to match a measured mount
+      </div>
+      <!-- Physics, for one object at a time; multi-selections are excluded on
+           purpose — mass and friction are per-object facts. -->
+      <div id="physics-block" style="display:none; margin-top:10px">
+        <div id="physics-row">
+          <span class="xname" title="Kilograms. What the object weighs — heavier props resist a push, lighter ones skitter">mass</span>
+          <input id="p-mass" type="number" step="0.01" min="0.01" max="50" disabled
+                 aria-label="Mass in kilograms">
+          <button id="rst-mass" disabled title="Back to the mass authored in the asset">&#8634;</button>
+          <span class="xname" title="Surface friction coefficient. 0 is ice; around 0.5 is a plate on a desk; above 1 it will not slide at all">friction</span>
+          <input id="p-friction" type="number" step="0.05" min="0" max="2" disabled
+                 aria-label="Surface friction coefficient">
+          <button id="rst-friction" disabled title="Back to the friction saved with the scene">&#8634;</button>
+        </div>
+        <!-- Says what the typed value departs from and what happens to it. -->
+        <div class="hint" id="physics-note" style="margin:4px 0 0"></div>
+      </div>
+      <!-- Articulation; present only for assets with degrees of freedom. The
+           rows are built by app.js (refreshJoints) into #joint-modal below. -->
+      <div id="joints-block" style="display:none; margin-top:10px">
+        <div class="subhead">Joints</div>
+        <button id="btn-joint-editor" class="primary" style="margin-top:6px"
+                title="Open this object on its own, move each joint and watch it move">Edit Articulated Object</button>
+        <div class="hint" id="joints-note" style="margin:4px 0 0"></div>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button id="btn-drop" disabled title="Rest it on the table, or on whatever is already on the table there. Never on the floor — a prop under the desk comes up onto it">Drop to surface</button>
+        <button id="btn-reset" disabled title="Return this object to the last saved transform">Revert</button>
+      </div>
+      </div><!-- #selected-collapsible -->
+    </div>
+
+    <div class="section" id="camera-section" style="display:none">
+      <h2>Camera view</h2>
+      <div class="legend" style="margin-bottom:8px">
+        <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk &middot;
+        <kbd>Space</kbd> up &middot; <kbd>Ctrl</kbd> down &middot; drag to aim<br>
+        <span style="opacity:.7">(<kbd>E</kbd>/<kbd>Q</kbd> also work)</span><br>
+        <kbd>Shift</kbd> faster &middot; <kbd>Alt</kbd> finer &middot;
+        wheel sets speed &middot; <kbd>Esc</kbd> exits
+      </div>
+      <div class="field">
+        <label title="Metres per second">speed</label>
+        <input id="fly-speed" value="0.60">
+        <button id="btn-overview" class="on" title="Inset showing this camera from behind">Inset</button>
+      </div>
+      <div class="field">
+        <label title="Distance from the camera to whatever is under the crosshair">centre</label>
+        <span id="cam-center" style="flex:1; text-align:right; font-size: 12px; color:var(--dim)">-</span>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <button id="btn-look" disabled title="Fly the selected camera (or return to the overview)">Enter camera</button>
+        <button id="btn-level" disabled title="Remove roll: put the horizon level again">Level</button>
+      </div>
+    </div>
+
+    <div class="section" id="camera-save-section" style="display:none">
+      <h2>Camera config</h2>
+      <div id="cam-target" style="font-size: 12px; color:var(--dim)"></div>
+      <div id="cam-source" style="font-size: 12px; color:var(--dim)"></div>
+      <div id="cam-memory" style="font-size: 12px; color:var(--dim); margin-bottom:6px"></div>
+      <!-- Which sensor the policy receives as exterior_image_1_left is
+           settled by the *task* config; when configs disagree the editor says
+           so here. -->
+      <div id="cam-observation" style="font-size: 12px; color:var(--warn); margin-bottom:6px"></div>
+      <!-- Import a different rig without restarting the server. -->
+      <div style="font-size: 12px; color:var(--dim); margin:8px 0 4px">
+        <b style="color:var(--text)">Import</b> — load another rig's cameras.
+      </div>
+      <select id="cam-config-list" style="width:100%"></select>
+      <div class="row" style="margin-top:6px">
+        <button id="btn-import-cameras" title="Replace the cameras in the viewport with this config">Import</button>
+        <!-- These enter the sensor to aim it; the top-left Exterior buttons
+             only move where you look from. -->
+        <button id="btn-fly-ext1" title="Step inside exterior_image_1_left to aim it — the top-left Exterior buttons only move where you look from">Fly ext 1</button>
+        <button id="btn-fly-ext2" title="Step inside exterior_image_2_left to aim it — the top-left Exterior buttons only move where you look from">Fly ext 2</button>
+      </div>
+
+      <div style="font-size: 12px; color:var(--dim); margin:10px 0 4px">
+        <b style="color:var(--text)">Export</b> — leave the name blank to write
+        the room's own placement.
+      </div>
+      <div class="field">
+        <label>as</label>
+        <input id="cam-out-name" type="text" placeholder="(room default)"
+               title="Config name to write under scripts/cfg/external_sensors/. Usable as --external_sensors_cfg &lt;name&gt;.">
+      </div>
+      <button id="btn-save-cameras" style="width:100%; margin-top:6px" disabled>Save cameras YAML</button>
+      <div style="font-size: 12px; color:var(--dim); margin-top:6px">
+        Poses are relative to the robot base, so saving once covers every scene
+        shot in this room — reopening one loads this placement back.
+      </div>
+    </div>
+
+    <!-- The collision plane props rest on. Under a Gaussian-splat room it is
+         the only collision geometry: the splat loads visual_only, so without
+         it props fall through the desk when physics starts. -->
+    <div class="section" id="ground-section">
+      <h2 id="ground-toggle" role="button" tabindex="0" aria-expanded="true" aria-controls="ground-collapsible">
+        <span class="chevron">&#9662;</span> Ground plane
+      </h2>
+      <div id="ground-collapsible">
+        <div id="ground-state" class="hint" data-state="empty" style="margin:0 0 7px">
+          Checking what this scene rests on&hellip;
+        </div>
+        <div class="row">
+          <button id="btn-ground-add" title="Give this scene a collision plane for props to rest on">
+            Add ground plane
+          </button>
+          <button id="btn-ground-remove" hidden
+                  title="Remove the block; the run config's own floor plane then stands">
+            Remove
+          </button>
+        </div>
+        <div id="ground-controls" hidden>
+          <div class="field" style="margin-top:7px">
+            <label for="ground-height" title="Height of the plane, metres. It is infinite, so this is the only coordinate that matters.">height m</label>
+            <input id="ground-height" type="number" step="0.005" value="0"
+                   aria-label="Ground plane height, metres">
+            <button id="btn-ground-table" title="Put it at the work-surface marker's height">
+              Table height
+            </button>
+          </div>
+          <label style="display:flex; gap:6px; align-items:center; margin-top:8px; font-size:12px; color:var(--dim)">
+            <input id="ground-visible" type="checkbox">
+            <span title="Whether OmniGibson draws the plane. Off is what a Gaussian-splat room wants: a grey plane drawn through the picture of a desk is not the room.">
+              Draw it in the simulator
+            </span>
+          </label>
+          <div class="row" style="margin-top:7px">
+            <button id="btn-ground-revert" title="Back to the height and visibility the saved scene has">
+              Revert
+            </button>
+          </div>
+        </div>
+        <div id="ground-note" class="hint" style="margin-top:6px"></div>
+      </div>
+    </div>
+
+    <!-- Sends a viewport screenshot and the live object list to Gemini
+         (server-side, task_propose.py) and gets back one task yaml. Generates
+         only; nothing is written until Save. -->
+    <div class="section" id="task-gen-section">
+      <h2 id="task-gen-toggle" role="button" tabindex="0" aria-expanded="true" aria-controls="task-gen-collapsible">
+        <span class="chevron">&#9662;</span> Generate task
+      </h2>
+      <div id="task-gen-collapsible">
+        <textarea id="task-gen-prompt" rows="3"
+                  placeholder="Describe a task, e.g. &quot;stack the cup on the plate&quot;"></textarea>
+        <div class="field" style="margin-top:6px">
+          <label for="task-gen-robot" title="Selects which grasp/reach constraint text goes into the prompt">robot</label>
+          <input id="task-gen-robot" type="text" value="franka">
+        </div>
+        <div class="row" style="margin-top:6px">
+          <button id="btn-task-gen" title="Send the prompt, the current object list and a viewport screenshot to Gemini">Generate</button>
+        </div>
+        <div id="task-gen-note" class="hint" style="margin-top:6px"></div>
+        <div id="task-gen-result" hidden style="margin-top:8px">
+          <pre id="task-gen-yaml"></pre>
+          <div class="field" style="margin-top:6px">
+            <label for="task-gen-filename">file</label>
+            <input id="task-gen-filename" type="text">
+          </div>
+          <div class="field" style="margin-top:4px">
+            <label>folder</label>
+            <span id="task-gen-dir" class="mono" style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap"></span>
+            <button id="btn-task-gen-folder" style="width:auto" title="Pick a different output folder">Change…</button>
+          </div>
+          <!-- Two buttons because attaching discards the Task panel's unsaved
+               ranges, so it asks first. -->
+          <div class="row" style="margin-top:6px">
+            <button id="btn-task-gen-save"
+                    title="Write the yaml. The TASK panel keeps editing whatever it has open">Save proposal</button>
+            <button id="btn-task-gen-attach" class="primary"
+                    title="Write the yaml and point this scene's TASK panel at it">Save and attach</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edits a task config's per-group randomization ranges
+         (group_xyz_randomization / group_z_rot_randomization), round-tripped
+         through /api/task_cfg so the file's comments survive a save. The
+         picker carries whatever was remembered or auto-matched on open; see
+         activeTaskPath in app.js. -->
+    <div class="section" id="task-section">
+      <h2 id="task-toggle" role="button" tabindex="0" aria-expanded="true" aria-controls="task-collapsible">
+        <span class="chevron">&#9662;</span> Task
+      </h2>
+      <div id="task-collapsible">
+      <!-- A view toggle, not an edit: draws the ranges where they apply. -->
+      <div class="row" style="margin-bottom:7px">
+        <button id="m-task-ranges" disabled
+                title="Draw each bound object's reset range — the ±X/±Y/±Z box a task reset may move its origin into, around where it stands now. Position only; the ±Z rotation range is not drawn.">Visualize Reset Ranges</button>
+      </div>
+      <div class="row" style="margin-bottom:7px">
+        <select id="task-pick" class="task-pick"
+                title="Which task config this scene is edited against"></select>
+        <button id="btn-task-browse" class="task-browse"
+                title="Pick a task yaml by path">…</button>
+      </div>
+      <div id="task-note" class="hint" style="margin:0 0 7px"></div>
+      <!-- The runtime samples ±max on every axis
+           (task_utils.randomize_object_pose), so a field is half the spread
+           it produces. -->
+      <div id="task-spread" class="hint" style="margin:0 0 7px">Each field is a ±
+        half-width around the authored pose: ± 0.1 m is a 20 cm spread.</div>
+      <div id="task-groups"></div>
+      <div class="row" style="margin-top:8px">
+        <button id="btn-task-save" disabled title="Write these ranges back into the task yaml">Save ranges</button>
+        <button id="btn-task-revert" disabled title="Discard unsaved edits, back to what's on disk">Revert all</button>
+      </div>
+      </div><!-- #task-collapsible -->
+    </div>
+
+    <div class="section" id="arrange-section">
+      <h2 id="arrange-toggle" role="button" tabindex="0" aria-expanded="true" aria-controls="arrange-collapsible">
+        <span class="chevron">&#9662;</span> Layout
+      </h2>
+      <div id="arrange-collapsible">
+
+      <div class="subhead">Table centre</div>
+      <div class="row" style="margin-top:8px">
+        <button id="btn-table-place" title="Table centre — a point on the table. Kept with the room, so every scene shot here picks it up.">Place table centre</button>
+        <button id="btn-table-save" title="Write it to the room's sidecar" disabled>Save</button>
+        <button id="btn-table-hide" title="Draw the ring or not — view only, the point stays where it is" disabled>Hide ring</button>
+      </div>
+      <div class="field" style="margin-top:6px">
+        <label>centre</label>
+        <input id="tc0" type="number" step="0.01" title="x, metres">
+        <input id="tc1" type="number" step="0.01" title="y, metres">
+        <input id="tc2" type="number" step="0.01" title="z, metres">
+      </div>
+      <div class="field" style="margin-top:6px">
+        <label>yaw °</label>
+        <input id="tc-yaw" type="number" step="1" value="0"
+               title="Turn the whole arrangement about the anchor, degrees. The video's layout is recovered in the camera's frame, whose heading in the room is arbitrary.">
+      </div>
+      <div id="table-note" style="font-size: 12px; color:var(--dim); margin-top:4px"></div>
+      <div class="row" style="margin-top:6px">
+        <button id="btn-reseat" title="Rigid shift onto the table centre; relative spacing unchanged">Re-seat on table centre</button>
+      </div>
+
+      <!-- Two placement tools side by side; one column on a narrow panel. -->
+      <div class="dual">
+        <div>
+          <div class="subhead">Recenter</div>
+          <div class="row" style="margin-top:8px; align-items:center">
+            <button id="btn-recenter" title="Keeps the layout from the video, shifts it so the anchor sits in front of the robot. Rigid shift; relative spacing unchanged.">Recenter on robot</button>
+            <div class="field" style="flex:1; margin:0; min-width:0">
+              <label>distance <span class="unit">m</span></label>
+              <input id="recenter-dist" type="number" min="0.05" max="5" step="0.05" value="0.50"
+                     title="Metres in front of the robot base (0.05-5)">
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subhead">Arrange</div>
+          <div class="row" style="margin-top:8px; align-items:center">
+            <button id="btn-arrange" title="Discards the video layout and scatters props randomly around the anchor.">Arrange / re-roll</button>
+            <div class="field" style="flex:1; margin:0; min-width:0">
+              <label>radius <span class="unit">m</span></label>
+              <input id="arrange-radius" type="number" min="0.05" max="3" step="0.05" value="0.30"
+                     title="Metres from the anchor (0.05-3)">
+            </div>
+          </div>
+        </div>
+      </div>
+      </div><!-- #arrange-collapsible -->
+    </div>
+
+    <div class="section" id="scene-save-section">
+      <!-- Check, save and the promote box on one line; the row wraps on a
+           narrow panel. -->
+      <div id="save-row">
+        <button id="btn-check" title="Check the layout against the cameras, the robot's reach and itself">Check layout</button>
+        <button id="btn-save" class="primary" disabled>Save scene JSON</button>
+        <label id="promote-label" title="Also copy this save over _scene_state_latest.json, which every later stage opens by default">
+          <input type="checkbox" id="promote">
+          <span>overwrite <code>_latest</code><span id="promote-note"></span></span>
+        </label>
+      </div>
+      <div class="hint" id="check-note" style="margin:6px 0 0"></div>
+      <button id="btn-review" style="width:100%; margin-top:10px"
+              title="Package the scene, its cameras, a task and the exact evaluation command">Review &amp; Export…</button>
+    </div>
+
+    <div class="section" style="border-bottom:none">
+      <div id="status"></div>
+    </div>
+  </div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "./vendor/three.module.js",
+      "three/addons/": "./vendor/"
+    }
+  }
+  </script>
+  <script type="module" src="./app.js"></script>
+  <!-- Browses the *server's* filesystem, not the browser's: the import
+       endpoint needs a path on the server's machine. -->
+  <div id="picker-modal" hidden>
+    <div id="picker-backdrop"></div>
+    <div id="picker-card">
+      <div id="picker-head">
+        <h2 id="picker-title">Choose a file or folder</h2>
+        <button id="btn-picker-close" title="Close (Esc)">Close</button>
+      </div>
+      <div id="picker-places"></div>
+      <div id="picker-bar">
+        <button id="btn-picker-back" title="Back" disabled>&#8592;</button>
+        <button id="btn-picker-forward" title="Forward" disabled>&#8594;</button>
+        <button id="btn-picker-up" title="Parent directory">↑</button>
+        <input id="picker-path" type="text" spellcheck="false"
+               title="Type or paste an absolute path, then press Enter or Go"
+               placeholder="/absolute/path/to/a/file/or/folder">
+        <button id="btn-picker-go" title="Go to this path (Enter also works)">Go</button>
+      </div>
+      <div id="picker-list"></div>
+      <div id="picker-foot">
+        <span class="hint" id="picker-note"></span>
+        <button id="btn-picker-usedir" class="primary" style="width:auto">Use this folder</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- The scene launcher: lists the scenes on this machine. A switch never
+       silently discards unsaved work. -->
+  <div id="launcher-modal" hidden>
+    <div id="launcher-backdrop"></div>
+    <div id="launcher-card">
+      <div id="launcher-head">
+        <h2>Scenes</h2>
+        <div class="row" style="gap:6px">
+          <button id="btn-compose-open" class="primary" style="width:auto"
+                  title="Compose a new scene from one that already works">+ New scene…</button>
+          <button id="btn-launcher-close" title="Close (Esc)">Close</button>
+        </div>
+      </div>
+      <div id="launcher-body">
+        <div class="field" style="margin-bottom:6px">
+          <input id="launcher-search" placeholder="filter by scene name or room"
+                 style="text-align:left" autocomplete="off">
+        </div>
+        <div id="launcher-list"></div>
+      </div>
+      <div id="launcher-foot">
+        <span class="hint" id="launcher-note"></span>
+        <span class="hint" id="launcher-roots"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- New scene from a template: the room, rig, ground plane and version
+       block are inherited from a scene known to load; this only chooses which
+       props come along. -->
+  <div id="compose-modal" hidden>
+    <div id="compose-backdrop"></div>
+    <div id="compose-card">
+      <div id="compose-head">
+        <h2>New scene from a template</h2>
+        <button id="btn-compose-close" title="Close (Esc)">Close</button>
+      </div>
+      <div id="compose-body">
+        <div class="step">
+          <h3><span class="num">1</span> Template</h3>
+          <p class="hint">Its room, robot, ground plane and version block are inherited
+             whole, so the result is a real scene from the first save.</p>
+          <select id="compose-template"></select>
+          <div id="compose-inherits" class="hint"></div>
+        </div>
+        <div class="step">
+          <h3><span class="num">2</span> What comes with it</h3>
+          <p class="hint">Everything else can be added from the library afterwards.</p>
+          <div class="row" style="gap:6px; margin-bottom:6px">
+            <button id="btn-compose-none" style="width:auto">Room only</button>
+            <button id="btn-compose-all" style="width:auto">Keep everything</button>
+          </div>
+          <div id="compose-objects"></div>
+        </div>
+        <div class="step">
+          <h3><span class="num">3</span> Name</h3>
+          <div class="field">
+            <input id="compose-name" placeholder="droid_desk_sort_tools"
+                   style="text-align:left" autocomplete="off" spellcheck="false">
+          </div>
+          <div id="compose-where" class="hint"></div>
+        </div>
+      </div>
+      <div id="compose-foot">
+        <span class="hint" id="compose-note"></span>
+        <button id="btn-compose-create" class="primary" style="width:auto">Create and open</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- The joint editor: the object on its own, one card per degree of
+       freedom. The rows stay in the DOM while hidden; the 3D preview owns a
+       WebGL context, taken on open and released on close. -->
+  <div id="joint-modal" hidden>
+    <div id="joint-backdrop"></div>
+    <div id="joint-card">
+      <div id="joint-head">
+        <h2 id="joint-title">Joints</h2>
+        <button id="joint-close" title="Close (Esc)">Close</button>
+      </div>
+      <div id="joint-main">
+        <!-- The renderer creates its own canvas here and removes it on close:
+             a force-lost context cannot supply another one, so a canvas
+             authored here would work exactly once. -->
+        <div id="joint-preview"></div>
+        <div id="joint-body">
+          <div id="joints-grid"></div>
+          <div class="hint" id="joint-note"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- One dialog for "you have unsaved work" wherever it comes up. -->
+  <div id="confirm-modal" hidden>
+    <div id="confirm-backdrop"></div>
+    <div id="confirm-card">
+      <h2 id="confirm-title"></h2>
+      <div id="confirm-body"></div>
+      <div id="confirm-actions"></div>
+    </div>
+  </div>
+
+  <!-- Review &amp; Export: scene, cameras, task and the evaluation command,
+       decided together. -->
+  <div id="export-modal" hidden>
+    <div id="export-backdrop"></div>
+    <div id="export-card">
+      <div id="export-head">
+        <h2>Review &amp; Export</h2>
+        <button id="export-close" title="Close (Esc)">Close</button>
+      </div>
+      <div id="export-body">
+        <div class="xsec">
+          <h3>Scene</h3>
+          <div id="x-scene" class="xrow">—</div>
+          <label class="xcheck">
+            <input type="checkbox" id="x-promote">
+            <span>also overwrite <code>_latest.json</code><span id="x-promote-note"></span></span>
+          </label>
+        </div>
+
+        <div class="xsec">
+          <h3>Cameras</h3>
+          <div id="x-cameras" class="xrow">—</div>
+        </div>
+
+        <div class="xsec">
+          <h3>Task</h3>
+          <select id="x-task"></select>
+          <div class="hint" id="x-task-note"></div>
+        </div>
+
+        <div class="xsec" id="x-warn-sec">
+          <h3>Warnings</h3>
+          <div id="x-warnings"></div>
+        </div>
+
+        <div class="xsec">
+          <h3>Evaluation command</h3>
+          <pre id="x-command">—</pre>
+          <div class="row">
+            <button id="x-copy" disabled title="Copy the command to the clipboard">Copy command</button>
+            <button id="x-open" disabled title="Show the exported files in the file manager">Open output folder</button>
+          </div>
+          <div class="hint" id="x-command-note"></div>
+        </div>
+      </div>
+      <div id="export-foot">
+        <span class="hint" id="x-status" style="margin:0"></span>
+        <button id="x-export" class="primary" style="width:auto">Export</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- The full key reference; the viewport hint shows only the current-state
+       line. -->
+  <div id="help-modal" hidden>
+    <div id="help-backdrop"></div>
+    <div id="help-card">
+      <div id="help-head">
+        <h2>Shortcuts</h2>
+        <button id="help-close" title="Close (Esc)">Close</button>
+      </div>
+      <div id="help-body">
+        <div class="help-sec">
+          <h3>View</h3>
+          <div class="legend">
+            <kbd>LMB</kbd> drag orbit &middot; <kbd>RMB</kbd> drag pan &middot; wheel zoom &middot;
+            <kbd>F</kbd> frame the selection<br>
+            <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk the view &middot;
+            <kbd>Space</kbd>/<kbd>E</kbd> up &middot; <kbd>Q</kbd> down &middot;
+            <kbd>Shift</kbd> faster &middot; <kbd>Alt</kbd> finer &mdash; with
+            <b>nothing selected</b>; with a selection the same keys nudge it<br>
+            <kbd>C</kbd> hide camera bodies &middot; <kbd>V</kbd> camera preview windows &middot;
+            <kbd>G</kbd> composition guides &middot; <kbd>Shift</kbd><kbd>G</kbd> ground grid<br>
+            top-left <b>Exterior left</b>/<b>right</b> stand you where that sensor stands and
+            leave the scene editable &mdash; <b>Enter camera</b>, on the Cameras tab, is the
+            one that hands the sensor your keys
+          </div>
+        </div>
+        <div class="help-sec">
+          <h3>Selection</h3>
+          <div class="legend">
+            click an object or its row to select it &middot; <kbd>Shift</kbd>+click adds &middot;
+            <kbd>Ctrl</kbd><kbd>A</kbd> selects every object &middot; <kbd>Esc</kbd> deselects
+          </div>
+        </div>
+        <div class="help-sec">
+          <h3>Moving what's selected</h3>
+          <div class="legend">
+            drag the gizmo to move, turn or scale it &middot;
+            <kbd>M</kbd> move gizmo &middot; <kbd>R</kbd> rotate gizmo<br>
+            the mode bar itself drags anywhere in the viewport &middot;
+            double-click its background to put it back at the top<br>
+            <kbd>WASD</kbd>/<kbd>Space</kbd>/<kbd>Ctrl</kbd> nudges along X/Y/Z &middot;
+            <kbd>+</kbd>/<kbd>&minus;</kbd> scales &middot;
+            hold <kbd>Shift</kbd> for 5&nbsp;cm steps, <kbd>Alt</kbd> for 1&nbsp;mm<br>
+            <kbd>Ctrl</kbd><kbd>D</kbd> duplicates the selection &middot;
+            <kbd>Del</kbd> removes it (undoable) &middot;
+            <kbd>Ctrl</kbd><kbd>Z</kbd> undo &middot; <kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>Z</kbd> redo
+          </div>
+        </div>
+        <div class="help-sec">
+          <h3>Flying a camera</h3>
+          <div class="legend">
+            select a camera to look through it &middot;
+            <kbd>WASD</kbd> walk &middot; <kbd>Space</kbd> up &middot; <kbd>Ctrl</kbd> down &middot;
+            drag to aim<br>
+            hold <kbd>Shift</kbd> to move faster, <kbd>Alt</kbd> for finer control &middot;
+            wheel sets speed &middot; <kbd>Esc</kbd> exits
+          </div>
+        </div>
+        <div class="help-sec">
+          <h3>Scenes</h3>
+          <div class="legend"><kbd>O</kbd> opens another scene, or starts a new one</div>
+        </div>
+      </div>
+      <div id="help-foot">
+        <span class="hint" style="margin:0">New here? The walkthrough covers the basics.</span>
+        <button id="help-tour">Show me the walkthrough</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- First-run walkthrough; reopenable from the Help drawer. -->
+  <div id="tour-modal" hidden>
+    <div id="tour-backdrop"></div>
+    <div id="tour-card">
+      <div id="tour-head">
+        <h2 id="tour-step-label"></h2>
+        <button id="tour-close" title="Skip (Esc)">Skip</button>
+      </div>
+      <div id="tour-body">
+        <p id="tour-text"></p>
+      </div>
+      <div id="tour-foot">
+        <div id="tour-dots"></div>
+        <div class="row" style="gap:6px">
+          <button id="tour-back">Back</button>
+          <button id="tour-next" class="primary" style="width:auto">Next</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="library-modal" hidden>
+    <div id="library-backdrop"></div>
+    <div id="library-card">
+      <div id="library-head">
+        <h2>Asset library</h2>
+        <button id="btn-library-close" title="Close (Esc)">Close</button>
+      </div>
+      <div id="library-body">
+      <div class="field" style="margin-bottom:6px">
+        <input id="libsearch" placeholder="filter by category, id or scene"
+               style="text-align:left" autocomplete="off">
+      </div>
+      <div id="liblist"></div>
+      <div class="hint" id="libcount"></div>
+
+      <!-- Size, mass and collider, shown before the object is imported. -->
+      <div id="asset-detail" hidden>
+        <div id="detail-grid">
+          <canvas id="detail-preview" width="220" height="165"></canvas>
+          <div id="detail-facts"></div>
+        </div>
+        <div class="hint" id="detail-caveats"></div>
+        <div class="row" style="margin-top:8px">
+          <button id="btn-place" class="primary" style="width:auto">Add</button>
+          <span class="hint" id="detail-status" style="margin:0; align-self:center"></span>
+        </div>
+      </div>
+
+      <div class="hint">
+        Assets are copied into this scene's <code>objects/</code> directory so the
+        saved JSON stays portable. Nothing is written to the scene until you Save.
+      </div>
+
+      <h2 style="margin-top:14px">Import from this machine</h2>
+      <div class="field" style="margin-bottom:6px">
+        <input id="imp-path" placeholder="/path/to/asset.usd  ·  .glb .obj .ply .stl  ·  or a folder"
+               style="text-align:left" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="row">
+        <button id="btn-browse" title="Pick a file or folder without typing a path">Browse…</button>
+        <button id="btn-import">Import</button>
+        <button id="btn-import-opts" title="Scale, up axis and collision for mesh files">Options</button>
+      </div>
+
+      <div id="imp-options" style="display:none; margin-top:8px">
+        <div class="hint" style="margin-top:0">
+          Mesh files only — a USD is imported exactly as authored.
+        </div>
+        <div class="field"><label>scale</label>
+          <input id="imp-scale" value="1.0" title="Multiply the source geometry. Use 0.01 for a model authored in centimetres."></div>
+        <div class="field"><label>up axis</label>
+          <select id="imp-up" title="glTF is Y-up by spec and is rotated by default; OBJ/PLY/STL have no convention">
+            <option value="auto">auto (Y-up for glTF)</option>
+            <option value="y">Y-up — rotate to Z</option>
+            <option value="z">Z-up — leave alone</option>
+          </select></div>
+        <div class="field"><label>collide</label>
+          <select id="imp-collision">
+            <option value="convexHull">convex hull</option>
+            <option value="convexDecomposition">convex decomposition (hollow shapes)</option>
+            <option value="boundingCube">bounding box</option>
+            <option value="none">none</option>
+          </select></div>
+        <div class="field"><label>mass</label>
+          <input id="imp-mass" placeholder="auto (kg)" title="Leave blank to estimate from volume"></div>
+      </div>
+
+      <div class="hint" id="imp-report"></div>
+    </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

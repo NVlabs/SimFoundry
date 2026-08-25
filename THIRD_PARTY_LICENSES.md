@@ -10,9 +10,11 @@ license does not apply to those materials**.
 the ignored local `deps/` directory during installation, or installed from PyPI, and
 remain governed by their upstream terms.
 
-One exception: the nine patch files under [`patches/`](patches/) carry fragments of
+Two exceptions: the nine patch files under [`patches/`](patches/) carry fragments of
 upstream source in their context and removed lines — three under non-OSS or
-non-commercial terms. See [PATCH_PROVENANCE.md](PATCH_PROVENANCE.md).
+non-commercial terms (see [PATCH_PROVENANCE.md](PATCH_PROVENANCE.md)) — and the
+three.js modules vendored under `scripts/interactive/light_editor/web/vendor/`
+(item 0f below, MIT).
 
 Scope and method:
 - The lists cover components **SimFoundry uses directly** — either its own code
@@ -42,16 +44,18 @@ Derived files carry an attribution note in their header.
 
 ### 0a. Additional adapted sources
 
-Individual files adapted from other projects, each carrying an attribution note in its
-header. Upstream copyright is reproduced where the upstream declares one. The full
-MIT license texts for the vendored urdfpy and OmniGibson portions (items 0a and 0d)
-are reproduced in [§7](#7-full-license-texts-for-vendored-code).
+Individual files adapted from or vendored from other projects, each carrying an
+attribution note in its header or an accompanying provenance README. Upstream copyright
+is reproduced where the upstream declares one. The full MIT license texts for the
+vendored urdfpy, OmniGibson, and three.js portions (items 0a, 0d, and 0f) are
+reproduced in [§7](#7-full-license-texts-for-vendored-code).
 
 | No. | Component | Adapted into | License | Copyright | License Link |
 |-----|-----------|--------------|---------|-----------|--------------|
 | 0a | urdfpy | `simfoundry/utils/urdfpy_utils.py` | **MIT** | Copyright (c) 2019 Matthew Matl | https://github.com/mmatl/urdfpy/blob/5466842899b33bd549e8f9e2a9a987bd5e37373b/LICENSE |
 | 0b | MolmoSpaces | `simfoundry/utils/data_gen_utils.py` | Apache-2.0 | Copyright 2026 Allen Institute for AI | https://github.com/allenai/molmospaces/blob/c2f1b583f087e1d3994e1377574843b759d9d0f8/LICENSE |
 | 0d | OmniGibson (BEHAVIOR-1K) | `simfoundry/utils/asset_conversion_utils.py` | **MIT** | Copyright (c) 2023 Stanford Vision and Learning Group | https://github.com/StanfordVL/BEHAVIOR-1K/blob/d89aae4e0e9a1de3cf8285cb9669c11d8c8bb864/OmniGibson/LICENSE |
+| 0f | three.js r160 (incl. OrbitControls, TransformControls, GLTFLoader, BufferGeometryUtils) | `scripts/interactive/light_editor/web/vendor/` | **MIT** | Copyright © 2010-2023 three.js authors | https://github.com/mrdoob/three.js/blob/r160/LICENSE |
 
 ## 1. Third-party projects fetched into `deps/` at install time (not distributed)
 
@@ -251,8 +255,8 @@ not extend to any component below, their model weights, or any dataset or SDK re
 
 The MIT License requires that its copyright and permission notice be included with
 all copies or substantial portions of the software. The notices below are reproduced
-verbatim from the commit-pinned upstream `LICENSE` files for the two components
-vendored in this repository (items 0a and 0d above).
+verbatim from the commit-pinned upstream `LICENSE` files for the three components
+vendored in this repository (items 0a, 0d, and 0f above).
 
 ### urdfpy — vendored in `simfoundry/utils/urdfpy_utils.py`
 
@@ -310,4 +314,30 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+```
+
+### three.js — vendored in `scripts/interactive/light_editor/web/vendor/`
+
+```
+The MIT License
+
+Copyright © 2010-2023 three.js authors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
 ```

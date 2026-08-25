@@ -74,6 +74,15 @@ United Kingdom, and South Korea.
   from this project; derived files carry an attribution note in their header.
 
 
+## Vendored third-party code distributed with this repository
+
+- three.js r160, incl. OrbitControls, TransformControls, GLTFLoader, and
+  BufferGeometryUtils (MIT) — Copyright © 2010-2023 three.js authors. Vendored
+  under `scripts/interactive/light_editor/web/vendor/` so the browser editor does
+  not depend on a CDN; the full license text is reproduced in
+  [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) §7.
+
+
 ## Third-party projects fetched into `deps/` at install time (not distributed)
 
 - OmniGibson — BEHAVIOR-1K (MIT)

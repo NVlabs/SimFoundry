@@ -23,3 +23,8 @@ NGC_API_KEY=
 # Required: the pipeline's VLM stages (reconstruction, articulation, and B augmentation)
 # run on Google Vertex AI (Gemini).
 GCLOUD_PROJECT=
+
+# Google AI Studio key for Gemini (https://aistudio.google.com/apikey).
+# Optional: used by the light editor's "Generate task" panel when GCLOUD_PROJECT
+# is unset; Vertex application-default credentials work as an alternative.
+GEMINI_API_KEY=
