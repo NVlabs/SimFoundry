@@ -35,6 +35,10 @@ from simfoundry.tasks.predicates import (
     check_inside_aabb,
 )
 from simfoundry.tasks.task_utils import compute_look_at_orientation, obj_is_settled, randomize_object_pose
+from simfoundry.utils.ground_plane_utils import (
+    apply_ground_plane_info,
+    describe as describe_ground_plane,
+)
 from simfoundry.utils.distractor_utils import (
     build_candidate_pool,
     place_distractor,
@@ -405,13 +409,26 @@ class PickPlaceTask(BaseTask):
         """
         Apply ground plane position/orientation from the scene file's ground_plane_info if present.
         Also stores the base positions of the floor plane and background mesh for z-randomization.
+
+        `ground_plane_info.visible` is optional and overrides the run config's
+        `floor_plane_visible` when the scene states an opinion. A scene whose
+        background is a Gaussian splat is the case that needs it: the splat is
+        `visual_only` and has no colliders, so the floor plane is the only thing
+        props can rest on, and it has to be at the height of the surface in the
+        picture rather than drawn as a grey plane through it. A scene that does
+        not carry the field is left exactly as the run config configured it.
+
+        Note the interaction with the shadow catcher below: with a
+        `gs_background` present, `_load` makes the floor geometry a matte object
+        so the splat composites shadows onto it. Hiding the plane outright also
+        removes those shadows, which is the trade that `visible: false` is
+        making.
         """
         if og.sim.floor_plane is None:
             return
 
         scene_file = env.scene.scene_file
-        floor_pos = th.tensor([0.0, 0.0, 0.0], dtype=th.float32)
-        floor_ori = th.tensor([0.0, 0.0, 0.0, 1.0], dtype=th.float32)
+        scene_info = None
         if scene_file is not None:
             if isinstance(scene_file, str):
                 with open(scene_file, "r") as f:
@@ -419,14 +436,15 @@ class PickPlaceTask(BaseTask):
             else:
                 scene_info = scene_file
 
-            if "ground_plane_info" in scene_info:
-                ground_plane_info = scene_info["ground_plane_info"]
-                floor_pos = th.tensor(ground_plane_info["position"], dtype=th.float32)
-                floor_ori = th.tensor(ground_plane_info["orientation"], dtype=th.float32)
-        if self.ground_plane_z_offset is not None:
-            floor_pos[2] = self.ground_plane_z_offset
-        og.sim.floor_plane.set_position_orientation(position=floor_pos, orientation=floor_ori)
-        log.info(f"Applied ground plane position from scene file: z={floor_pos[2]:.4f}m")
+        # Shared with the light editor's two physics gates rather than restated
+        # here. `settle.py` and `parity_check.py` restore a scene through
+        # `og.sim.restore()`, which does not read `ground_plane_info` at all, so
+        # they simulated against a floor at z=0 whatever the scene said -- and a
+        # gate that models the saved contract differently from this method
+        # cannot prove anything about a run that follows it.
+        applied = apply_ground_plane_info(
+            scene_info, og.sim.floor_plane, z_offset=self.ground_plane_z_offset)
+        log.info(f"Applied ground plane from scene file: {describe_ground_plane(applied)}")
 
         # Store base floor plane position for z-randomization (even if no scene file)
         pos, ori = og.sim.floor_plane.get_position_orientation()
