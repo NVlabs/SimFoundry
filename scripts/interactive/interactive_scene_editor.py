@@ -13,39 +13,84 @@ This script allows you to:
 - Save the scene state with a button press
 
 Key Controls:
+    (The authoritative list is print_controls(); keep the two in sync.)
+
     Object Selection:
-        TAB         - Cycle through objects (forward)
-        GRAVE (`)   - Cycle through objects (backward) 
-        
-    Translation (in world frame):
+        [ / ]       - Cycle through objects (forward / backward)
+
+    Translation (robot base frame, or world if no robot):
         Arrow keys  - Move in XY plane (UP/DOWN = +/-X, LEFT/RIGHT = +/-Y)
-        W/S  - Move up/down (Z axis)
-        
-    Rotation:
+        W/Q         - Move up/down (Z axis)
+
+    Rotation (robot base frame, or world if no robot):
         N/M         - Rotate around X axis (pitch)
-        ,/<         - Rotate around Y axis (roll) 
-        ./> and /   - Rotate around Z axis (yaw)
-        
+        C/V         - Rotate around Y axis (roll)
+        / and '     - Rotate around Z axis (yaw)
+
+    Rotation (global frame):
+        1/2, 3/4, Z/X - Rotate around global X, Y, Z
+
     Scale:
         +/-         - Uniform scale up/down
-        [/]         - Scale up/down (alternate keys)
-        
+        S           - Set exact scale (prompts for x,y,z)
+
+    Step Sizes:
+        5/6, 7/8, 9/0 - Increase/decrease translation, rotation, scale delta
+
+    Simulation:
+        SPACE       - Toggle play/stop
+        O / P       - Stop / play
+
+    Lighting (skybox):
+        R/F, Y/H, J/L - Rotate HDR light around X, Y, Z
+        I/K         - Increase/decrease skybox intensity
+
     State Management:
         ENTER       - Save scene state
         BACKSPACE   - Reset selected object to initial pose
         U           - Undo last operation
+        D           - Delete selected object
+        G           - Toggle group mode
         F1          - Print current object pose
-        
+
+    Display:
+        F2          - Toggle HUD panel
+        F3          - Toggle selection outline
+
     Camera:
         The viewer camera can be controlled with mouse. Click and drag to rotate,
         scroll to zoom, right-click drag to pan.
-        
+
     System:
+        B           - Debug shell (IPython)
         ESC         - Exit
 
 Requires installing:
     - BEHAVIOR-1K, see https://github.com/StanfordVL/BEHAVIOR-1K
 """
+
+# Standard library first, then OmniGibson, then SimFoundry.
+#
+# preflight_check() validates every path argument before og.launch(), which
+# turns a mistyped path from a 90-second failure into an 8-second one. The
+# residual 8 seconds is this module-level `import omnigibson`; removing it needs
+# the imports deferred behind a function, which is Phase 1.5's editor_core split
+# rather than something to bolt on here.
+import argparse
+import json
+import math
+import os
+import shutil
+import sys
+import time
+import traceback
+from copy import deepcopy
+from datetime import datetime
+from pathlib import Path
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import editor_bindings
+from cousin_swap import CousinSwapMixin
 
 import omnigibson as og
 from omnigibson.macros import gm
@@ -55,19 +100,12 @@ from omnigibson.objects import USDObject, DatasetObject
 from omnigibson.prims import XFormPrim
 from omnigibson.robots import REGISTERED_ROBOTS
 from omnigibson.sensors import create_sensor
-from omnigibson.utils.ui_utils import KeyboardEventHandler
+from omnigibson.utils.ui_utils import KeyboardEventHandler, draw_aabb, clear_debug_drawing
 from omnigibson.utils.config_utils import parse_config
 import omnigibson.utils.transform_utils as T
-from pathlib import Path
-from copy import deepcopy
 import torch as th
-import json
-import argparse
-import os
-import shutil
 import numpy as np
-import math
-from datetime import datetime
+
 from simfoundry import ASSET_DIR
 from simfoundry.utils.scene_utils import load_json_with_absolute_usd_paths
 
@@ -201,7 +239,7 @@ def apply_realistic_render_settings(og, lazy, gs_pending=False) -> None:
                 print(f"[render] failed to set {key}={value}: {e}")
 
 
-class InteractiveSceneEditor:
+class InteractiveSceneEditor(CousinSwapMixin):
     """
     Interactive scene editor that allows manipulation of objects via keyboard.
     """
@@ -235,6 +273,11 @@ class InteractiveSceneEditor:
         skybox_yaw_step_deg=2.0,
         skybox_intensity_scale=1.1,
         load_scene_json=None,
+        debug_shell=False,
+        cousins_combinations=None,
+        cousins_dataset="custom-assets",
+        cousins_swap_key="H",
+        cousins_settle_steps=0,
     ):
         """
         Initialize the interactive scene editor.
@@ -272,6 +315,8 @@ class InteractiveSceneEditor:
             skybox_yaw_step_deg (float): Per-key skybox yaw step in degrees.
             skybox_intensity_scale (float): Per-key multiplicative intensity scale.
             load_scene_json (str): Path to a pre-saved scene JSON file to load. If provided, the scene will be restored from this file instead of creating a new one.
+            debug_shell (bool): Enable the B-key IPython shell. Off by default because it
+                blocks the render loop until you exit it.
         """
         self.scene_name = scene_name
         self.gs_background_path = gs_background_path
@@ -347,7 +392,34 @@ class InteractiveSceneEditor:
         # Group mode: when enabled, operations apply to all scene_objects_info objects
         self.group_mode = False
         self.scene_objects_info_names = []  # Track objects loaded from scene_objects_info
-        
+
+        # On-screen feedback: HUD panel + selection highlight. Both are best-effort;
+        # if omni.ui or the debug-draw interface is unavailable the editor still runs,
+        # it just falls back to the stdout-only behavior.
+        self.hud_window = None
+        self.hud_label = None
+        self.hud_enabled = True
+        self.highlight_enabled = True
+        self.status_message = ""  # Last action, echoed to the HUD
+        # Anything that failed during load, surfaced in the HUD rather than
+        # left buried in a wall of startup logging.
+        self.load_failures = []
+
+        # Modeless dialogs. Held so a second keypress reuses the window instead of
+        # stacking a new one.
+        self.scale_dialog = None
+
+        # The IPython shell blocks the render loop by design, so it is opt-in.
+        self.debug_shell_enabled = debug_shell
+
+        # Inert unless --cousins_combinations is given.
+        self.init_cousin_swap(
+            combinations_path=cousins_combinations,
+            dataset_name=cousins_dataset,
+            swap_key=cousins_swap_key,
+            settle_steps=cousins_settle_steps,
+        )
+
     def setup_scene(self):
         """Create and setup the OmniGibson scene."""
         # Determine whether to show floor/skybox based on background presence
@@ -572,9 +644,14 @@ class InteractiveSceneEditor:
         with open(tmp_scene_path, "w") as f:
             json.dump(scene_json_dict, f, indent=4)
         
-        # Use og.sim.restore to load the scene
+        # Use og.sim.restore to load the scene.
+        # These two calls dominate startup — roughly 60 of the 90 seconds — and
+        # emit no progress of their own, so say so before going quiet.
+        self._stage("Starting Isaac Sim...")
         og.launch()
+        self._stage("Restoring scene (~45s, silent while it works)...")
         og.sim.restore(scene_files=[tmp_scene_path])
+        self._stage("Scene restored.")
         
         # Get the loaded scene
         self.scene = og.sim.scenes[0]
@@ -633,7 +710,17 @@ class InteractiveSceneEditor:
             floor_pos = th.tensor(ground_plane_info["position"], dtype=th.float32)
             floor_ori = th.tensor(ground_plane_info["orientation"], dtype=th.float32)
             og.sim.floor_plane.set_position_orientation(position=floor_pos, orientation=floor_ori)
-            print(f"Applied ground plane position from scene JSON: z={floor_pos[2]:.4f}m")
+            # Optional, and only honoured when the scene states an opinion: a
+            # document written before the field existed leaves the run's own
+            # floor_plane_visible standing. The light editor writes false for a
+            # Gaussian-splat room, where a grey plane drawn through the picture
+            # of a desk is exactly what nobody wants to see.
+            floor_visible = ground_plane_info.get("visible")
+            if isinstance(floor_visible, bool):
+                og.sim.floor_plane.visible = floor_visible
+            print(f"Applied ground plane position from scene JSON: z={floor_pos[2]:.4f}m"
+                  + ("" if not isinstance(floor_visible, bool)
+                     else f", visible={floor_visible}"))
         
         # Setup HDR background if specified (even when loading from saved scene)
         if self.hdr_background_path is not None:
@@ -921,7 +1008,7 @@ class InteractiveSceneEditor:
                 og.sim.step()
                 
             except Exception as e:
-                print(f"Warning: Failed to load dataset object {obj_spec}: {e}")
+                self._record_load_failure(f"dataset object {obj_spec}", e)
         
         if self.dataset_objects:
             print(f"\nTotal dataset objects loaded: {len(self.dataset_objects)}")
@@ -969,7 +1056,7 @@ class InteractiveSceneEditor:
                 og.sim.step()
                 
             except Exception as e:
-                print(f"Warning: Failed to load USD object {obj_spec}: {e}")
+                self._record_load_failure(f"USD object {obj_spec}", e)
         
         if self.usd_objects:
             print(f"\nTotal USD objects loaded: {len(self.usd_objects)}")
@@ -1068,7 +1155,7 @@ class InteractiveSceneEditor:
                     print(f"Loaded '{obj_name}': {dataset_name}/{obj_category}/{obj_model}")
 
                 except Exception as e:
-                    print(f"Warning: Failed to load object {obj_name}: {e}")
+                    self._record_load_failure(f"object {obj_name}", e)
 
         print(f"\nTotal objects loaded from scene_objects_info: {len(self.scene_objects_info_names)}")
         for i in range(200):
@@ -1268,253 +1355,147 @@ class InteractiveSceneEditor:
                 print(f"Loaded external sensor '{sensor.name}': {sensor_config.get('sensor_type', 'unknown')}")
                 
             except Exception as e:
-                print(f"Warning: Failed to load external sensor {sensor_config.get('name', i)}: {e}")
+                self._record_load_failure(f"external sensor {sensor_config.get('name', i)}", e)
         
         print(f"\nTotal external sensors loaded: {len(self.external_sensors)}")
     
-    def setup_keyboard_controls(self):
-        """Setup keyboard event handlers for object manipulation."""
-        KeyboardEventHandler.initialize()
-        
-        # Object selection
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.LEFT_BRACKET,
-            callback_fn=self.cycle_object_forward
-        )
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.RIGHT_BRACKET,
-            callback_fn=self.cycle_object_backward
-        )
-        
-        # Translation controls (Arrow keys + Page Up/Down)
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.UP,
-            callback_fn=lambda: self.translate_object(th.tensor([self.translation_delta, 0, 0]))
-        )
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.DOWN,
-            callback_fn=lambda: self.translate_object(th.tensor([-self.translation_delta, 0, 0]))
-        )
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.LEFT,
-            callback_fn=lambda: self.translate_object(th.tensor([0, self.translation_delta, 0]))
-        )
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.RIGHT,
-            callback_fn=lambda: self.translate_object(th.tensor([0, -self.translation_delta, 0]))
-        )
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.W,
-            callback_fn=lambda: self.translate_object(th.tensor([0, 0, self.translation_delta]))
-        )
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.Q,
-            callback_fn=lambda: self.translate_object(th.tensor([0, 0, -self.translation_delta]))
-        )
-        
-        # Rotation controls (N/M, Comma/Period, Slash)
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.N,
-            callback_fn=lambda: self.rotate_object(th.tensor([self.rotation_delta, 0, 0]))
-        )
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.M,
-            callback_fn=lambda: self.rotate_object(th.tensor([-self.rotation_delta, 0, 0]))
-        )
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.C,
-            callback_fn=lambda: self.rotate_object(th.tensor([0, self.rotation_delta, 0]))
-        )
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.V,
-            callback_fn=lambda: self.rotate_object(th.tensor([0, -self.rotation_delta, 0]))
-        )
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.SLASH,
-            callback_fn=lambda: self.rotate_object(th.tensor([0, 0, self.rotation_delta]))
-        )
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.APOSTROPHE,
-            callback_fn=lambda: self.rotate_object(th.tensor([0, 0, -self.rotation_delta]))
-        )
-        
-        # Global Z rotation controls (Z/X keys)
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.Z,
-            callback_fn=lambda: self.rotate_object_global_z(self.rotation_delta)
-        )
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.X,
-            callback_fn=lambda: self.rotate_object_global_z(-self.rotation_delta)
-        )
-        
-        # Global X rotation controls (1/2 keys)
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.KEY_1,
-            callback_fn=lambda: self.rotate_object_global_x(self.rotation_delta)
-        )
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.KEY_2,
-            callback_fn=lambda: self.rotate_object_global_x(-self.rotation_delta)
-        )
-        
-        # Global Y rotation controls (3/4 keys)
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.KEY_3,
-            callback_fn=lambda: self.rotate_object_global_y(self.rotation_delta)
-        )
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.KEY_4,
-            callback_fn=lambda: self.rotate_object_global_y(-self.rotation_delta)
-        )
-        
-        # Scale controls
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.NUMPAD_ADD,
-            callback_fn=lambda: self.scale_object(1.0 + self.scale_delta)
-        )
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.NUMPAD_SUBTRACT,
-            callback_fn=lambda: self.scale_object(1.0 - self.scale_delta)
-        )
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.EQUAL,  # + key (Shift+=)
-            callback_fn=lambda: self.scale_object(1.0 + self.scale_delta)
-        )
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.MINUS,
-            callback_fn=lambda: self.scale_object(1.0 - self.scale_delta)
-        )
-        # KeyboardEventHandler.add_keyboard_callback(
-        #     key=lazy.carb.input.KeyboardInput.PERIOD,
-        #     callback_fn=lambda: self.scale_object(1.0 + self.scale_delta)
-        # )
-        # KeyboardEventHandler.add_keyboard_callback(
-        #     key=lazy.carb.input.KeyboardInput.COMMA,
-        #     callback_fn=lambda: self.scale_object(1.0 - self.scale_delta)
-        # )
-        
-        # State management
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.ENTER,
-            callback_fn=self.save_scene_state
-        )
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.BACKSPACE,
-            callback_fn=self.reset_selected_object
-        )
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.F1,
-            callback_fn=self.print_object_pose
-        )
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.U,
-            callback_fn=self.undo
-        )
-        
-        # Simulation control
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.SPACE,
-            callback_fn=self.toggle_simulation
-        )
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.O,
-            callback_fn=self.pause_simulation
-        )
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.P,
-            callback_fn=self.play_simulation
-        )
-        
-        # Delta adjustment controls (F2/F3 for translation, F4/F5 for rotation, F6/F7 for scale)
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.KEY_5,
-            callback_fn=self.increase_translation_delta
-        )
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.KEY_6,
-            callback_fn=self.decrease_translation_delta
-        )
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.KEY_7,
-            callback_fn=self.increase_rotation_delta
-        )
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.KEY_8,
-            callback_fn=self.decrease_rotation_delta
-        )
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.KEY_9,
-            callback_fn=self.increase_scale_delta
-        )
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.KEY_0,
-            callback_fn=self.decrease_scale_delta
-        )
+    def action_handlers(self):
+        """Map action ids from editor_bindings to the methods that implement them.
 
-        # Skybox lighting controls
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.R,
-            callback_fn=lambda: self._rotate_skybox_axis("x", self.skybox_rot_delta)
-        )
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.F,
-            callback_fn=lambda: self._rotate_skybox_axis("x", -self.skybox_rot_delta)
-        )
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.Y,
-            callback_fn=lambda: self._rotate_skybox_axis("y", self.skybox_rot_delta)
-        )
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.H,
-            callback_fn=lambda: self._rotate_skybox_axis("y", -self.skybox_rot_delta)
-        )
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.J,
-            callback_fn=lambda: self._rotate_skybox_axis("z", self.skybox_rot_delta)
-        )
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.L,
-            callback_fn=lambda: self._rotate_skybox_axis("z", -self.skybox_rot_delta)
-        )
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.I,
-            callback_fn=self.increase_skybox_intensity
-        )
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.K,
-            callback_fn=self.decrease_skybox_intensity
-        )
-        
-        # Debug - drop into IPython shell
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.B,
-            callback_fn=self.debug_shell
-        )
-        
-        # Group mode toggle (for scene_objects_info objects)
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.G,
-            callback_fn=self.toggle_group_mode
-        )
-        
-        # Delete selected object
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.D,
-            callback_fn=self.delete_selected_object
-        )
-        
-        # Set exact scale
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.S,
-            callback_fn=self.set_object_scale
-        )
-        
-        # Exit
-        KeyboardEventHandler.add_keyboard_callback(
-            key=lazy.carb.input.KeyboardInput.ESCAPE,
-            callback_fn=self.exit_editor
-        )
+        Keeping this next to the table rather than inline with the key constants
+        means a new action is declared in exactly two places — the table and this
+        dict — and validate() fails loudly if either is missing.
+        """
+        t = lambda v: (lambda: self.translate_object(th.tensor(v)))          # noqa: E731
+        r = lambda v: (lambda: self.rotate_object(th.tensor(v)))             # noqa: E731
+
+        d = lambda: self.translation_delta                                   # noqa: E731
+        a = lambda: self.rotation_delta                                      # noqa: E731
+
+        return {
+            "cycle_forward": self.cycle_object_forward,
+            "cycle_backward": self.cycle_object_backward,
+
+            "translate_x_plus": lambda: self.translate_object(th.tensor([d(), 0, 0])),
+            "translate_x_minus": lambda: self.translate_object(th.tensor([-d(), 0, 0])),
+            "translate_y_plus": lambda: self.translate_object(th.tensor([0, d(), 0])),
+            "translate_y_minus": lambda: self.translate_object(th.tensor([0, -d(), 0])),
+            "translate_z_plus": lambda: self.translate_object(th.tensor([0, 0, d()])),
+            "translate_z_minus": lambda: self.translate_object(th.tensor([0, 0, -d()])),
+
+            "rotate_x_plus": lambda: self.rotate_object(th.tensor([a(), 0, 0])),
+            "rotate_x_minus": lambda: self.rotate_object(th.tensor([-a(), 0, 0])),
+            "rotate_y_plus": lambda: self.rotate_object(th.tensor([0, a(), 0])),
+            "rotate_y_minus": lambda: self.rotate_object(th.tensor([0, -a(), 0])),
+            "rotate_z_plus": lambda: self.rotate_object(th.tensor([0, 0, a()])),
+            "rotate_z_minus": lambda: self.rotate_object(th.tensor([0, 0, -a()])),
+
+            "rotate_global_x_plus": lambda: self.rotate_object_global_x(a()),
+            "rotate_global_x_minus": lambda: self.rotate_object_global_x(-a()),
+            "rotate_global_y_plus": lambda: self.rotate_object_global_y(a()),
+            "rotate_global_y_minus": lambda: self.rotate_object_global_y(-a()),
+            "rotate_global_z_plus": lambda: self.rotate_object_global_z(a()),
+            "rotate_global_z_minus": lambda: self.rotate_object_global_z(-a()),
+
+            "scale_up": lambda: self.scale_object(1.0 + self.scale_delta),
+            "scale_down": lambda: self.scale_object(1.0 - self.scale_delta),
+            "set_scale": self.set_object_scale,
+
+            "translation_delta_up": self.increase_translation_delta,
+            "translation_delta_down": self.decrease_translation_delta,
+            "rotation_delta_up": self.increase_rotation_delta,
+            "rotation_delta_down": self.decrease_rotation_delta,
+            "scale_delta_up": self.increase_scale_delta,
+            "scale_delta_down": self.decrease_scale_delta,
+
+            "toggle_sim": self.toggle_simulation,
+            "stop_sim": self.pause_simulation,
+            "play_sim": self.play_simulation,
+
+            "skybox_x_plus": lambda: self._rotate_skybox_axis("x", self.skybox_rot_delta),
+            "skybox_x_minus": lambda: self._rotate_skybox_axis("x", -self.skybox_rot_delta),
+            "skybox_y_plus": lambda: self._rotate_skybox_axis("y", self.skybox_rot_delta),
+            "skybox_y_minus": lambda: self._rotate_skybox_axis("y", -self.skybox_rot_delta),
+            "skybox_z_plus": lambda: self._rotate_skybox_axis("z", self.skybox_rot_delta),
+            "skybox_z_minus": lambda: self._rotate_skybox_axis("z", -self.skybox_rot_delta),
+            "skybox_brighter": self.increase_skybox_intensity,
+            "skybox_dimmer": self.decrease_skybox_intensity,
+
+            "save": self.save_scene_state,
+            "reset_object": self.reset_selected_object,
+            "undo": self.undo,
+            "delete_object": self.delete_selected_object,
+            "toggle_group": self.toggle_group_mode,
+            "print_pose": self.print_object_pose,
+
+            "toggle_hud": self.toggle_hud,
+            "toggle_highlight": self.toggle_highlight,
+
+            "debug_shell": self.debug_shell,
+            "exit": self.exit_editor,
+        }
+
+    def setup_keyboard_controls(self):
+        """Register every binding from the keymap table.
+
+        The table in editor_bindings is the only place keys are declared. It is
+        validated against the handler dict first, so a typo produces a startup
+        error instead of a key that silently does nothing.
+        """
+        KeyboardEventHandler.initialize()
+
+        handlers = self.action_handlers()
+        editor_bindings.validate(handlers)
+
+        missing_keys = []
+        for key_name, action_id, _ in editor_bindings.BINDINGS:
+            key = getattr(lazy.carb.input.KeyboardInput, key_name, None)
+            if key is None:
+                # A carb constant that does not exist in this Isaac Sim build.
+                missing_keys.append(key_name)
+                continue
+            KeyboardEventHandler.add_keyboard_callback(
+                key=key, callback_fn=handlers[action_id]
+            )
+        if missing_keys:
+            print(f"Warning: keys unsupported by this Isaac Sim build: {', '.join(missing_keys)}")
+
+        # Optional, and bound outside the table because the key is user-chosen at
+        # runtime. It deliberately overrides whatever the table put on that key —
+        # the default H is skybox rotation — and says so.
+        if self.cousin_swap_enabled:
+            existing = next(
+                (a for k, a, _ in editor_bindings.BINDINGS
+                 if k == str(self.cousins_swap_key).strip().upper()),
+                None,
+            )
+            if existing:
+                print(f"Note: --cousins_swap_key {self.cousins_swap_key!r} overrides "
+                      f"the '{existing}' binding.")
+            self._setup_cousins_hot_swap_key()
+
+        # Must come last: wraps everything registered above.
+        self._guard_keyboard_callbacks()
+
+    def _guard_keyboard_callbacks(self):
+        """Wrap every registered callback so a raising one cannot escape.
+
+        KeyboardEventHandler._meta_callback invokes callbacks with no error handling,
+        so an exception propagates into carb's C++ event dispatch. Catching here keeps
+        one broken action from taking down the session — a 90 s reload is expensive.
+        """
+        for key, callback_fn in list(KeyboardEventHandler.KEYBOARD_CALLBACKS.items()):
+            KeyboardEventHandler.KEYBOARD_CALLBACKS[key] = self._guarded(callback_fn)
+
+    def _guarded(self, callback_fn):
+        """Return callback_fn wrapped so exceptions are reported, not raised."""
+        def wrapper():
+            try:
+                callback_fn()
+            except Exception as e:
+                traceback.print_exc()
+                self.set_status(f"Error: {type(e).__name__}: {e}")
+        return wrapper
     
     def get_selected_object(self):
         """Get the currently selected object."""
@@ -1528,7 +1509,7 @@ class InteractiveSceneEditor:
             print("No objects loaded.")
             return
         self.selected_idx = (self.selected_idx + 1) % len(self.object_names)
-        print(f"Selected object: {self.object_names[self.selected_idx]}")
+        self.set_status(f"Selected object: {self.object_names[self.selected_idx]}")
     
     def cycle_object_backward(self):
         """Cycle to the previous object."""
@@ -1536,7 +1517,7 @@ class InteractiveSceneEditor:
             print("No objects loaded.")
             return
         self.selected_idx = (self.selected_idx - 1) % len(self.object_names)
-        print(f"Selected object: {self.object_names[self.selected_idx]}")
+        self.set_status(f"Selected object: {self.object_names[self.selected_idx]}")
     
     def get_robot_base_rotation_matrix(self):
         """
@@ -1907,38 +1888,75 @@ class InteractiveSceneEditor:
     
     def set_object_scale(self):
         """
-        Prompt user for exact scale values and apply to the selected object.
-        
-        User enters 3 comma-separated numbers for X, Y, Z scale.
+        Open a dialog to set the selected object's exact scale.
+
+        The dialog is modeless: the render loop keeps running while it is open. The
+        object is captured when the dialog opens, so changing selection afterwards
+        does not retarget a pending edit.
         """
         obj = self.get_selected_object()
         if obj is None:
-            print("No object selected.")
+            self.set_status("No object selected.")
             return
-        
+
         obj_name = self.object_names[self.selected_idx]
         current_scale = obj.scale
-        
-        print(f"\nCurrent scale of '{obj_name}': {current_scale.tolist()}")
-        user_input = input("Enter new scale (x,y,z): ").strip()
-        
-        if not user_input:
-            print("Scale change cancelled.")
+
+        # Reuse an already-open dialog rather than stacking windows on key repeat.
+        if self.scale_dialog is not None:
+            self.scale_dialog.visible = True
             return
-        
+
         try:
-            parts = [float(p.strip()) for p in user_input.split(",")]
-            if len(parts) != 3:
-                print("Error: Please enter exactly 3 comma-separated numbers (x,y,z).")
+            ui = lazy.omni.ui
+        except Exception as e:
+            # Falling back to input() here would freeze the viewport, which is the
+            # bug this dialog exists to fix. Keep the +/- keys as the way out.
+            self.set_status(f"Scale dialog unavailable ({e}). Use +/- to scale.")
+            return
+
+        def close():
+            if self.scale_dialog is not None:
+                self.scale_dialog.visible = False
+                self.scale_dialog = None
+
+        def apply():
+            try:
+                values = [float(m.get_value_as_float()) for m in models]
+            except Exception as e:
+                self.set_status(f"Could not read scale values: {e}")
                 return
-            
+            if any(v <= 0 for v in values):
+                self.set_status("Scale must be positive on every axis.")
+                return
             self._push_undo([obj])
-            new_scale = th.tensor(parts, dtype=th.float32)
-            obj.scale = new_scale
-            print(f"Set scale of '{obj_name}' to {new_scale.tolist()}")
-            
-        except ValueError as e:
-            print(f"Error parsing scale values: {e}")
+            obj.scale = th.tensor(values, dtype=th.float32)
+            self.set_status(f"Set scale of '{obj_name}' to {values}")
+            close()
+
+        models = []
+        try:
+            self.scale_dialog = ui.Window(
+                "Set Scale",
+                width=340,
+                height=130,
+                flags=ui.WINDOW_FLAGS_NO_SCROLLBAR | ui.WINDOW_FLAGS_NO_COLLAPSE,
+            )
+            with self.scale_dialog.frame:
+                with ui.VStack(spacing=8, height=0):
+                    ui.Label(f"Scale for '{obj_name}'", height=18)
+                    with ui.HStack(spacing=4, height=24):
+                        for axis, value in zip("XYZ", current_scale.tolist()):
+                            ui.Label(axis, width=12)
+                            field = ui.FloatField()
+                            field.model.set_value(float(value))
+                            models.append(field.model)
+                    with ui.HStack(spacing=8, height=26):
+                        ui.Button("Apply", clicked_fn=apply)
+                        ui.Button("Cancel", clicked_fn=close)
+        except Exception as e:
+            self.scale_dialog = None
+            self.set_status(f"Could not open scale dialog ({e}). Use +/- to scale.")
     
     def reset_selected_object(self):
         """Reset the selected object to its initial pose and scale."""
@@ -2406,10 +2424,14 @@ class InteractiveSceneEditor:
             with open(json_path, "r") as f:
                 scene_data = json.load(f)
             
-            # Add ground plane info to scene JSON
+            # Add ground plane info to scene JSON. Visibility is carried through
+            # rather than re-derived, so a scene authored with a hidden floor --
+            # which is what a Gaussian-splat room wants -- does not silently
+            # gain a visible one by being opened and saved here.
             scene_data["ground_plane_info"] = {
                 "position": floor_pos.tolist(),
                 "orientation": floor_ori.tolist(),
+                "visible": bool(og.sim.floor_plane.visible),
             }
             
             with open(json_path, "w") as f:
@@ -2417,6 +2439,7 @@ class InteractiveSceneEditor:
             print(f"Saved ground plane position: z={floor_pos[2]:.4f}m")
         
         print(f"\n{'='*50}")
+        self.set_status(f"Saved -> {os.path.basename(str(json_path))}")
         print(f"Scene state saved to: {json_path}")
         # Copy to latest
         shutil.copy(json_path, json_latest_path)
@@ -2538,9 +2561,18 @@ class InteractiveSceneEditor:
         print(f"Group mode {status} - Operations will apply to {len(self.scene_objects_info_names)} objects")
     
     def debug_shell(self):
-        """Drop into an IPython shell for debugging with access to editor state."""
+        """Drop into an IPython shell for debugging with access to editor state.
+
+        This blocks the render loop until you exit the shell — the viewport will be
+        frozen and unresponsive the whole time. Opt in with --debug_shell.
+        """
+        if not self.debug_shell_enabled:
+            self.set_status("Debug shell disabled. Relaunch with --debug_shell to enable.")
+            return
+
         print("\n" + "="*60)
         print("ENTERING DEBUG SHELL (IPython)")
+        print("Rendering is FROZEN until you exit this shell.")
         print("="*60)
         print("Available variables:")
         print("  self        - The InteractiveSceneEditor instance")
@@ -2565,74 +2597,195 @@ class InteractiveSceneEditor:
         og.clear()
         og.shutdown()
     
+    def _stage(self, message):
+        """Print a timed startup stage marker.
+
+        Loading is silent for minutes at a time; without elapsed times it is
+        impossible to tell a slow stage from a hung one.
+        """
+        if not hasattr(self, "_stage_t0"):
+            self._stage_t0 = time.time()
+        print(f"[{time.time() - self._stage_t0:6.1f}s] {message}", flush=True)
+
+    def _record_load_failure(self, what, error):
+        """Note something that failed to load, so it survives the startup log.
+
+        A missing USD used to print one warning into a few thousand lines of
+        Isaac Sim output and then vanish; the object was simply absent from the
+        scene with no indication why.
+        """
+        message = f"{what}: {type(error).__name__}: {error}"
+        self.load_failures.append(message)
+        print(f"Warning: Failed to load {message}")
+
+    def set_status(self, message):
+        """Record a short status line and echo it to stdout.
+
+        Args:
+            message (str): Message to show in the HUD's status row.
+        """
+        self.status_message = message
+        print(message)
+
+    def setup_hud(self):
+        """Create the on-screen HUD panel.
+
+        Best-effort: if omni.ui is unavailable the editor keeps running with
+        stdout-only feedback.
+        """
+        try:
+            ui = lazy.omni.ui
+            self.hud_window = ui.Window(
+                "Scene Editor",
+                width=330,
+                height=250,
+                flags=ui.WINDOW_FLAGS_NO_SCROLLBAR | ui.WINDOW_FLAGS_NO_COLLAPSE,
+            )
+            with self.hud_window.frame:
+                self.hud_label = ui.Label(
+                    "",
+                    style={"font_size": 15, "color": 0xFFDDDDDD},
+                    word_wrap=True,
+                    alignment=ui.Alignment.LEFT_TOP,
+                )
+            self.update_hud()
+        except Exception as e:
+            print(f"Warning: could not create HUD panel ({e}). Falling back to stdout only.")
+            self.hud_window = None
+            self.hud_label = None
+
+    def update_hud(self):
+        """Refresh the HUD text from current editor state."""
+        if self.hud_label is None:
+            return
+        try:
+            if self.hud_enabled:
+                self.hud_label.text = self._hud_text()
+            else:
+                self.hud_label.text = "HUD hidden - F2 to show"
+        except Exception:
+            # A dead UI handle should never take down the render loop.
+            self.hud_label = None
+
+    def _hud_text(self):
+        """Build the HUD body text."""
+        if self.object_names:
+            name = self.object_names[self.selected_idx]
+            selection = f"[{self.selected_idx + 1}/{len(self.object_names)}] {name}"
+        else:
+            selection = "(no objects loaded)"
+
+        obj = self.get_selected_object()
+        if obj is not None:
+            try:
+                pos, _ = obj.get_position_orientation()
+                pose = f"xyz  {pos[0]:+.3f}  {pos[1]:+.3f}  {pos[2]:+.3f}"
+            except Exception:
+                pose = "xyz  (unavailable)"
+        else:
+            pose = ""
+
+        sim_state = "PLAYING" if og.sim.is_playing() else "STOPPED"
+        frame = "robot base" if self.robot is not None else "world"
+
+        lines = [
+            f"SELECTED   {selection}",
+            f"           {pose}",
+            "",
+            f"sim        {sim_state}   (SPACE toggles)",
+            f"frame      {frame}",
+            f"step       move {self.translation_delta:.3f} m   "
+            f"rot {self.rotation_delta * 180.0 / math.pi:.1f} deg   "
+            f"scale {self.scale_delta:.3f}",
+        ]
+        if self.scene_objects_info_names:
+            lines.append(
+                f"group      {'ON' if self.group_mode else 'off'} "
+                f"({len(self.scene_objects_info_names)} objs, G toggles)"
+            )
+        if self.soft_deleted:
+            lines.append(f"deleted    {len(self.soft_deleted)} hidden from save")
+        if self.load_failures:
+            lines.append(f"LOAD ERRS  {len(self.load_failures)} (see terminal)")
+        # Generated from the same table that drives registration and the printed
+        # help, so this legend cannot drift from the actual bindings.
+        def _keys(action):
+            return "/".join(editor_bindings.key_label(k) for k in editor_bindings.keys_for(action))
+
+        lines += [
+            "",
+            f"{_keys('cycle_forward')} {_keys('cycle_backward')} select   "
+            f"arrows/{_keys('translate_z_plus')}/{_keys('translate_z_minus')} move",
+            f"{_keys('scale_up').split('/')[0]} {_keys('scale_down').split('/')[0]} scale   "
+            f"{_keys('save')} save   {_keys('undo')} undo   {_keys('delete_object')} delete",
+            f"{_keys('toggle_hud')} hud   {_keys('toggle_highlight')} outline   {_keys('exit')} exit",
+        ]
+        if self.status_message:
+            lines += ["", f">> {self.status_message}"]
+        return "\n".join(lines)
+
+    def toggle_hud(self):
+        """Show/hide the HUD body text."""
+        self.hud_enabled = not self.hud_enabled
+        self.update_hud()
+
+    def toggle_highlight(self):
+        """Enable/disable the selection outline."""
+        self.highlight_enabled = not self.highlight_enabled
+        if not self.highlight_enabled:
+            try:
+                clear_debug_drawing()
+            except Exception:
+                pass
+        self.set_status(f"Selection outline {'on' if self.highlight_enabled else 'off'}")
+
+    def update_selection_highlight(self):
+        """Draw a wireframe box around whatever the next keypress will affect.
+
+        Redrawn every frame because debug-draw lines do not persist and objects
+        move while physics is playing.
+        """
+        if not self.highlight_enabled:
+            return
+        try:
+            clear_debug_drawing()
+            for obj in self._get_target_objects():
+                if obj is not None and obj.name not in self.soft_deleted:
+                    draw_aabb(obj)
+        except Exception:
+            # Debug draw is unavailable in some render modes; disable rather than spam.
+            self.highlight_enabled = False
+
     def print_controls(self):
-        """Print the keyboard control reference."""
-        print("\n" + "="*60)
-        print("INTERACTIVE SCENE EDITOR - KEYBOARD CONTROLS")
-        print("="*60)
-        print("\nObject Selection (includes background if loaded):")
-        print("  [           - Cycle through objects (forward)")
-        print("  ]           - Cycle through objects (backward)")
-        print("\nTranslation (relative to robot base frame, or world if no robot):")
-        print("  UP/DOWN     - Move along X axis")
-        print("  LEFT/RIGHT  - Move along Y axis")
-        print("  W/Q         - Move along Z axis")
-        print("\nRotation (relative to robot base frame, or world if no robot):")
-        print("  N/M         - Rotate around X axis (pitch)")
-        print("  C/V         - Rotate around Y axis (roll)")
-        print("  / and '     - Rotate around Z axis (yaw)")
-        print("\nRotation (global frame):")
-        print("  1/2         - Rotate around global X axis")
-        print("  3/4         - Rotate around global Y axis")
-        print("  Z/X         - Rotate around global Z axis")
-        print("\nScale:")
-        print("  +/-         - Uniform scale up/down")
-        print("\nState Management:")
-        print("  ENTER       - Save scene state")
-        print("  BACKSPACE   - Reset selected object to initial pose")
-        print("  U           - Undo last operation")
-        print("  F1          - Print current object pose")
-        print("\nSimulation Control:")
-        print("  SPACE       - Toggle simulation play/stop")
-        print("  O           - Stop simulation")
-        print("  P           - Play simulation")
-        print("\nDelta Adjustment:")
-        print("  KEY_5/KEY_6 - Increase/decrease translation delta (±0.001m)")
-        print("  KEY_7/KEY_8 - Increase/decrease rotation delta (±0.5°)")
-        print("  KEY_9/KEY_0 - Increase/decrease scale delta (±0.01)")
-        print("\nLighting (skybox):")
-        print("  R/F         - Rotate HDR light direction around X axis")
-        print("  Y/H         - Rotate HDR light direction around Y axis")
-        print("  J/L         - Rotate HDR light direction around Z axis")
-        print("  I/K         - Increase/decrease skybox intensity")
-        print("\nGroup Mode (for scene_objects_info objects):")
-        print("  G           - Toggle group mode (apply operations to all scene_objects_info objects)")
-        print("\nObject Management:")
-        print("  D           - Delete selected object (cannot delete robots, stops sim)")
-        print("  S           - Set exact scale (enter x,y,z values)")
-        print("\nSystem:")
-        print("  B           - Debug shell (IPython)")
-        print("  ESC         - Exit")
-        print("="*60 + "\n")
-        print(f"Current deltas: translation={self.translation_delta:.4f}m, "
-              f"rotation={self.rotation_delta * 180.0 / 3.14159265359:.2f}°, "
-              f"scale={self.scale_delta:.3f}")
+        """Print the keyboard control reference, generated from the keymap table."""
+        notes = [
+            f"Current deltas: translation={self.translation_delta:.4f}m, "
+            f"rotation={self.rotation_delta * 180.0 / math.pi:.2f}\u00b0, "
+            f"scale={self.scale_delta:.3f}",
+        ]
+        if not self.debug_shell_enabled:
+            notes.append("Debug shell is disabled; relaunch with --debug_shell to enable it.")
         if self._has_skybox():
-            print(f"Skybox lighting: rot_x={self.skybox_rot_x * 180.0 / math.pi:.1f}°, "
-                  f"rot_y={self.skybox_rot_y * 180.0 / math.pi:.1f}°, "
-                  f"rot_z={self.skybox_rot_z * 180.0 / math.pi:.1f}°, "
-                  f"intensity={self.skybox_intensity:.2f}, "
-                  f"rot_step={self.skybox_rot_delta * 180.0 / math.pi:.1f}°")
+            notes.append(
+                f"Skybox: rot_x={self.skybox_rot_x * 180.0 / math.pi:.1f}\u00b0, "
+                f"rot_y={self.skybox_rot_y * 180.0 / math.pi:.1f}\u00b0, "
+                f"rot_z={self.skybox_rot_z * 180.0 / math.pi:.1f}\u00b0, "
+                f"intensity={self.skybox_intensity:.2f}"
+            )
         if self.scene_objects_info_names:
             group_status = "ENABLED" if self.group_mode else "DISABLED"
-            print(f"Group mode: {group_status} ({len(self.scene_objects_info_names)} objects in group)")
-    
+            notes.append(
+                f"Group mode: {group_status} "
+                f"({len(self.scene_objects_info_names)} objects in group)"
+            )
+        print("\n" + editor_bindings.format_controls(notes) + "\n")
+
     def run(self):
         """Main run loop for the interactive editor."""
         # Check if we're loading from a saved scene
         scene_loaded_from_json = False
         if self.load_scene_json is not None:
-            print("Loading from saved scene JSON...")
+            self._stage("Loading from saved scene JSON...")
             if self.load_from_scene_json():
                 print("Scene loaded successfully from JSON.")
                 scene_loaded_from_json = True
@@ -2641,7 +2794,7 @@ class InteractiveSceneEditor:
         
         if not scene_loaded_from_json:
             # Setup scene from scratch
-            print("Setting up scene...")
+            self._stage("Setting up scene...")
             self.setup_scene()
             
         # Pre-configure NuRec render settings BEFORE loading the GS so the compositor
@@ -2675,13 +2828,13 @@ class InteractiveSceneEditor:
             og.sim.render()
             og.sim.render()
 
-        print("Loading background...")
+        self._stage("Loading background...")
         self.load_background()
 
-        print("Loading mesh background...")
+        self._stage("Loading mesh background...")
         self.load_mesh_background()
 
-        print("Loading USD objects...")
+        self._stage("Loading USD objects...")
         self.load_objects()
 
         print("Loading dataset objects...")
@@ -2690,18 +2843,18 @@ class InteractiveSceneEditor:
         print("Loading USD objects...")
         self.load_usd_objects()
 
-        print("Loading objects from scene_objects_info...")
+        self._stage("Loading objects from scene_objects_info...")
         self.load_scene_objects_info()
 
-        print("Loading robots...")
+        self._stage("Loading robots...")
         self.load_robots()
 
-        print("Loading external sensors...")
+        self._stage("Loading external sensors...")
         self.load_external_sensors()
 
         # Apply floor-matte and proxy. With GS already loaded, has_gs=True so the
         # histogram/rendermode set_setting calls are suppressed automatically.
-        print("Applying realistic render settings...")
+        self._stage("Applying realistic render settings...")
         apply_realistic_render_settings(og, lazy)
 
         # No enforce block here: applying set_setting() AFTER the GS is loaded
@@ -2736,7 +2889,7 @@ class InteractiveSceneEditor:
             _snap = None
 
         # Setup controls
-        print("Setting up keyboard controls...")
+        self._stage("Setting up keyboard controls...")
         self.setup_keyboard_controls()
         if _snap is not None:
             _snap("after_keyboard_setup")
@@ -2746,12 +2899,16 @@ class InteractiveSceneEditor:
         
         # Print controls
         self.print_controls()
-        
+
         if self.object_names:
             print(f"Selected object: {self.object_names[self.selected_idx]}")
         else:
             print("No objects loaded. Add objects using --objects argument.")
-        
+
+        # On-screen HUD, so selection/step-size state is visible without the terminal
+        self._stage("Setting up HUD...")
+        self.setup_hud()
+
         print("\nInteractive editor running. Use keyboard to manipulate objects.")
         print("Press ESC to exit.\n")
         
@@ -2762,12 +2919,21 @@ class InteractiveSceneEditor:
         # are locked in by the pre-config block above (applied before GS load).
         # render() calls app.update() so keyboard events are processed without step().
         try:
+            frame = 0
             while True:
                 if og.sim.is_playing():
                     # Physics active: full step needed for robot/object dynamics.
                     if getattr(og.sim, "physics_sim_view", None) is None:
                         og.sim.update_handles()
                     og.sim.step()
+                # Debug-draw lines do not persist across frames, so the outline is
+                # reissued every frame. The HUD only needs a few updates per second.
+                if self.cousin_swap_enabled:
+                    self.service_pending_cousin_swap()
+                self.update_selection_highlight()
+                if frame % 6 == 0:
+                    self.update_hud()
+                frame += 1
                 og.sim.render()
         except KeyboardInterrupt:
             print("\nInterrupted by user.")
@@ -2998,6 +3164,44 @@ def parse_args():
     )
     
     parser.add_argument(
+        "--cousins_combinations",
+        type=str,
+        default=None,
+        help="Path to combinations.json from B_augmentation stage 2. Enables cousin "
+             "hot-swap; without it the feature is entirely inert."
+    )
+
+    parser.add_argument(
+        "--cousins_dataset",
+        type=str,
+        default="custom-assets",
+        help="Dataset under deps/BEHAVIOR-1K/datasets/ holding generated cousins "
+             "(written by B_augmentation stage 5). Default: custom-assets"
+    )
+
+    parser.add_argument(
+        "--cousins_swap_key",
+        type=str,
+        default="H",
+        help="Key that advances to the next cousin combination (default: H). Note H is "
+             "otherwise bound to skybox rotation; pick another key to keep both."
+    )
+
+    parser.add_argument(
+        "--cousins_settle_steps",
+        type=int,
+        default=0,
+        help="Physics steps to run after a cousin swap (default: 0)"
+    )
+
+    parser.add_argument(
+        "--debug_shell",
+        action="store_true",
+        help="Enable the B-key IPython debug shell. Off by default because it blocks "
+             "the render loop until you exit the shell."
+    )
+
+    parser.add_argument(
         "--load_scene",
         type=str,
         default=None,
@@ -3152,9 +3356,93 @@ def parse_usd_object_arg(obj_arg):
     return obj_spec
 
 
+def preflight_check(args):
+    """Validate path arguments before Isaac Sim is started.
+
+    Booting Isaac Sim and importing a scene takes about ninety seconds, so a
+    mistyped path that is only noticed during loading costs a minute and a half
+    and a wall of unrelated log output. Everything checkable from the filesystem
+    is checked here, in a few milliseconds.
+
+    Args:
+        args (argparse.Namespace): Parsed arguments.
+
+    Returns:
+        list[str]: Human-readable problems; empty when everything resolves.
+    """
+    problems = []
+
+    # (flag, value, description) for single-path arguments.
+    single = [
+        ("--load_scene", args.load_scene, "saved scene"),
+        ("--background", args.background, "3DGS background"),
+        ("--mesh_background", args.mesh_background, "mesh background"),
+        ("--hdr_background", args.hdr_background, "HDR background"),
+        ("--cam2world", args.cam2world, "cam2world transform"),
+        ("--poses_file", args.poses_file, "poses file"),
+        ("--scene_objects_info", args.scene_objects_info, "scene objects info"),
+        ("--pb_scene_poses", args.pb_scene_poses, "physics scene poses"),
+        ("--external_sensors", args.external_sensors, "external sensors config"),
+        ("--cousins_combinations", args.cousins_combinations, "cousin combinations.json"),
+    ]
+    for flag, value, description in single:
+        if value and not os.path.exists(value):
+            problems.append(f"{flag}: {description} not found: {value}")
+
+    for path in args.objects or []:
+        if not os.path.exists(path):
+            problems.append(f"--objects: not found: {path}")
+
+    for spec in args.usd_objects or []:
+        # 'usd:<category>:<path>[:name][:fixed_base]' — the path is field 3.
+        parts = spec.split(":")
+        if len(parts) >= 3 and parts[2] and not os.path.exists(parts[2]):
+            problems.append(f"--usd_objects: not found: {parts[2]}")
+
+    if args.cousins_combinations:
+        repo_root = Path(__file__).resolve().parents[2]
+        dataset = repo_root / "deps" / "BEHAVIOR-1K" / "datasets" / args.cousins_dataset / "objects"
+        if not dataset.is_dir():
+            problems.append(
+                f"--cousins_dataset: {dataset} not found. Generated cousins come from "
+                "B_augmentation stages 2 and 5; run those first."
+            )
+
+    if args.asset_dir and not os.path.isdir(args.asset_dir):
+        problems.append(f"--asset_dir: not a directory: {args.asset_dir}")
+
+    # Robot specs are cheap to validate and a typo here otherwise surfaces deep
+    # inside OmniGibson's registry lookup.
+    for robot_arg in args.robot or []:
+        name = robot_arg.split(":")[0]
+        if name and name not in REGISTERED_ROBOTS:
+            close = [r for r in REGISTERED_ROBOTS if r.lower().startswith(name.lower()[:3])]
+            hint = f" Did you mean: {', '.join(sorted(close)[:4])}?" if close else ""
+            problems.append(f"--robot: unknown robot class {name!r}.{hint}")
+
+    if args.load_scene is None and not any([
+        args.objects, args.dataset_objects, args.usd_objects,
+        args.scene_objects_info, args.robot,
+    ]):
+        problems.append(
+            "nothing to load: pass --load_scene, or one of --objects / --dataset_objects / "
+            "--usd_objects / --scene_objects_info / --robot"
+        )
+
+    return problems
+
+
 def main():
     args = parse_args()
-    
+
+    problems = preflight_check(args)
+    if problems:
+        print("\nERROR: cannot start — fix these first:\n", file=sys.stderr)
+        for problem in problems:
+            print(f"  - {problem}", file=sys.stderr)
+        print("", file=sys.stderr)
+        sys.exit(1)
+
     # Load cam2world transform if provided
     cam2world_tf = None
     if args.cam2world is not None and os.path.exists(args.cam2world):
@@ -3232,6 +3520,11 @@ def main():
         skybox_yaw_step_deg=args.skybox_yaw_step_deg,
         skybox_intensity_scale=args.skybox_intensity_scale,
         load_scene_json=args.load_scene,
+        debug_shell=args.debug_shell,
+        cousins_combinations=args.cousins_combinations,
+        cousins_dataset=args.cousins_dataset,
+        cousins_swap_key=args.cousins_swap_key,
+        cousins_settle_steps=args.cousins_settle_steps,
     )
     
     editor.run()
