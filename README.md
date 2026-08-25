@@ -37,6 +37,7 @@ Unlike prior scene reconstruction approaches, SimFoundry is fully modular: each 
 - [Scene Gallery](#scene-gallery)
 - [Digital Cousins](#digital-cousins)
 - [Sim-to-Real Policy Training](#sim-to-real-policy-training)
+- [Scene Editors](#scene-editors)
 - [Outputs](#outputs)
 - [What's Included](#whats-included)
 - [Documentation](#documentation)
@@ -257,6 +258,19 @@ Policies trained entirely on SimFoundry data transfer zero-shot to real-world ta
   </tr>
 </table>
 
+## Scene Editors
+
+Two editors work with the saved-scene JSON that Pipeline A produces:
+
+- **Light editor** — a browser-based scene editor (no OmniGibson required) for composing
+  scenes, placing and scaling props, editing camera rigs, associating tasks, and exporting a
+  runnable bundle. Install it with `bash scripts/installation/install_light_editor.sh` and
+  start it with `python scripts/interactive/light_editor/server.py --scene <scene_state.json>`;
+  the full guide is [docs/INSTRUCTIONS_SCENE_EDITOR.md](docs/INSTRUCTIONS_SCENE_EDITOR.md).
+- **Interactive scene editor** — the OmniGibson-based editor
+  (`scripts/interactive/interactive_scene_editor.py`) for physics-accurate adjustments inside
+  the simulator. Start it with `bash scripts/interactive/run_editor.sh`.
+
 ## Outputs
 
 Pipeline data is written under `Data/<scene_name>/`. Key outputs:
@@ -277,6 +291,7 @@ Pipeline data is written under `Data/<scene_name>/`. Key outputs:
 | `scripts/pipeline/A_reconstruction/` | 13-stage real-to-sim reconstruction pipeline |
 | `scripts/pipeline/B_augmentation/` | Digital cousin generation and task proposal |
 | `scripts/pipeline/C_application/` | OmniGibson scene loading, teleoperation, and evaluation |
+| `scripts/interactive/` | Browser light editor and OmniGibson scene editor |
 | `scripts/installation/` | Environment and checkpoint installers |
 | `scripts/cfg/` | Hydra config files for all pipeline stages |
 | `simfoundry/` | Core Python library (models, utils, pipeline orchestration) |
@@ -286,6 +301,8 @@ Pipeline data is written under `Data/<scene_name>/`. Key outputs:
 - [INSTALL.md](docs/INSTALL.md) — full installation and service setup guide
 - [scripts/pipeline/README.md](scripts/pipeline/README.md) — stage-by-stage pipeline reference
 - [Auto-background README](scripts/pipeline/A_reconstruction/stages/auto_bg_reconstruction/README.md) — optional 3D Gaussian Splat background reconstruction
+- [docs/INSTRUCTIONS_SCENE_EDITOR.md](docs/INSTRUCTIONS_SCENE_EDITOR.md) — light editor user guide
+- [AGENTS.md](AGENTS.md) — project guide for coding agents
 
 ## Citation
 
