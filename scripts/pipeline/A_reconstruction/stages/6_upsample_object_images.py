@@ -205,7 +205,7 @@ def main(cfg):
                 raise RuntimeError(f"GPT returned no result for {task} on [{obj_phrase}] at {img_path}")
         elif model_name == "flux":
             assert isinstance(model, FLUX1)
-            result = model(
+            image = model(
                 prompt=prompt,
                 image_path=img_path,
                 guidance_scale=2.5,
@@ -213,10 +213,11 @@ def main(cfg):
                 max_sequence_length=512,
                 print_results=cfg.visualize,
             )
+            return image, image
         else:
             raise NotImplementedError
-            
-        return model.get_result_images(result=result)[0], result    
+
+        return model.get_result_images(result=result)[0], result
 
     # out_w, out_h = [int(x) for x in gpt.IMAGE_SHAPES[cfg.s6_upsample.image_shape].split("x")]
     # target_ratio = out_w / out_h
