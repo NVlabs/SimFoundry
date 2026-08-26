@@ -36,7 +36,7 @@ from scene_io import (  # noqa: E402
 )
 
 #: Default directory of scanned rooms, under the shared ``assets`` tree.
-DEFAULT_BACKGROUND_SUBDIR = "assets/mesh_backgrounds"
+DEFAULT_BACKGROUND_SUBDIR = "assets/backgrounds/mesh_backgrounds"
 
 #: The object name consumers expect. ``scene_io.iter_objects`` recognises a
 #: room only by exact name (``mesh_background``/``mesh_background_<n>``/
