@@ -17,6 +17,7 @@ import omnigibson as og
 from omnigibson.utils.asset_utils import get_dataset_path
 from pathlib import Path
 import json
+import shutil
 import subprocess
 import hydra
 from simfoundry import CFG_DIR
@@ -94,10 +95,10 @@ def main(cfg):
         # fails with TypeError before importing anything. Our module reproduces the URDF path of
         # that example and filters arguments against the installed signature, so it works across
         # the OmniGibson revisions this repo can have checked out. See that module's docstring.
-        subprocess.run([
+        import_cmd = [
             "python",
             "-m", "simfoundry.utils.og_asset_import",
-            "--dataset-name", "real2sim-assets",
+            "--dataset-name", cfg.s13_usd.dataset_name,
             "--asset-path", obj_urdf_fpath,
             "--category", obj_category,
             "--model", obj_model,
@@ -105,7 +106,10 @@ def main(cfg):
             # keep_instanceable is intentionally omitted (equivalent to the old
             # --no_keep_instanceable), matching upstream's _ALLOW_INSTANCING = False.
             "--overwrite",
-        ], check=True)
+        ]
+        if cfg.s13_usd.get("asset_pipeline_materials", True):
+            import_cmd.append("--asset-pipeline-materials")
+        subprocess.run(import_cmd, check=True)
         
         # For articulated objects, reparent joints in the USD file
         # OmniGibson expects joints to be children of their parent link prims,
@@ -136,6 +140,14 @@ def main(cfg):
                 ], check=True)
             else:
                 logger.warning(f"USD file not found for opacity threshold: {usd_path}")
+
+        # The importer writes into the shared BEHAVIOR dataset folder; keep a copy of the
+        # finished asset (post reparent/opacity) with the scene's own outputs as well.
+        dataset_obj_dir = os.path.join(
+            get_dataset_path(cfg.s13_usd.dataset_name), "objects", obj_category, obj_model)
+        stage_obj_dir = os.path.join(out_dir, "objects", obj_category, obj_model)
+        shutil.copytree(dataset_obj_dir, stage_obj_dir, dirs_exist_ok=True)
+        logger.info(f"Copied imported asset to stage output: {stage_obj_dir}")
 
     logger.info("="*60)
     logger.info("USD import complete!")

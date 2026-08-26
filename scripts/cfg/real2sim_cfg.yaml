@@ -372,6 +372,10 @@ s13_usd: #env b1k
   dataset_name: real2sim-assets
   # Materials opacity threshold for USD export of TRELLIS2 meshes
   opacity_threshold: 0.5
+  # Bind materials through OmniGibson's asset pipeline so the metalness/glossiness maps
+  # stage 11 writes (map_Pm/map_Pr) reach the USD. Objects whose base color carries real
+  # alpha keep the URDF importer's OmniPBR_Opacity materials for the opacity pass above.
+  asset_pipeline_materials: true
 s14_og:
   rerun: true
   out_dirname: s14_og

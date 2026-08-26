@@ -1035,6 +1035,86 @@ def copy_urdf_to_dataset(
     )
 
 
+def rename_link_material_files(obj_path, link_name):
+    """Give @obj_path's MTL and textures link-unique names, repointing all references.
+
+    trimesh names every OBJ export's material files "material.mtl"/"material_0.png", so
+    links exported into a shared directory overwrite each other's materials — every link
+    ends up bound to the last link's texture. Renames them to {link_name}.mtl /
+    {link_name}_<kind>.png and rewrites the OBJ's mtllib and the MTL's map_* lines.
+    """
+    obj_path = pathlib.Path(obj_path)
+    obj_text = obj_path.read_text()
+    mtl_names = [line.split("mtllib", 1)[1].strip() for line in obj_text.splitlines()
+                 if line.startswith("mtllib")]
+    if not mtl_names:
+        return
+    mtl_path = obj_path.parent / mtl_names[0]
+    link_mtl_name = f"{link_name}.mtl"
+    if not mtl_path.exists() or mtl_path.name == link_mtl_name:
+        return
+
+    new_lines = []
+    for line in mtl_path.read_text().splitlines(keepends=True):
+        if line.startswith("map_"):
+            parts = line.split(" ", 1)
+            if len(parts) == 2:
+                key, texture_name = parts[0], parts[1].strip()
+                texture_path = obj_path.parent / texture_name
+                if texture_path.exists():
+                    new_texture_name = f"{link_name}_{key.replace('map_', '')}{texture_path.suffix}"
+                    os.replace(texture_path, obj_path.parent / new_texture_name)
+                    line = f"{key} {new_texture_name}\n"
+        new_lines.append(line)
+    (obj_path.parent / link_mtl_name).write_text("".join(new_lines))
+    mtl_path.unlink()
+    obj_path.write_text(obj_text.replace(f"mtllib {mtl_names[0]}", f"mtllib {link_mtl_name}"))
+
+
+def emit_pbr_material_maps(mesh, obj_path):
+    """Write V-Ray MTL extension maps next to @obj_path for OmniGibson's asset pipeline.
+
+    trimesh's OBJ export keeps only the base color (map_Kd); the glTF metallic-roughness
+    texture is dropped by PBRMaterial.to_simple(). OmniGibson's material import reads the
+    V-Ray MTL keys map_Pm (metalness) and map_Pr (glossiness), so bake the glTF channels
+    (B = metalness, G = roughness) into PNGs and reference them from the MTL.
+    glossiness = 1 - roughness (V-Ray convention). Returns True when maps were written.
+    """
+    from PIL import Image
+
+    material = getattr(getattr(mesh, "visual", None), "material", None)
+    mr_texture = getattr(material, "metallicRoughnessTexture", None)
+    if mr_texture is None:
+        return False
+    obj_path = pathlib.Path(obj_path)
+    with open(obj_path) as f:
+        mtl_names = [line.split("mtllib", 1)[1].strip() for line in f
+                     if line.startswith("mtllib")]
+    if not mtl_names:
+        return False
+    mtl_path = obj_path.parent / mtl_names[0]
+    if not mtl_path.exists():
+        return False
+
+    channels = np.asarray(mr_texture.convert("RGB")).astype(np.float32)
+    metallic = float(material.metallicFactor) if material.metallicFactor is not None else 1.0
+    roughness = float(material.roughnessFactor) if material.roughnessFactor is not None else 1.0
+    maps = {
+        "map_Pm": np.clip(channels[..., 2] * metallic, 0, 255).astype(np.uint8),
+        "map_Pr": np.clip(255.0 - channels[..., 1] * roughness, 0, 255).astype(np.uint8),
+    }
+    with open(mtl_path) as f:
+        existing = f.read()
+    with open(mtl_path, "a") as f:
+        if existing and not existing.endswith("\n"):
+            f.write("\n")
+        for key, pixels in maps.items():
+            map_filename = f"{obj_path.stem}_{key.split('_')[1]}.png"
+            Image.fromarray(pixels).save(obj_path.parent / map_filename)
+            f.write(f"{key} {map_filename}\n")
+    return True
+
+
 def generate_urdf_for_mesh(
     asset_path,
     obj_dir,
@@ -1316,6 +1396,7 @@ def generate_urdf_for_mesh(
             visual_filename = f"{obj_name}_{link_name}.obj"
             visual_temp_path = temp_dir_path / visual_filename
             visual_mesh.export(visual_temp_path, file_type="obj")
+            emit_pbr_material_maps(visual_mesh, visual_temp_path)
 
             # Check for material files
             material_files = [x for x in temp_dir_path.iterdir() if x.suffix == ".mtl"]
@@ -1977,6 +2058,8 @@ def import_articulated_object(
         visual_filename = f"{link_name}.obj"
         visual_out_path = visual_dir / visual_filename
         tm.export(str(visual_out_path), file_type="obj")
+        rename_link_material_files(visual_out_path, link_name)
+        emit_pbr_material_maps(tm, visual_out_path)
         
         # Create new visual element with correct path and origin
         new_visual = ET.SubElement(link, "visual")

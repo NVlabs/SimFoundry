@@ -590,13 +590,17 @@ class Mesh(URDFType):
         # Get the filename
         fn = get_filename(path, self.filename, makedirs=True)
 
-        # Export the meshes as a single file
-        meshes = self.meshes
-        if len(meshes) == 1:
-            meshes = meshes[0]
-        elif os.path.splitext(fn)[1] == ".glb":
-            meshes = trimesh.scene.Scene(geometry=meshes)
-        trimesh.exchange.export.export_mesh(meshes, fn)
+        # Export the meshes as a single file — but never overwrite an existing mesh file.
+        # An in-place URDF.save() (e.g. generate_inertia_frames) only edits the XML; the
+        # trimesh re-export here is lossy — it resets each OBJ's mtllib to "material.mtl",
+        # orphaning the per-link MTL and its map_Kd/map_Pm/map_Pr references.
+        if not os.path.exists(fn):
+            meshes = self.meshes
+            if len(meshes) == 1:
+                meshes = meshes[0]
+            elif os.path.splitext(fn)[1] == ".glb":
+                meshes = trimesh.scene.Scene(geometry=meshes)
+            trimesh.exchange.export.export_mesh(meshes, fn)
 
         # Unparse the node
         node = self._unparse(path)
