@@ -154,6 +154,7 @@ s5_scene:     # env: simfoundry
   end_iter: null
   force_categories: null
   use_feedback: false   # If true, use rerun_feedback.json from 5b_visualize_decomposition.py
+  use_upsampled_source_image: true   # If true, seed decomposition with the removal model's upsampled source (source_padded_resized_upsampled.png). If false, use source_padded_resized.png as-is, skipping the upsample call.
   removal_outline_color: [0, 255, 0]
   boundary_proportion: 0.02 #0.1
   z_prune_threshold: -0.05
@@ -168,7 +169,7 @@ s5_scene:     # env: simfoundry
   detection_model: gemini-3.1-pro-preview   # options: gemini-2.5-pro, gemini-2.5-flash, gemini-3.1-pro-preview, gemini-3-flash-preview
   removal_model: gemini-3-pro-image     # options: gemini, gemini-3-pro-image, gemini-3-pro-image, flux
   min_detection_iterations: 3
-  obj_removal_prompt_order: ["mask", "outline", "bbox"]   # options: mask, outline, bbox
+  obj_removal_prompt_order: ["mask", "outline", "bbox"]   # options: mask, outline, bbox. For FLUX, use ["outline", "bbox"], mask is not stable.
   pda_K: 5
   pda_geometric_backend: da3    # options: depth_pro, da3  (geometric depth source for PriorDepthAnything)
   pda_da3_resolution: 504             # DA3 processing resolution (must be multiple of 14, only used when pda_geometric_backend=da3)

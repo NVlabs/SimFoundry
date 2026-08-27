@@ -997,42 +997,50 @@ def main(cfg):
     source_resized_image_fpath = f"{out_dir}/source_padded_resized.png"
     Image.fromarray(resized_padded_img).save(source_resized_image_fpath)
 
-    # Pass through VLM to upsample this image
+    # Pass through VLM to upsample this image, unless disabled via cfg.s5_scene.use_upsampled_source_image
+    use_upsampled_source_image = cfg.s5_scene.get("use_upsampled_source_image", True)
     source_resized_upsampled_image_fpath = f"{out_dir}/source_padded_resized_upsampled.png"
-    upsample_kwargs = {
-        "prompt": "Significantly improve the image resolution, highlighting fine-grained details",
-        "seed": 0,
-        "print_results": cfg.visualize,
-    }
-    if "gemini" in removal_model_name:
-        logger.info(f"Calling {removal_model_name} to upsample source image (may take up to 5 min)...")
-        result = removal_model(
-            image_paths=source_resized_image_fpath,
-            temperature=0,
-            top_p=0,
-            **upsample_kwargs,
+    if not use_upsampled_source_image:
+        logger.info(
+            "s5_scene.use_upsampled_source_image=false; seeding decomposition with "
+            f"{source_resized_image_fpath} directly, skipping the source-image upsample call."
         )
-        logger.info("Source image upsample done.")
-        images = [] if result is None else removal_model.get_result_images(result=result)
-        if not images:
-            logger.warning("Image model returned no images, falling back to original.")
-            upsampled_obj_img_raw = resized_padded_img
-        else:
-            upsampled_obj_img_raw = np.array(images[0])
-    elif removal_model_name == "flux":
-        upsampled_obj_img_raw = np.array(removal_model(
-            image_path=source_resized_image_fpath,
-            guidance_scale=2.5,
-            num_inference_steps=20,
-            max_sequence_length=512,
-            **upsample_kwargs,
-        ))
+        upsampled_obj_img_raw = resized_padded_img
     else:
-        raise NotImplementedError
+        upsample_kwargs = {
+            "prompt": "Significantly improve the image resolution, highlighting fine-grained details",
+            "seed": 0,
+            "print_results": cfg.visualize,
+        }
+        if "gemini" in removal_model_name:
+            logger.info(f"Calling {removal_model_name} to upsample source image (may take up to 5 min)...")
+            result = removal_model(
+                image_paths=source_resized_image_fpath,
+                temperature=0,
+                top_p=0,
+                **upsample_kwargs,
+            )
+            logger.info("Source image upsample done.")
+            images = [] if result is None else removal_model.get_result_images(result=result)
+            if not images:
+                logger.warning("Image model returned no images, falling back to original.")
+                upsampled_obj_img_raw = resized_padded_img
+            else:
+                upsampled_obj_img_raw = np.array(images[0])
+        elif removal_model_name == "flux":
+            upsampled_obj_img_raw = np.array(removal_model(
+                image_path=source_resized_image_fpath,
+                guidance_scale=2.5,
+                num_inference_steps=20,
+                max_sequence_length=512,
+                **upsample_kwargs,
+            ))
+        else:
+            raise NotImplementedError
 
-    # Resize to expected resolution (FLUX/Gemini may return slightly different dimensions)
-    upsampled_obj_img_raw = cv2.resize(upsampled_obj_img_raw, resolution)
-    Image.fromarray(upsampled_obj_img_raw).save(source_resized_upsampled_image_fpath)
+        # Resize to expected resolution (FLUX/Gemini may return slightly different dimensions)
+        upsampled_obj_img_raw = cv2.resize(upsampled_obj_img_raw, resolution)
+        Image.fromarray(upsampled_obj_img_raw).save(source_resized_upsampled_image_fpath)
 
     # Load the rotated point cloud (i.e.: "floor" is located at origin and z-direction is aligned with the plane
     results = np.load(f"{source_dir}/da/exports/npz/results.npz")
@@ -1129,7 +1137,7 @@ def main(cfg):
         default=None,
     )
     if last_kept_iteration is None:
-        current_rgb_fpath = source_resized_upsampled_image_fpath
+        current_rgb_fpath = source_resized_upsampled_image_fpath if use_upsampled_source_image else source_resized_image_fpath
         current_rgb = upsampled_obj_img_raw
         current_depth = results["depth"][scene_img_idx]
     else:
@@ -1789,6 +1797,14 @@ def main(cfg):
             else:
                 raise ValueError(f"Unknown removal prompt type, got: {obj_removal_prompt_type}!")
 
+            # Pixels we actually painted with REMOVAL_OUTLINE_COLOR.
+            annotation_pixels = np.all(
+                annotated_removal_image == np.array(REMOVAL_OUTLINE_COLOR, dtype=np.uint8), axis=-1
+            )
+            annotation_check_mask = dilate_mask(
+                annotation_pixels.astype(np.uint8), kernel_width=5, iterations=4
+            ).astype(bool)
+
             # Write this image to disk
             annotated_removal_image_fpath = f"{out_dir}/pre_object_removal/iter_{current_iteration}.png"
             Image.fromarray(annotated_removal_image).save(annotated_removal_image_fpath)
@@ -1845,8 +1861,13 @@ def main(cfg):
                 removed_obj_img_raw = cv2.resize(removed_obj_img_raw, resolution)
                 
                 # Check if any residual highlights
-                if get_num_pixels_with_color(removed_obj_img_raw, REMOVAL_OUTLINE_COLOR, tolerance=50) > (img_scale * 0.33):
+                if get_num_pixels_with_color(
+                    removed_obj_img_raw, REMOVAL_OUTLINE_COLOR, tolerance=50, mask=annotation_check_mask
+                ) > (img_scale * 0.33):
                     logger.warning("Generated image rejected because found bright green pixels (likely representing annotation bbox / outline / mask)")
+                    rejected_fpath = f"{out_dir}/pre_object_removal/iter_{current_iteration}_rejected_{obj_removal_prompt_type}_seed{removal_seed}.png"
+                    Image.fromarray(removed_obj_img_raw).save(rejected_fpath)
+                    logger.info(f"Saved rejected candidate for inspection: {rejected_fpath}")
                     continue
 
                 success = True

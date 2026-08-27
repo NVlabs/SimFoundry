@@ -25,7 +25,7 @@ Unlike prior scene reconstruction approaches, SimFoundry is fully modular: each 
 | Date | Update |
 |------|--------|
 | **2026-08-14** | 🚀 Initial open-source release: V0 rigid-body and articulation generation |
-| **Coming Soon** | Example scenes and assets |
+| **2026-08-26** | 📦 Example scenes and assets published — see [Example Scenes & Assets](#example-scenes--assets) |
 | **Coming Soon** | Automated background generation |
 | **Coming Soon** | Robotics data generation, training, and evaluation |
 
@@ -36,7 +36,9 @@ Unlike prior scene reconstruction approaches, SimFoundry is fully modular: each 
 - [Pipeline Overview](#pipeline-overview)
 - [Scene Gallery](#scene-gallery)
 - [Digital Cousins](#digital-cousins)
+- [Scene Editors](#scene-editors)
 - [Sim-to-Real Policy Training](#sim-to-real-policy-training)
+- [Example Scenes & Assets](#example-scenes--assets)
 - [Outputs](#outputs)
 - [What's Included](#whats-included)
 - [Documentation](#documentation)
@@ -229,6 +231,26 @@ Given a reconstructed scene, SimFoundry uses a VLM to propose geometry, topology
   </tr>
 </table>
 
+## Scene Editors
+
+Two editors work with OmniGibson scene JSON — either a scene the editor saved
+(`*_scene_state_*.json`) or Pipeline A's own output (`s14_og/reconstructed_og_scene.json`):
+
+- **Light editor** — a browser-based scene editor (no OmniGibson required) for composing
+  scenes, placing and scaling props, editing camera rigs, associating tasks, and exporting a
+  runnable bundle:
+
+  ```bash
+  bash scripts/installation/install_light_editor.sh
+  python scripts/interactive/light_editor/server.py --scene <scene_state.json>
+  ```
+
+  Open <http://localhost:8770>, drag a prop (or press `M`/`R` to move/rotate it), then click
+  **Save scene JSON**. Full guide: [docs/INSTRUCTIONS_SCENE_EDITOR.md](docs/INSTRUCTIONS_SCENE_EDITOR.md).
+- **Interactive scene editor** — the OmniGibson-based editor
+  (`scripts/interactive/interactive_scene_editor.py`) for physics-accurate adjustments inside
+  the simulator. Start it with `bash scripts/interactive/run_editor.sh`.
+
 ## Sim-to-Real Policy Training
 
 Policies trained entirely on SimFoundry data transfer zero-shot to real-world tasks. The table below shows simulation evaluation, real-world evaluation, and generalization to unseen digital cousin objects for two robot platforms:
@@ -257,6 +279,22 @@ Policies trained entirely on SimFoundry data transfer zero-shot to real-world ta
   </tr>
 </table>
 
+## Example Scenes & Assets
+
+Example scenes are published on Hugging Face:
+[nadunRanawaka1/simfoundry-assets](https://huggingface.co/datasets/nadunRanawaka1/simfoundry-assets).
+
+```bash
+hf download nadunRanawaka1/simfoundry-assets --repo-type dataset --local-dir assets
+```
+
+Open one in the [light editor](#scene-editors):
+
+```bash
+python scripts/interactive/light_editor/server.py \
+  --scene assets/scenes/DROID/droid_desk_serve_fruits/droid_desk_serve_fruits_scene_state_latest.json
+```
+
 ## Outputs
 
 Pipeline data is written under `Data/<scene_name>/`. Key outputs:
@@ -277,6 +315,7 @@ Pipeline data is written under `Data/<scene_name>/`. Key outputs:
 | `scripts/pipeline/A_reconstruction/` | 13-stage real-to-sim reconstruction pipeline |
 | `scripts/pipeline/B_augmentation/` | Digital cousin generation and task proposal |
 | `scripts/pipeline/C_application/` | OmniGibson scene loading, teleoperation, and evaluation |
+| `scripts/interactive/` | Browser light editor and OmniGibson scene editor |
 | `scripts/installation/` | Environment and checkpoint installers |
 | `scripts/cfg/` | Hydra config files for all pipeline stages |
 | `simfoundry/` | Core Python library (models, utils, pipeline orchestration) |
@@ -286,6 +325,8 @@ Pipeline data is written under `Data/<scene_name>/`. Key outputs:
 - [INSTALL.md](docs/INSTALL.md) — full installation and service setup guide
 - [scripts/pipeline/README.md](scripts/pipeline/README.md) — stage-by-stage pipeline reference
 - [Auto-background README](scripts/pipeline/A_reconstruction/stages/auto_bg_reconstruction/README.md) — optional 3D Gaussian Splat background reconstruction
+- [docs/INSTRUCTIONS_SCENE_EDITOR.md](docs/INSTRUCTIONS_SCENE_EDITOR.md) — light editor user guide
+- [AGENTS.md](AGENTS.md) — project guide for coding agents
 
 ## Citation
 

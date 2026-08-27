@@ -7,9 +7,9 @@ og_task_config:
     pear: [yellow_pear]
     apple: [red_apple]
     banana: [yellow_banana]
-    orange: [orange_fruit]
+    orange: [orange_fruit, orange]            # both spellings: authored scenes say orange_fruit, the pipeline says orange
     orange_plate: [orange_square_plate]
-    teal_plate: [teal_tray]
+    teal_plate: [teal_tray, teal_plate]       # ditto -- a group that binds nothing asserts on the first reset
   init_predicates_all: null
   init_predicates_any: null
   init_predicates_specific: null

@@ -60,9 +60,12 @@ def annotate(image_source: np.ndarray, boxes_xyxy: np.ndarray, phrases: List[str
     return annotated_frame
 
 
-def get_num_pixels_with_color(image, color, tolerance=0):
+def get_num_pixels_with_color(image, color, tolerance=0, mask=None):
     assert isinstance(image, np.ndarray) and image.dtype == np.uint8
-    return np.all(np.isclose(image, np.array(color).reshape(1, 1, 3), atol=tolerance), axis=-1).sum()
+    matches = np.all(np.isclose(image, np.array(color).reshape(1, 1, 3), atol=tolerance), axis=-1)
+    if mask is not None:
+        matches = matches & mask
+    return matches.sum()
 
 
 def select_best_generated_background_infill_image(original, mask, img_options, tiebreaker="in", blur_k=0, grad_threshold=10.0, erode_k=0):

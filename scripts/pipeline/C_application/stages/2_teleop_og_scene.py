@@ -20,6 +20,7 @@ import omnigibson.utils.transform_utils as T
 from omnigibson.utils.ui_utils import choose_from_options, KeyboardEventHandler
 from omnigibson.utils.config_utils import parse_config
 from simfoundry.utils.scene_utils import load_json_with_absolute_usd_paths
+from simfoundry.utils.python_utils import resolve_task_config_path
 from omnigibson.envs import HDF5CollectionWrapper
 from pathlib import Path
 import torch as th
@@ -27,6 +28,7 @@ import json
 import subprocess
 import time
 import hydra
+from hydra.core.hydra_config import HydraConfig
 from omegaconf import OmegaConf
 from simfoundry import import_og_dependencies, CFG_DIR as SIMFOUNDRY_CFG_DIR, ASSET_DIR as SIMFOUNDRY_ASSET_DIR
 from simfoundry.utils.processing_utils import dump_json
@@ -42,10 +44,9 @@ from simfoundry.utils.og_utils import (
     update_grasp_status,
 )
 from simfoundry.utils.scene_utils import load_json_with_absolute_usd_paths
-from simfoundry.utils.object_swap_utils import (
-    apply_object_swaps,
-    adjust_swapped_objects_z,
-)
+# object_swap_utils is not part of this tree, and object_swap_json defaults to
+# null in every config -- so importing it here failed the stage before it had
+# read a single argument. Imported at the two places that actually swap instead.
 import os
 from datetime import datetime
 import signal
@@ -196,6 +197,7 @@ def main(cfg):
         if not os.path.isabs(swap_json_path):
             swap_json_path = os.path.join(SIMFOUNDRY_ASSET_DIR, swap_json_path)
         if os.path.exists(swap_json_path):
+            from simfoundry.utils.object_swap_utils import apply_object_swaps
             swap_info = apply_object_swaps(og_scene_json, swap_json_path)
             print(f"[ObjectSwap] Applied {len(swap_info)} object swap(s) from {swap_json_path}")
         else:
@@ -233,9 +235,9 @@ def main(cfg):
     task_name = cfg.task.task_name
     scene_name = cfg.get("scene_name", "")
     # Prefer scene-specific task config if present: task/<scene_name>/<task_name>.yaml
-    og_task_cfg_path = os.path.join(SIMFOUNDRY_CFG_DIR, "task", scene_name, f"{task_name}.yaml") if scene_name else ""
-    if not (og_task_cfg_path and os.path.exists(og_task_cfg_path)):
-        og_task_cfg_path = os.path.join(SIMFOUNDRY_CFG_DIR, "task", f"{task_name}.yaml")
+    og_task_cfg_path = resolve_task_config_path(
+        SIMFOUNDRY_CFG_DIR, task_name, scene_name=scene_name,
+        group_choice=HydraConfig.get().runtime.choices.get("task"))
     task_cfg = parse_config(og_task_cfg_path)["og_task_config"]
     task_cfg["termination_config"]["max_steps"] = cfg.s14_teleop.max_steps
 
@@ -301,6 +303,7 @@ def main(cfg):
     if swap_info and any(info["needs_aabb_adjustment"] for info in swap_info.values()):
         gp_info = og_scene_json.get("ground_plane_info", {})
         gp_z = gp_info.get("position", [0, 0, 0])[2] if gp_info else 0.0
+        from simfoundry.utils.object_swap_utils import adjust_swapped_objects_z
         adjust_swapped_objects_z(env, swap_info, ground_plane_z=gp_z)
 
     # Override external camera positions/orientations from EXTERNAL_CAMERA_CONFIG

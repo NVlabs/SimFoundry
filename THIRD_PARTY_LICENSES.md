@@ -10,9 +10,11 @@ license does not apply to those materials**.
 the ignored local `deps/` directory during installation, or installed from PyPI, and
 remain governed by their upstream terms.
 
-One exception: the nine patch files under [`patches/`](patches/) carry fragments of
+Two exceptions: the nine patch files under [`patches/`](patches/) carry fragments of
 upstream source in their context and removed lines — three under non-OSS or
-non-commercial terms. See [PATCH_PROVENANCE.md](PATCH_PROVENANCE.md).
+non-commercial terms (see [PATCH_PROVENANCE.md](PATCH_PROVENANCE.md)) — and the
+three.js modules vendored under `scripts/interactive/light_editor/web/vendor/`
+(item 0f below, MIT).
 
 Scope and method:
 - The lists cover components **SimFoundry uses directly** — either its own code
@@ -39,13 +41,15 @@ Derived files carry an attribution note in their header.
 |-----|-----------|---------|-----------|--------------|
 | 0 | ACDC / digital-cousins (upstream of SimFoundry) | Apache-2.0 | Copyright (c) 2024 the ACDC authors (Stanford Vision and Learning Lab) | https://github.com/cremebrule/digital-cousins/blob/5a6d120fa1e3808779cfdf887b2169cbe73c3678/LICENSE |
 | 0e | behavior-1k/omnigibson-robot-assets (OmniGibson robot assets, incl. `franka_robotiq`) | MIT | Copyright (c) Stanford Vision and Learning Lab (BEHAVIOR-1K) | https://huggingface.co/datasets/behavior-1k/omnigibson-robot-assets |
+| 0g | yamlab (YAM robot arm USD, `yam.usd`) | MIT | Copyright (c) 2026 Tianyuan Dai | https://github.com/ARISE-Initiative/yamlab/blob/ec0455d2b4ce35f21fc126418ea5e74ac567133d/LICENSE |
 
 ### 0a. Additional adapted sources
 
-Individual files adapted from other projects, each carrying an attribution note in its
-header. Upstream copyright is reproduced where the upstream declares one. The full
-MIT license texts for the vendored urdfpy, OmniGibson, and Pixal3D portions (items 0a,
-0d, and 0f) are reproduced in [§7](#7-full-license-texts-for-vendored-code).
+Individual files adapted from or vendored from other projects, each carrying an
+attribution note in its header or an accompanying provenance README. Upstream copyright
+is reproduced where the upstream declares one. The full MIT license texts for the
+vendored urdfpy, OmniGibson, Pixal3D, and three.js portions (items 0a, 0d, 0f, and 0g)
+are reproduced in [§7](#7-full-license-texts-for-vendored-code).
 
 | No. | Component | Adapted into | License | Copyright | License Link |
 |-----|-----------|--------------|---------|-----------|--------------|
@@ -53,6 +57,7 @@ MIT license texts for the vendored urdfpy, OmniGibson, and Pixal3D portions (ite
 | 0b | MolmoSpaces | `simfoundry/utils/data_gen_utils.py` | Apache-2.0 | Copyright 2026 Allen Institute for AI | https://github.com/allenai/molmospaces/blob/c2f1b583f087e1d3994e1377574843b759d9d0f8/LICENSE |
 | 0d | OmniGibson (BEHAVIOR-1K) | `simfoundry/utils/asset_conversion_utils.py` | **MIT** | Copyright (c) 2023 Stanford Vision and Learning Group | https://github.com/StanfordVL/BEHAVIOR-1K/blob/d89aae4e0e9a1de3cf8285cb9669c11d8c8bb864/OmniGibson/LICENSE |
 | 0f | Pixal3D — two short regions of `inference.py` (the manual-FOV camera derivation and the GLB axis-conversion matrix) adapted into `Pixal3D.generate_mesh` | **MIT** | Copyright (c) 2026 Tencent | https://github.com/TencentARC/Pixal3D/blob/cdbb2bbffbf4e6f298b5f2af3d1d76a8d823d2af/LICENSE |
+| 0g | three.js r160 (incl. OrbitControls, TransformControls, GLTFLoader, BufferGeometryUtils) | `scripts/interactive/light_editor/web/vendor/` | **MIT** | Copyright © 2010-2023 three.js authors | https://github.com/mrdoob/three.js/blob/r160/LICENSE |
 
 ## 1. Third-party projects fetched into `deps/` at install time (not distributed)
 
@@ -369,4 +374,30 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+```
+
+### three.js — vendored in `scripts/interactive/light_editor/web/vendor/`
+
+```
+The MIT License
+
+Copyright © 2010-2023 three.js authors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
 ```

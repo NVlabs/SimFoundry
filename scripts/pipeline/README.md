@@ -40,7 +40,18 @@ Useful options:
 - `--stream / --no-stream`: stream stages 5-8 together or run them one at a time.
 - `--max-vram-frac F`: VRAM budget for streamed stages as a fraction of total GPU memory. Default `0.9`, so the same setting works across card sizes.
 - `--max-vram-gb N`: opt-in absolute hard budget in GiB, overriding the fraction. Leave unset unless you need to pin it — with `hard_vram_cap` the budget counts *total* GPU usage, so a value too small for the card stalls stages.
-- `--detect-articulation`: run stage 9 for automatic articulated-object generation. Requires the optional `articulate` environments; ignored with a warning if they are absent.
+- `--detect-articulation`: run stage 9 for automatic articulated-object generation. Requires the optional `articulate` environments.
+- Stage 9 has two optional interactive checkpoints, enabled as Hydra overrides (after `--`):
+  - `s9_articulate_objects.merge_interactive_correction=true` opens a browser UI to review and
+    correct the mesh segmentation before joints are estimated.
+  - `s9_articulate_objects.interactive_joint_refinement=true` opens a browser UI after
+    articulation to refine each joint — type, axis, pivot, limits, and physics (per-joint
+    damping/friction, per-part mass and surface friction) — with a live 3D motion preview.
+    Saves rewrite `results/mobility.urdf` (the original is backed up) and user physics edits
+    land in `physics_overrides.json`.
+
+  Both UIs open in a browser tab and block the pipeline until you finish (or cancel), so use
+  them for attended runs only. 
 - `--env-nerfstudio NAME`: select the Nerfstudio environment used by stage 2c. Default: `nerfstudio_simfoundry`.
 - `--env-b1k NAME`: env for the OmniGibson stages. Default: `simfoundry`; pass this only if OmniGibson lives in a separate env.
 
@@ -91,7 +102,7 @@ frame throughout.*
 
 ### Mesh Generators
 
-Stage 7 supports two image-to-3D backends, selected with `s7_mesh.shape_model` and
+Stage 7 supports three image-to-3D backends, selected with `s7_mesh.shape_model` and
 `s7_mesh.texture_model` (set both to the same value):
 
 - **Hunyuan3D-2.1** (`hunyuan`, the default). Runs in the `hunyuan` env built by
@@ -110,7 +121,24 @@ Stage 7 supports two image-to-3D backends, selected with `s7_mesh.shape_model` a
     -- s7_mesh.shape_model=trellis2 s7_mesh.texture_model=trellis2
   ```
 
-Both write to the same layout (`s7_mesh/textured_mesh/<backend>/iter_N_mesh.glb`), so
+- **Pixal3D** (`pixal3d`). Opt-in, pixel-aligned generation built on the TRELLIS.2
+  backbone. It needs its own env (its pins conflict with the shared `simfoundry` env):
+  build the TRELLIS.2 stack into a dedicated env first, then install Pixal3D on top —
+
+  ```bash
+  bash scripts/installation/install_trellis.sh --env-name pixal3d
+  bash scripts/installation/install_pixal3d.sh --env-name pixal3d
+  ```
+  
+  Then run stage 7 with:
+
+  ```bash
+  bash scripts/pipeline/A_reconstruction/run.sh --scene-name <scene> --video-fpath <video> \
+    --env-mesh pixal3d \
+    -- s7_mesh.shape_model=pixal3d s7_mesh.texture_model=pixal3d
+  ```
+
+All three write to the same layout (`s7_mesh/textured_mesh/<backend>/iter_N_mesh.glb`), so
 downstream stages need no other changes. To compare backends on one capture, run each into
 a separate `--scene-name`.
 

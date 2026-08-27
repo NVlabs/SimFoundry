@@ -4,6 +4,7 @@
 import contextlib
 import os
 import shutil
+from pathlib import Path
 
 
 #: Marker inserted before the extension of the temporary file an artifact is built under.
@@ -92,3 +93,47 @@ def sanitize_path_component(value):
     ``Laptop`` and one named ``laptop`` resolve to the same directory.
     """
     return str(value).replace(" ", "_").replace("/", "_").lower()
+
+
+def resolve_task_config_path(cfg_dir, task_name, *, group_choice=None, scene_name=None):
+    """Locate the task YAML a run is asking for.
+
+    Hydra selects a task by its *config-group path*, so a config filed under a
+    subdirectory -- ``task=droid/cluttered_scene/nv_desk_place_baseball_in_bowl``
+    -- still carries a bare ``task_name``, and the flat ``task/<task_name>.yaml``
+    the stages used to build simply does not exist. That surfaced as an eval
+    that connected to a policy, loaded a scene, and then died naming a file
+    nobody had asked for.
+
+    ``task_name`` is tried first, and a scene-specific copy before that: the
+    ``task=load_scene task.task_name=serve_the_orange`` indirection is how a
+    scene picks its own task, and it has to keep winning over the group Hydra
+    selected.
+
+    Args:
+        cfg_dir (str or Path): ``scripts/cfg``.
+        task_name (str): ``cfg.task.task_name``.
+        group_choice (str or None): The task group Hydra resolved, e.g.
+            ``droid/cluttered_scene/nv_desk_place_baseball_in_bowl``.
+        scene_name (str or None): Checked first, as ``task/<scene>/<task>.yaml``.
+
+    Returns:
+        str: Path to the config.
+
+    Raises:
+        FileNotFoundError: Naming every path that was tried, since "which file
+            did it want" is the only question worth answering here.
+    """
+    root = Path(cfg_dir) / "task"
+    candidates = []
+    if scene_name:
+        candidates.append(root / str(scene_name) / f"{task_name}.yaml")
+    candidates.append(root / f"{task_name}.yaml")
+    if group_choice:
+        candidates.append(root / f"{group_choice}.yaml")
+    for candidate in candidates:
+        if candidate.is_file():
+            return str(candidate)
+    raise FileNotFoundError(
+        f"no task config for task_name={task_name!r}; tried "
+        + ", ".join(str(c) for c in candidates))

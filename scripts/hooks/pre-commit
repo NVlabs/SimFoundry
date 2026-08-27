@@ -1,0 +1,22 @@
+#!/bin/sh
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Refuse a commit carrying whitespace damage.
+#
+# `git diff --check` catches trailing whitespace, a blank line at end of file
+# and conflict markers, in the staged content only. All three are invisible in
+# a diff view and none of them belong in a commit -- a stray final newline in
+# particular survives review and then shows up as a one-byte change under
+# somebody else's edit.
+#
+# Lives in the repository rather than only in .git/hooks so it survives a clone.
+# Installed by symlink (see AGENTS.md); it is *not* wired through
+# `core.hooksPath`, because that would take the whole hooks directory over and
+# silence the git-lfs hooks this repository depends on.
+if ! git diff --cached --check; then
+    echo >&2
+    echo >&2 "Whitespace damage in the staged changes (see above)."
+    echo >&2 "Fix it, or commit with --no-verify if you know better."
+    exit 1
+fi

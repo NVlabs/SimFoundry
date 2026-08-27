@@ -34,9 +34,11 @@ from pathlib import Path
 import torch as th
 import json
 import hydra
+from hydra.core.hydra_config import HydraConfig
 from omegaconf import OmegaConf
 from simfoundry import import_og_dependencies, CFG_DIR as SIMFOUNDRY_CFG_DIR, ASSET_DIR as SIMFOUNDRY_ASSET_DIR
 from simfoundry.utils.processing_utils import dump_json, resize_with_pad
+from simfoundry.utils.python_utils import resolve_task_config_path
 from simfoundry.utils.og_utils import (
     apply_teleop_omnigibson_macros,
     set_obj_materials,
@@ -45,10 +47,9 @@ from simfoundry.utils.og_utils import (
     update_reward_ui,
 )
 from simfoundry.utils.scene_utils import load_json_with_absolute_usd_paths
-from simfoundry.utils.object_swap_utils import (
-    apply_object_swaps,
-    adjust_swapped_objects_z,
-)
+# object_swap_utils is not part of this tree, and object_swap_json defaults to
+# null in every config -- so importing it here failed the stage before it had
+# read a single argument. Imported at the two places that actually swap instead.
 from simfoundry.policies.gr00t import Gr00tClient
 from simfoundry.policies.openpi import OpenPIClient
 from simfoundry.policies.dreamzero import DreamZeroClient
@@ -181,6 +182,7 @@ def main(cfg):
         if not os.path.isabs(swap_json_path):
             swap_json_path = os.path.join(SIMFOUNDRY_ASSET_DIR, swap_json_path)
         if os.path.exists(swap_json_path):
+            from simfoundry.utils.object_swap_utils import apply_object_swaps
             swap_info = apply_object_swaps(og_scene_json, swap_json_path)
             swap_stem = Path(swap_json_path).stem
             print(f"[ObjectSwap] Applied {len(swap_info)} swap(s) from {swap_json_path}")
@@ -229,7 +231,9 @@ def main(cfg):
 
     # Load task configuration
     task_name = cfg.task.task_name
-    og_task_cfg_path = f"{SIMFOUNDRY_CFG_DIR}/task/{task_name}.yaml"
+    og_task_cfg_path = resolve_task_config_path(
+        SIMFOUNDRY_CFG_DIR, task_name,
+        group_choice=HydraConfig.get().runtime.choices.get("task"))
     task_cfg = parse_config(og_task_cfg_path)["og_task_config"]
     action_freq = cfg.s15_eval.action_freq
     n_steps = int(cfg.s15_eval.timeout_s * action_freq)
@@ -339,6 +343,7 @@ def main(cfg):
     if swap_info and any(info["needs_aabb_adjustment"] for info in swap_info.values()):
         gp_info = og_scene_json.get("ground_plane_info", {})
         gp_z = gp_info.get("position", [0, 0, 0])[2] if gp_info else 0.0
+        from simfoundry.utils.object_swap_utils import adjust_swapped_objects_z
         adjust_swapped_objects_z(env, swap_info, ground_plane_z=gp_z)
     
     
