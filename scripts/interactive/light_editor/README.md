@@ -81,7 +81,7 @@ A pipeline scene has no background. Attach a scanned mesh room with:
 mamba run -n simfoundry-editor python scripts/interactive/light_editor/background_io.py \
   --scene <scene>.json --list                        # what is available
 mamba run -n simfoundry-editor python scripts/interactive/light_editor/background_io.py \
-  --scene <scene>.json --background droid_desk_mesh  # attach one
+  --scene <scene>.json --background droid_v1          # attach one
 ```
 
 After attaching, the tool probes the surface under each prop and fails loudly

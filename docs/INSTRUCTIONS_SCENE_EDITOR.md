@@ -122,12 +122,12 @@ No GPU, no Isaac Sim, no OmniGibson.
 cd /path/to/simfoundry/scripts/interactive/light_editor
 
 mamba run -n simfoundry-editor python server.py \
-  --scene /path/to/simfoundry/assets/scenes/droid_desk_put_away_trash/droid_desk_put_away_trash_scene_state_latest.json
+  --scene /path/to/simfoundry/assets/scenes/DROID/droid_desk_throw_away_trash/droid_desk_throw_away_trash_scene_state_latest.json
 ```
 
 Open <http://localhost:8770>. Loopback only.
 
-Any scene works — `ls assets/scenes/*/[a-z]*_scene_state_latest.json` lists the
+Any scene works — `ls assets/scenes/*/*/[a-z]*_scene_state_latest.json` lists the
 saved ones, and a raw pipeline scene (`Data/<name>/s13_og/reconstructed_og_scene.json`)
 opens just as well. A file is a scene if it *contains* `objects_info` and
 `state`, not if it is named like one, so both kinds appear in the launcher.
@@ -765,26 +765,26 @@ publish states the digest it expects to be replacing.
 Camera poses in `external_sensors` configs are relative to the robot base link
 (`pose_frame: parent`, `panda_link0`), not to the world. So the same placement
 frames the same shot in every scene built in the same scanned background with the
-same rig — all sixteen `droid_desk_*` scenes share `droid_desk_mesh`, and one
-placement covers all of them.
+same rig — every `droid_desk_*` scene shares `droid_v1`, and one placement
+covers all of them.
 
 That is what the editor keys on. Aim the cameras, hit **Save cameras YAML**, and
 the placement lands in a config named after the room:
 
 ```text
-scripts/cfg/external_sensors/droid_desk_mesh_cameras.yaml
+scripts/cfg/external_sensors/droid_v1_cameras.yaml
 ```
 
 Open *any* other scene shot in that room and it picks up where you left off:
 
 ```bash
 mamba run -n simfoundry-editor python server.py \
-  --scene /absolute/path/to/droid_desk_serve_banana_scene_state_latest.json \
+  --scene /absolute/path/to/droid_desk_serve_fruits_scene_state_latest.json \
   --cameras nv_franka_droid
 ```
 
 ```text
-Cameras: resuming the placement saved for background droid_desk_mesh (droid_desk_mesh_cameras.yaml)
+Cameras: resuming the placement saved for background droid_v1 (droid_v1_cameras.yaml)
 ```
 
 `--cameras` is the starting point for a room you have never aimed in, not an
@@ -850,11 +850,9 @@ elif len(external_cams) >= 1:
 ```
 
 So the same rig feeds the two policy inputs in whichever order the task asks for,
-and the task configs here do **not** all agree. Eight of them name
-`external_cam0_left` as camera 1; `real2sim_cfg_trash_can.yaml` swaps the pair —
-which matters, because that is the config for a `droid_desk_put_away_trash`
-evaluation. Aiming a camera without knowing which input it lands in is how a
-correctly framed shot reaches the wrong policy input.
+and task configs can disagree on that order. Aiming a camera without knowing
+which input it lands in is how a correctly framed shot reaches the wrong policy
+input.
 
 The editor resolves this from the task configs and prints it at startup:
 
@@ -869,7 +867,7 @@ preview badges then state the mapping plainly instead of flagging it amber:
 
 ```bash
 mamba run -n simfoundry-editor python server.py --scene ... \
-  --cameras nv_franka_droid --task-cfg real2sim_cfg_trash_can
+  --cameras nv_franka_droid --task-cfg droid_desk_serve_fruits
 ```
 
 An unknown `--task-cfg` is a startup error listing the configs that do bind
@@ -881,7 +879,7 @@ cameras, rather than a confident mapping derived from nothing.
 bash scripts/pipeline/C_application/run.sh \
   --mode eval \
   --scene-name my_scene \
-  -- s15_eval.external_sensors_cfg=droid_desk_mesh_cameras
+  -- s15_eval.external_sensors_cfg=droid_v1_cameras
 ```
 
 Only `position` and `orientation` are ever rewritten; optics, modalities, prim
@@ -1103,8 +1101,8 @@ Explicitly:
 ```bash
 cd /path/to/simfoundry/scripts/interactive
 mamba run -n simfoundry python -u interactive_scene_editor.py \
-  --scene_name droid_desk_put_away_trash \
-  --load_scene /path/to/simfoundry/assets/scenes/droid_desk_put_away_trash/droid_desk_put_away_trash_scene_state_latest.json
+  --scene_name droid_desk_throw_away_trash \
+  --load_scene /path/to/simfoundry/assets/scenes/DROID/droid_desk_throw_away_trash/droid_desk_throw_away_trash_scene_state_latest.json
 ```
 
 `DISPLAY` must point at a live X session (often `:1` on a box you log into
@@ -1136,9 +1134,6 @@ those stages if either is missing.
 **Note the default key `H` is also skybox rotation** — the editor prints a
 warning when the swap key overrides an existing binding. Pass a different
 `--cousins_swap_key` to keep both.
-
-> **Unverified.** This was ported from `interactive_scene_editor_cousin_swap.py`,
-> which is kept until someone runs the pipeline stages and confirms a real swap.
 
 ### Controls
 
@@ -1192,7 +1187,7 @@ interpreter. Use the `simfoundry-editor` env. Isaac Sim's `pxr` is only importab
 inside a running Kit app; the light editor needs standalone `usd-core`.
 
 **Camera edits do not appear in eval** — check you passed the config name, not a
-path: `s15_eval.external_sensors_cfg=droid_desk_mesh_cameras`.
+path: `s15_eval.external_sensors_cfg=droid_v1_cameras`.
 
 **"the scene changed in another tab since this page loaded"** — another tab (or
 another editor server) wrote this scene while you had edits pending. Your edits
@@ -1220,18 +1215,6 @@ USD treats `upAxis` as advisory and does not rotate on reference, so raw geometr
 matches OmniGibson. If a new background type appears wrong, this is the first
 thing to check.
 
----
-
-## Known quirks in the current scenes
-
-Found while testing; neither is caused by the editors.
-
-- `droid_desk_put_away_trash` has `blue_cup_0` about **2 cm above the desk** — it
-  drops that far under physics even with no edits.
-- The same scene puts the robot base at `z = -0.08` where every other
-  `droid_desk_*` scene uses `-0.04` (still true as of this writing). Since
-  cameras are robot-relative, framing shifts ~4 cm between that scene and the
-  others sharing one config.
 
 ## See also
 

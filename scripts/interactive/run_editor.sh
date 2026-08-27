@@ -17,7 +17,7 @@ mamba activate "${SIMFOUNDRY_ENV:-simfoundry}"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 DATA_PATH="${REPO_ROOT}/Data"
-SCENE_NAME="${SCENE_NAME:-droid_desk_put_away_trash}"
+SCENE_NAME="${SCENE_NAME:-droid_desk_throw_away_trash}"
 MODE="${1:-resume}"
 
 # An env can have this repo's simfoundry package but a *different* checkout's
@@ -44,19 +44,22 @@ if [[ "${MODE}" == "fresh" ]]; then
   # Builds the scene from scratch. Needs pipeline stages s4/s10/s11 in Data/<scene>.
   python -u interactive_scene_editor.py \
     --scene_name "${SCENE_NAME}" \
-    --mesh_background "${REPO_ROOT}/assets/mesh_backgrounds/droid_desk_mesh.usd" \
+    --mesh_background "${REPO_ROOT}/assets/backgrounds/mesh_backgrounds/droid_v1.usd" \
     --cam2world "${DATA_PATH}/${SCENE_NAME}/s4_frame/image_0_cam2world.npy" \
     --scene_objects_info "${DATA_PATH}/${SCENE_NAME}/s10_sim/scene_objects_info.json" \
     --pb_scene_poses "${DATA_PATH}/${SCENE_NAME}/s11_physics/pb_scene_poses.json" \
     --scene_objects_categories blue_cup black_trash_can \
     --robot FrankaPanda:robotiq
 else
-  # Resumes the last saved state. Works with only assets/ present.
-  SCENE_STATE="${REPO_ROOT}/assets/scenes/${SCENE_NAME}/${SCENE_NAME}_scene_state_latest.json"
-  if [[ ! -f "${SCENE_STATE}" ]]; then
-    echo "ERROR: no saved scene state at ${SCENE_STATE}" >&2
+  # Resumes the last saved state. Works with only assets/ present. Scenes sit
+  # under a grouping folder (assets/scenes/<Group>/<scene>/, e.g. DROID/, YAM/),
+  # so search rather than assume the layout.
+  SCENE_STATE="$(find "${REPO_ROOT}/assets/scenes" -mindepth 3 -maxdepth 3 \
+    -name "${SCENE_NAME}_scene_state_latest.json" -print -quit)"
+  if [[ -z "${SCENE_STATE}" ]]; then
+    echo "ERROR: no saved scene state for ${SCENE_NAME} under ${REPO_ROOT}/assets/scenes" >&2
     echo "Available scenes:" >&2
-    ls "${REPO_ROOT}/assets/scenes" >&2
+    find "${REPO_ROOT}/assets/scenes" -mindepth 2 -maxdepth 2 -type d -printf '  %f\n' >&2
     exit 1
   fi
   python -u interactive_scene_editor.py \
