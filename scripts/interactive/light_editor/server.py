@@ -1451,7 +1451,9 @@ class EditorHandler(SimpleHTTPRequestHandler):
                             raise SceneEditError(f"no asset mapped for {robot_init.get('class_name')}")
                         EditorHandler._added_counter += 1
                         robot_glb = f"added_{EditorHandler._added_counter:04d}.glb"
-                        robot_proxy = build_proxy(robot_usd, self.data_dir, robot_glb, self.textures)
+                        # Robots are context, not editing subjects; skip their
+                        # textures, matching the startup extraction (extract.py).
+                        robot_proxy = build_proxy(robot_usd, self.data_dir, robot_glb, False)
                         if robot_proxy["glb"] is None:
                             raise SceneEditError(robot_proxy["error"])
                         built.append((robot_name, robot_init, robot_registry, robot_usd, robot_proxy))
