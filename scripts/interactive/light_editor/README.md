@@ -49,6 +49,17 @@ Open <http://localhost:8770>. Useful flags:
 Extraction is cached under `web/data/` and invalidates itself when the scene,
 its USDs, or the extractor change; a re-extract costs a couple of seconds.
 
+## Example scenes
+
+Download example scenes from
+[nadunRanawaka1/simfoundry-assets](https://huggingface.co/datasets/nadunRanawaka1/simfoundry-assets):
+
+```bash
+hf download nadunRanawaka1/simfoundry-assets --repo-type dataset --local-dir assets
+```
+
+`Open scene…` (below) lists every scene under `assets/scenes/` once downloaded.
+
 ## Opening and creating scenes
 
 - **Open scene…** (`O`) lists every scene under the scene roots plus recent
