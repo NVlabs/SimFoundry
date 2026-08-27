@@ -23,7 +23,7 @@ from pathlib import Path
 import numpy as np
 
 try:
-    from pxr import Usd, UsdGeom, UsdShade
+    from pxr import Sdf, Usd, UsdGeom, UsdShade
 except ImportError:  # pragma: no cover - environment guard
     sys.exit(
         "pxr not found. This tool needs standalone OpenUSD, not Isaac Sim's copy:\n"
@@ -137,13 +137,20 @@ def _open_asset_image(asset, usd_dir):
     archive = _archive_member(resolved, usd_dir) or _archive_member(raw, usd_dir)
 
     if archive:
-        key = f"{archive[0]}[{archive[1]}]"
+        # The archive's mtime/size stands in for the member's: a member's own
+        # timestamp isn't visible without extracting it, and any edit to the
+        # zip is a new zip anyway.
+        stat_path, key = archive[0], f"{archive[0]}[{archive[1]}]"
     elif resolved:
-        key = resolved
+        stat_path = key = resolved
     else:
         # Anchor a bare relative reference to the USD that names it, so two
         # objects using the same filename do not collide in the cache.
-        key = str((usd_dir / raw).resolve())
+        stat_path = key = str((usd_dir / raw).resolve())
+    # Keyed on file identity, not just path -- otherwise an edited texture
+    # keeps serving its old pixels for the life of the server process, same
+    # as `usd_cache`'s stage cache would without this.
+    key = (key, usd_cache.cache_key(stat_path))
     if key in _texture_cache:
         return _texture_cache[key]
 
@@ -209,7 +216,12 @@ def _texture_from_shader(shader, usd_dir):
 
 
 def _bound_texture(prim, usd_dir):
-    """Find the diffuse texture bound to a mesh prim, if any."""
+    """Find the diffuse texture (or, failing that, a flat colour) bound to a mesh prim.
+
+    Returns (image, color) — either may be None. A constant colour is a fallback
+    for shaders authored with no texture at all (e.g. MDL-derived materials that
+    set a color3f like ``diffuse_color_constant`` instead of a texture file).
+    """
     try:
         # Arity of ComputeBoundMaterial has varied across USD releases; take the
         # material positionally rather than unpacking a fixed-width tuple.
@@ -217,18 +229,30 @@ def _bound_texture(prim, usd_dir):
         material = result[0] if isinstance(result, tuple) else result
     except Exception as e:
         print(f"      ! material lookup failed on {prim.GetPath()}: {type(e).__name__}: {e}")
-        return None
+        return None, None
     if not material:
-        return None
+        return None, None
 
     # Prefer the surface shader; fall back to any shader in the network.
     shaders = [c for c in Usd.PrimRange(material.GetPrim()) if c.IsA(UsdShade.Shader)]
     shaders.sort(key=lambda c: UsdShade.Shader(c).GetShaderId() != "UsdPreviewSurface")
+    color = None
     for child in shaders:
-        img = _texture_from_shader(UsdShade.Shader(child), usd_dir)
+        shader = UsdShade.Shader(child)
+        img = _texture_from_shader(shader, usd_dir)
         if img is not None:
-            return img
-    return None
+            return img, None
+        if color is None:
+            # Parameter names vary by material (UsdPreviewSurface diffuseColor,
+            # vMaterials color_front, etc.); take any color3f input, preferring
+            # one that looks diffuse-ish over e.g. a specular tint.
+            color3f_inputs = [i for i in shader.GetInputs()
+                               if i.GetTypeName() == Sdf.ValueTypeNames.Color3f and i.Get() is not None]
+            color3f_inputs.sort(key=lambda i: "diffuse" not in i.GetBaseName().lower()
+                                 and "color" not in i.GetBaseName().lower())
+            if color3f_inputs:
+                color = tuple(float(c) for c in color3f_inputs[0].Get())
+    return None, color
 
 
 _extractor_version = None
@@ -297,11 +321,26 @@ def _unweld_face_varying(points, indices, slots, st):
     return vertices, faces, uvs
 
 
+def _implicit_prim_geometry(prim):
+    """Local-frame (points, faces) for a USD implicit gprim, or None.
+
+    ``UsdGeom.Cube`` (and friends) have no explicit points -- they are defined
+    by a size/radius attribute -- so a workstation built from them would
+    otherwise render as nothing but its `Mesh`-typed trim.
+    """
+    if not prim.IsA(UsdGeom.Cube):
+        return None
+    size = UsdGeom.Cube(prim).GetSizeAttr().Get()
+    box = trimesh.creation.box(extents=[size or 2.0] * 3)
+    return np.asarray(box.vertices, dtype=np.float64), np.asarray(box.faces, dtype=np.int64)
+
+
 def _prim_to_trimesh(prim, cache, usd_dir, allow_texture, correction=None):
-    """Convert one UsdGeom.Mesh prim into a trimesh, baked into stage-root space.
+    """Convert one UsdGeom.Mesh or implicit gprim into a trimesh, baked into
+    stage-root space.
 
     Args:
-        prim (Usd.Prim): Mesh prim.
+        prim (Usd.Prim): Mesh or implicit-gprim (e.g. Cube) prim.
         cache (UsdGeom.XformCache): Shared transform cache.
         usd_dir (Path): Directory of the USD file.
         allow_texture (bool): Whether to attempt texture extraction.
@@ -312,6 +351,15 @@ def _prim_to_trimesh(prim, cache, usd_dir, allow_texture, correction=None):
     Returns:
         trimesh.Trimesh or None
     """
+    implicit = _implicit_prim_geometry(prim)
+    if implicit is not None:
+        points, faces = implicit
+        matrix = np.asarray(cache.GetLocalToWorldTransform(prim), dtype=np.float64)
+        if correction is not None:
+            matrix = matrix @ correction
+        points = points @ matrix[:3, :3] + matrix[3, :3]
+        return _build(points, faces, None, prim, usd_dir, allow_texture)
+
     mesh = UsdGeom.Mesh(prim)
     points = mesh.GetPointsAttr().Get()
     counts = mesh.GetFaceVertexCountsAttr().Get()
@@ -361,14 +409,21 @@ def _prim_to_trimesh(prim, cache, usd_dir, allow_texture, correction=None):
 def _build(vertices, faces, uvs, prim, usd_dir, allow_texture):
     """Assemble a trimesh, attaching a texture when UVs and an image exist."""
     visual = None
-    if allow_texture and uvs is not None:
-        img = _bound_texture(prim, usd_dir)
-        if img is not None:
+    if allow_texture:
+        img, color = _bound_texture(prim, usd_dir)
+        if img is not None and uvs is not None:
             # Build the PBR material directly; passing image= would make a
             # SimpleMaterial whose grey default diffuse darkens every texture.
             material = trimesh.visual.material.PBRMaterial(
                 baseColorTexture=img,
                 baseColorFactor=[255, 255, 255, 255],
+                metallicFactor=0.0,
+                roughnessFactor=0.9,
+            )
+            visual = trimesh.visual.TextureVisuals(uv=uvs, material=material)
+        elif color is not None:
+            material = trimesh.visual.material.PBRMaterial(
+                baseColorFactor=[*(round(c * 255) for c in color), 255],
                 metallicFactor=0.0,
                 roughnessFactor=0.9,
             )
@@ -408,8 +463,17 @@ def load_visual_scene(usd_path, allow_texture=True, joint_pose=None):
     textured = False
     failures = []
 
-    for prim in stage.Traverse():
-        if not prim.IsA(UsdGeom.Mesh):
+    # Assets processed with make_instanceable=True (common for BEHAVIOR-1K-style
+    # imports) carry their real geometry only under instance proxies; plain
+    # Traverse() skips into instances at all and silently sees nothing there.
+    # Restricting to the default prim's own subtree also skips the file's
+    # uninstantiated prototype/library prims (e.g. a root-level `/meshes`
+    # scope) sitting outside it, which would otherwise double the geometry.
+    default_prim_path = stage.GetDefaultPrim().GetPath() if stage.HasDefaultPrim() else None
+    for prim in stage.Traverse(Usd.TraverseInstanceProxies()):
+        if default_prim_path and not prim.GetPath().HasPrefix(default_prim_path):
+            continue
+        if not (prim.IsA(UsdGeom.Mesh) or prim.IsA(UsdGeom.Cube)):
             continue
         imageable = UsdGeom.Imageable(prim)
         if imageable.ComputePurpose() in SKIP_PURPOSES:

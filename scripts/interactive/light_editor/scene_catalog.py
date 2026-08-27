@@ -248,10 +248,8 @@ SCENE_SOURCES = (
 )
 
 #: How deep below each source root a scene directory sits: presets are
-#: `assets/scenes/<scene>/`, generated scenes are `Data/<run>/<scene>/`.
-#: `discover_scenes` only looks one level down, so `Data`'s children are also
-#: added as roots.
-_SOURCE_DEPTH = {"assets/scenes": 1, "Data": 2}
+#: `assets/scenes/<Group>/<scene>/` (e.g. `DROID/`, `YAM/`), generated scenes
+_SOURCE_DEPTH = {"assets/scenes": 2, "Data": 2}
 
 #: The two source roots as paths, for the naming logic below.
 _PRESET_ROOT, _GENERATED_ROOT = (

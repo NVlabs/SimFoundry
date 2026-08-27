@@ -87,6 +87,7 @@ United Kingdom, and South Korea.
 
 - OmniGibson — BEHAVIOR-1K (MIT)
 - BDDL — BEHAVIOR Domain Definition Language (MIT)
+- yamlab — YAM robot arm USD, `yam.usd` (MIT)
 - DINOv2 (Apache-2.0) — model-weight add-ons carry non-commercial licenses
 - SAM 3 — Segment Anything Model 3 (SAM License, Meta — non-OSS)
 - Depth-Anything-3 (Apache-2.0)

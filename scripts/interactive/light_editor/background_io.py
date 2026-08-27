@@ -342,6 +342,29 @@ def table_centre(background):
     return None
 
 
+def default_robot(background):
+    """The robot(s) a room's sidecar prescribes, or None.
+
+    Args:
+        background (dict): A row from :func:`discover_backgrounds`.
+
+    Returns:
+        list[dict] or None: One entry per robot -- a bimanual room like the
+        YAM workstation prescribes two. Each is ``{"init_info": ..., "registry":
+        ...}``, a verbatim robot-shaped spec captured from a real settled
+        scene -- not synthesized, since a valid ``joint_pos``/``controllers``
+        layout for an arbitrary robot isn't derivable outside a live
+        OmniGibson run.
+    """
+    document = _read_sidecar(background["sidecar"]) or {}
+    specs = document.get("default_robot")
+    if not isinstance(specs, list) or not specs:
+        return None
+    if not all(isinstance(s, dict) and "init_info" in s and "registry" in s for s in specs):
+        return None
+    return specs
+
+
 def write_table_centre(background, centre, *, estimate=None):
     """Record where a room's table centre is, in its sidecar.
 

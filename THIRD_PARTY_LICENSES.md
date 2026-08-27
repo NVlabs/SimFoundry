@@ -41,6 +41,7 @@ Derived files carry an attribution note in their header.
 |-----|-----------|---------|-----------|--------------|
 | 0 | ACDC / digital-cousins (upstream of SimFoundry) | Apache-2.0 | Copyright (c) 2024 the ACDC authors (Stanford Vision and Learning Lab) | https://github.com/cremebrule/digital-cousins/blob/5a6d120fa1e3808779cfdf887b2169cbe73c3678/LICENSE |
 | 0e | behavior-1k/omnigibson-robot-assets (OmniGibson robot assets, incl. `franka_robotiq`) | MIT | Copyright (c) Stanford Vision and Learning Lab (BEHAVIOR-1K) | https://huggingface.co/datasets/behavior-1k/omnigibson-robot-assets |
+| 0g | yamlab (YAM robot arm USD, `yam.usd`) | MIT | Copyright (c) 2026 Tianyuan Dai | https://github.com/ARISE-Initiative/yamlab/blob/ec0455d2b4ce35f21fc126418ea5e74ac567133d/LICENSE |
 
 ### 0a. Additional adapted sources
 

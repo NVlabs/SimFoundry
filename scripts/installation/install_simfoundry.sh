@@ -611,9 +611,44 @@ if ! fetch_franka_robotiq_assets; then
   echo "WARNING: could not fetch franka_robotiq robot assets; falling back to --robot-asset-fallback-root." >&2
 fi
 
+YAMLAB_REPO_COMMIT="ec0455d2b4ce35f21fc126418ea5e74ac567133d"
+YAMLAB_YAM_USD_URL="https://raw.githubusercontent.com/ARISE-Initiative/yamlab/${YAMLAB_REPO_COMMIT}/yamlab/robot/yam/arm/yam.usd"
+YAM_REL="models/yam/usd/yam.usda"
+
+fetch_yam_assets() {
+  if [[ -f "${ROBOT_ASSETS_DIR}/${YAM_REL}" ]]; then
+    echo "yam robot asset already present; skipping download."
+    return 0
+  fi
+  echo "Fetching yam robot asset from ${YAMLAB_YAM_USD_URL}..."
+  mkdir -p "${ROBOT_ASSETS_DIR}/models/yam/usd"
+  local tmp="${ROBOT_ASSETS_DIR}/models/yam/usd/.yam_crate_download.usd"
+  curl -fsSL -o "${tmp}" "${YAMLAB_YAM_USD_URL}" || { rm -f "${tmp}"; return 1; }
+  python - "${tmp}" "${ROBOT_ASSETS_DIR}/${YAM_REL}" <<'PY'
+import sys
+from pxr import Sdf
+
+src, dst = sys.argv[1], sys.argv[2]
+layer = Sdf.Layer.FindOrOpen(src)
+if layer is None:
+    sys.exit(f"could not open downloaded yam.usd: {src}")
+layer.documentation = ""  # strip the "Generated from ... /home/<user>/..." breadcrumb
+if not layer.Export(dst):
+    sys.exit(f"could not write {dst}")
+PY
+  local status=$?
+  rm -f "${tmp}"
+  return $status
+}
+
+if ! fetch_yam_assets; then
+  echo "WARNING: could not fetch yam robot asset; falling back to --robot-asset-fallback-root." >&2
+fi
+
 validate_robot_asset_file "models/franka/franka_panda/usd/franka_panda.usda" required "models/franka/franka_panda"
 validate_robot_asset_file "models/background/sky.jpg" required "models/background/sky.jpg"
 validate_robot_asset_file "models/franka/franka_robotiq/usd/franka_robotiq.usda" required "models/franka/franka_robotiq"
+validate_robot_asset_file "${YAM_REL}" optional "models/yam"
 
 install_faiss_gpu "$ENV_NAME"
 

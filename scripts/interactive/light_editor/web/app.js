@@ -7655,16 +7655,27 @@ async function applyRoom(room) {
 
   // A room from the file is marked removed (listed under `remove`, undoable);
   // a room that was itself only a pending attach is withdrawn outright — the
-  // scene never held it, so there is nothing to restore.
-  const withdrawn = body.dropped || [];
+  // scene never held it, so there is nothing to restore. A room can also
+  // prescribe its robot(s) (`robot_entries` — two for a bimanual room like
+  // the YAM workstation), swapped in the same way alongside it.
+  const withdrawn = [...(body.dropped || []), ...(body.robot_dropped || [])];
   const rec = await instantiate(body.entry);   // publishes into `objects`
   rec.added = true;
   const snaps = [{ ...snapshot(rec), present: false }];
-  for (const name of body.replaced || []) {
+  const replaced = [...(body.replaced || [])];
+  const robotRecs = [];
+  for (const robotEntry of body.robot_entries || []) {
+    const robotRec = await instantiate(robotEntry);
+    robotRec.added = true;
+    robotRecs.push(robotRec);
+    snaps.push({ ...snapshot(robotRec), present: false });
+  }
+  if (robotRecs.length) replaced.push(...(body.robot_replaced || []));
+  for (const name of replaced) {
     const old = objects.get(name);
     if (old) snaps.push({ ...snapshot(old), present: true });
   }
-  // One undo entry for the whole swap: a single Ctrl+Z reverses both halves.
+  // One undo entry for the whole swap: a single Ctrl+Z reverses every half.
   undoStack.push({ label: 'attach room', snaps });
   if (undoStack.length > MAX_HISTORY) undoStack.shift();
   redoStack.length = 0;
@@ -7678,7 +7689,7 @@ async function applyRoom(room) {
     dirty.delete(name);
     physicsDirty.delete(name);
   }
-  // Prune history steps naming a withdrawn room; drop steps left empty.
+  // Prune history steps naming a withdrawn room/robot; drop steps left empty.
   if (withdrawn.length) {
     const gone = new Set(withdrawn);
     for (const stack of [undoStack, redoStack]) {
@@ -7691,16 +7702,21 @@ async function applyRoom(room) {
     }
     updateHistoryButtons();
   }
-  for (const name of body.replaced || []) {
+  for (const name of replaced) {
     const old = objects.get(name);
     if (old) setPresent(old, false);
   }
   setPresent(rec, true);
+  for (const robotRec of robotRecs) setPresent(robotRec, true);
   refreshSaveButton();
   renderList();
   refreshBackgroundToggle();
+  // Both are room-scoped server state fetched once at boot; without
+  // re-fetching here they'd keep showing/targeting the room just left.
+  loadTableCentre();
+  loadGroundPlane();
   setStatus(`${body.label} attached`
-    + ((body.replaced || []).length ? `, replacing ${body.replaced.join(', ')}` : '')
+    + (replaced.length ? `, replacing ${replaced.join(', ')}` : '')
     + '. Save to keep it.');
   return true;
 }

@@ -113,6 +113,7 @@ from scene_io import (  # noqa: E402
     prepare_scene_document,
     promote_scene_text,
     remove_objects,
+    resolve_robot_usd,
     robot_object_names,
     scene_file_mode,
     scene_output_path,
@@ -123,6 +124,7 @@ from background_io import (  # noqa: E402
     BACKGROUND_OBJECT_NAME,
     background_roots,
     background_spec,
+    default_robot,
     discover_backgrounds,
     estimate_table,
     resolve_background,
@@ -644,6 +646,8 @@ class EditorHandler(SimpleHTTPRequestHandler):
     # Rooms a pending swap has displaced. The only names a background may be
     # removed under: see `_set_background`.
     background_removed = set()
+    # Same, for a robot a room's default_robot has displaced.
+    robot_removed = set()
 
     @property
     def posable_names(self):
@@ -1337,16 +1341,18 @@ class EditorHandler(SimpleHTTPRequestHandler):
             try:
                 roots = background_roots(self.scene_json_path, self.options.repo_root)
                 room = resolve_background(wanted.strip(), roots)
+                EditorHandler.background_row = room
+                EditorHandler.table_estimate = None
+                # Camera rigs are keyed by room id; re-resolve so a save/import
+                # now targets this room's placement file, not the startup one.
+                for attribute, value in _resolve_cameras(
+                        self.scene_name, room["id"], self.options, lambda *_: None).items():
+                    setattr(EditorHandler, attribute, value)
             except SceneEditError as e:
                 self._json(400, {"error": str(e)})
                 return
 
-            # Two kinds of room to displace, collected separately: rooms the
-            # file has (removed from the document at save time) and rooms that
-            # only exist as pending adds from a previous swap (withdrawn
-            # below). `replaced` lists every room the file has, every time:
-            # `background_removed` is a standing permission, and an undo can
-            # put a displaced room back without the server hearing about it.
+            # Two kinds of room to displace, collected separately.
             replaced = sorted(background_object_names(self.base_scene, self.scene_json_path))
             dropped = sorted(
                 n for n, spec in self.pending_adds.items()
@@ -1419,11 +1425,97 @@ class EditorHandler(SimpleHTTPRequestHandler):
                 self.manifest["objects"].append(entry)
                 write_manifest(self.manifest, self.data_dir)
 
+            # A room can prescribe its robot(s) (e.g. the YAM workstation wants
+            # two Yams, not whatever single Franka the scene opened with).
+            # Same swap pattern as the room itself: fresh names, old ones
+            # displaced -- built all-or-nothing so a bimanual room never ends
+            # up with only one arm swapped in.
+            robot_rows = default_robot(room)
+            robot_entries = robot_replaced = robot_dropped = None
+            if robot_rows:
+                robot_replaced = sorted(robot_object_names(self.base_scene, self.scene_json_path))
+                robot_dropped = sorted(
+                    n for n, spec in self.pending_adds.items() if spec.get("category") == "robot"
+                )
+                built = []
+                taken = set(self.taken_names())
+                try:
+                    for row in robot_rows:
+                        robot_name = unique_object_name(taken, "robot")
+                        taken.add(robot_name)
+                        robot_init = copy.deepcopy(row["init_info"])
+                        robot_init.setdefault("args", {})["name"] = robot_name
+                        robot_registry = copy.deepcopy(row["registry"])
+                        robot_usd = resolve_robot_usd(robot_init, self.options.robot_asset_root)
+                        if robot_usd is None:
+                            raise SceneEditError(f"no asset mapped for {robot_init.get('class_name')}")
+                        EditorHandler._added_counter += 1
+                        robot_glb = f"added_{EditorHandler._added_counter:04d}.glb"
+                        robot_proxy = build_proxy(robot_usd, self.data_dir, robot_glb, self.textures)
+                        if robot_proxy["glb"] is None:
+                            raise SceneEditError(robot_proxy["error"])
+                        built.append((robot_name, robot_init, robot_registry, robot_usd, robot_proxy))
+                except Exception as e:  # noqa: BLE001 - a bad robot spec must not sink the room swap
+                    print(f"[background] robot swap skipped: {type(e).__name__}: {e}")
+                    robot_replaced = robot_dropped = None
+                else:
+                    for stale in robot_dropped:
+                        EditorHandler.pending_adds.pop(stale, None)
+                    robot_entries = []
+                    new_names = set()
+                    for robot_name, robot_init, robot_registry, robot_usd, robot_proxy in built:
+                        new_names.add(robot_name)
+                        EditorHandler.pending_adds[robot_name] = {
+                            "name": robot_name, "init_info": robot_init,
+                            "registry": robot_registry, "category": "robot",
+                        }
+                        robot_entries.append({
+                            "name": robot_name,
+                            "category": robot_init.get("class_name", "robot").lower(),
+                            "kind": "robot",
+                            "editable": False, "posable": True, "scalable": False,
+                            "physics": None, "joints": None,
+                            "position": robot_registry["root_link"]["pos"],
+                            "orientation": robot_registry["root_link"]["ori"],
+                            "scale": [1.0, 1.0, 1.0],
+                            "sourceUsd": str(robot_usd), "added": True,
+                            "assetId": robot_init.get("class_name"),
+                            **robot_proxy,
+                        })
+                    EditorHandler.robot_names = (
+                        (set(self.robot_names) - set(robot_dropped)) | new_names)
+                    EditorHandler.robot_removed = set(self.robot_removed) | set(robot_replaced)
+                    # The wrist/onboard camera list and observation-key map are
+                    # read off the robot's own USD; re-derive them for the new
+                    # robot(s) so they don't keep describing the displaced one.
+                    robot_scene = copy.deepcopy(self.base_scene)
+                    remove_objects(robot_scene, robot_replaced, removable_names=set(robot_replaced))
+                    add_objects(robot_scene, [EditorHandler.pending_adds[n] for n in new_names])
+                    try:
+                        robot_cams, robot_obs = robot_cameras.scene_robot_cameras(
+                            robot_scene, self.scene_json_path, self.options.robot_asset_root,
+                            lambda *_: None)
+                    except Exception as e:  # noqa: BLE001 - the wrist-camera preview is optional
+                        print(f"[background] robot camera resolve skipped: {type(e).__name__}: {e}")
+                        robot_cams, robot_obs = [], {}
+                    EditorHandler.robot_cameras = tuple(robot_cams)
+                    EditorHandler.robot_camera_observation = robot_obs
+                    if self.manifest is not None:
+                        self.manifest["objects"] = [
+                            e for e in self.manifest["objects"] if e.get("name") not in robot_dropped
+                        ]
+                        self.manifest["objects"].extend(robot_entries)
+                        write_manifest(self.manifest, self.data_dir)
+
         print(f"[background] {name} <- {room['id']}"
               + (f" (replacing {', '.join(replaced)})" if replaced else "")
               + (f" (withdrawing {', '.join(dropped)})" if dropped else ""))
-        self._json(200, {"entry": entry, "replaced": replaced, "dropped": dropped,
-                         "room": room["id"], "label": room["label"]})
+        response = {"entry": entry, "replaced": replaced, "dropped": dropped,
+                    "room": room["id"], "label": room["label"]}
+        if robot_entries:
+            response.update({"robot_entries": robot_entries, "robot_replaced": robot_replaced,
+                              "robot_dropped": robot_dropped})
+        self._json(200, response)
 
     def _register_import(self, usd_relative, usd_absolute, category, asset_id,
                          transform, extra=None):
@@ -3481,9 +3573,9 @@ class EditorHandler(SimpleHTTPRequestHandler):
         )
         deleted = remove_objects(
             scene, sorted(removed - set(self.pending_adds)),
-            # A room is removable only once a replacement is pending;
-            # remove_objects refuses a bare removal.
-            removable_names=self.editable_names | self.background_removed,
+            # A room (or its default robot) is removable only once a
+            # replacement is pending; remove_objects refuses a bare removal.
+            removable_names=self.editable_names | self.background_removed | self.robot_removed,
         )
         changed = apply_edits(
             scene, plan["edits"], asset_facts=self.asset_facts(),
@@ -4038,8 +4130,9 @@ def bind_scene(scene_json, options, *, reuse_cache="prefer", announce=print):
     # Per-scene session state, reset so a switch cannot carry the previous
     # scene's pending imports across.
     EditorHandler.pending_adds = {}
-    # A pending room swap belongs to the scene it was made in.
+    # A pending room (or default-robot) swap belongs to the scene it was made in.
     EditorHandler.background_removed = set()
+    EditorHandler.robot_removed = set()
     EditorHandler.saved_adds = set()
     EditorHandler._assets_cache = None
     EditorHandler._added_counter = 0

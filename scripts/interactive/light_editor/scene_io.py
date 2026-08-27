@@ -1094,10 +1094,7 @@ def editable_object_names(scene, scene_json_path):
 
 
 def robot_object_names(scene, scene_json_path):
-    """Return the robot's name(s).
-
-    Safe to compute once at startup: a robot is never added, removed or
-    promoted to editable at runtime.
+    """Return the robot's name(s) in *scene*.
     """
     return {
         record["name"]
@@ -1107,10 +1104,7 @@ def robot_object_names(scene, scene_json_path):
 
 
 def background_object_names(scene, scene_json_path):
-    """Return the scanned room's name(s).
-
-    Like the robot, a background is fixed scenery for the length of a session,
-    so it is safe to compute once.
+    """Return the scanned room's name(s) in *scene*.
     """
     return {
         record["name"]
