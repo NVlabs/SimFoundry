@@ -22,6 +22,7 @@ def main(argv=None):
         print(
             f"video={summary['video']['name']} bytes={summary['video']['bytes']} "
             f"duration_s={summary['video']['duration_s']} colmap={summary['colmap_available']} "
+            f"decision={summary['colmap_decision']} reconstruction={summary['reconstruction']} "
             f"out={summary['out_dir']}"
         )
         return 0

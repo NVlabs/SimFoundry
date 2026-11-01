@@ -2,9 +2,9 @@
 
 Section 3.2 starts from an RGB sequence and then runs COLMAP and splatfacto.
 This module opens the mp4, checks the file type, and reads the movie header
-when the box layout is the common version-0 `mvhd`. It does not estimate
-cameras and it does not train a splat. Those stay on the COLMAP and splatfacto
-rows of the gap matrix.
+when the box layout is the common version-0 `mvhd`. When both `ffmpeg` and
+`colmap` are on PATH it samples frames and runs the COLMAP sequential
+pipeline. It does not train a splat.
 """
 
 from __future__ import annotations
@@ -112,7 +112,7 @@ def _ffprobe(binary, file_path):
 
 
 def run_video(path, out_dir):
-    """Write the video manifest and a ledger that stops before COLMAP."""
+    """Write the video manifest. Run COLMAP when the binary and ffmpeg are on PATH."""
     from sceneagent.catalog import rows
     from sceneagent.external_tools import probe_environment
 
@@ -122,7 +122,39 @@ def run_video(path, out_dir):
     (out / "video.json").write_text(json.dumps(info, indent=2) + "\n", encoding="utf-8")
     probe = probe_environment()
     (out / "tool_probe.json").write_text(json.dumps(probe, indent=2) + "\n", encoding="utf-8")
+    from sceneagent.colmap_stage import run_poses
+
     colmap = next(item for item in probe if item["sub_block"] == "COLMAP camera poses")
+    poses = run_poses(path, out / "colmap") if colmap["available"] else {
+        "ran": False,
+        "ok": False,
+        "reason": "colmap or ffmpeg is not on PATH",
+    }
+    (out / "colmap_poses.json").write_text(json.dumps(poses, indent=2) + "\n", encoding="utf-8")
+    if not poses["ran"]:
+        pose_entry = {
+            "item": "COLMAP camera poses",
+            "decision": "deferred",
+            "available": colmap["available"],
+            "reason": poses.get("reason") or "Section 3.2 needs COLMAP.",
+        }
+    elif poses["ok"]:
+        info["reconstruction"] = "colmap"
+        pose_entry = {
+            "item": "COLMAP camera poses",
+            "decision": "accept",
+            "frames": poses["frames"],
+            "model_dir": poses["model_dir"],
+            "use_gpu": poses.get("use_gpu"),
+        }
+    else:
+        pose_entry = {
+            "item": "COLMAP camera poses",
+            "decision": "reject",
+            "failed_step": poses.get("failed_step"),
+            "frames": poses.get("frames"),
+        }
+    (out / "video.json").write_text(json.dumps(info, indent=2) + "\n", encoding="utf-8")
     ledger = {
         "scene_name": Path(path).stem,
         "source": "simfoundry_example_video",
@@ -133,14 +165,16 @@ def run_video(path, out_dir):
                 "bytes": info["bytes"],
                 "duration_s": info["duration_s"],
             },
-            {
-                "item": "COLMAP camera poses",
-                "decision": "deferred",
-                "available": colmap["available"],
-                "reason": "Section 3.2 needs COLMAP. The probe records whether the binary is on PATH.",
-            },
+            pose_entry,
         ],
     }
     (out / "ledger.json").write_text(json.dumps(ledger, indent=2) + "\n", encoding="utf-8")
     deferred = [row["sub_block"] for row in rows() if row["status"] == "missing"]
-    return {"video": info, "colmap_available": colmap["available"], "missing_rows": len(deferred), "out_dir": str(out)}
+    return {
+        "video": info,
+        "colmap_available": colmap["available"],
+        "colmap_decision": pose_entry["decision"],
+        "reconstruction": info["reconstruction"],
+        "missing_rows": len(deferred),
+        "out_dir": str(out),
+    }

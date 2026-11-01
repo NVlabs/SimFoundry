@@ -2,7 +2,7 @@
 
 This document is the upgrade plan for a new tree at `sceneagent-simfoundry`. The tree is the SimFoundry fork (`sandy-t-shelvan/SimFoundry`, parent `NVlabs/SimFoundry`, commit `9e34ebe`) plus a `sceneagent` package. SceneAgent, the Harvard paper and site, is the target behavior. It is not a second codebase in this tree. No other application repository is imported.
 
-The row-by-row map is [`GAP_MATRIX.md`](GAP_MATRIX.md), generated from `sceneagent/catalog.py`. Current counts: 6 done, 8 partial, 24 missing, 38 rows. Done means a published rule is implemented in this package. Partial means the shape is here and the paper's tool is not. Missing means the named system has not been run.
+The row-by-row map is [`GAP_MATRIX.md`](GAP_MATRIX.md), generated from `sceneagent/catalog.py`. Current counts: 6 done, 9 partial, 23 missing, 38 rows. Done means a published rule is implemented in this package. Partial means a sampled run or an interface exists and the rest of that block is still open. Missing means the named system has not been run.
 
 This document does not treat the SceneAgent website's demo numbers as results of this repository.
 
@@ -171,16 +171,16 @@ Phase 1 is the agent file contract, the published association and vote math, mod
 
 The same rows are in docs/GAP_MATRIX.md.
 
-Counts: 6 done, 8 partial, 24 missing, 38 rows.
+Counts: 6 done, 9 partial, 23 missing, 38 rows.
 
 | Block | Sub-block | Paper requirement | SimFoundry today | Status | Tool | Repo | Next action |
 |---|---|---|---|---|---|---|---|
 | 3.1 Agent orchestration | Plan, manifest, ledger | Section 3.1: agents pass a plan, a manifest per step, and a ledger of accepted or rejected files. | A/B/C runners write a pipeline manifest. They do not repair from simulator renders. | done | sceneagent.pipeline |  | Keep new stages on this ledger instead of editing A/B/C. |
 | 3.1 Agent orchestration | Alignment acceptance gate | Section 3.1: accept a pose only when normalized median, p90, coverage, and silhouette all pass fixed thresholds. The numbers are not published. | Stage 8 estimates poses. It does not emit these four residuals. | partial | sceneagent.alignment |  | Feed real residuals in phase 3. Do not invent the thresholds. |
-| 3.2 Input preparation | COLMAP camera poses | Section 3.2: RGB sequences use COLMAP for camera poses. | No COLMAP stage. Depth is DA3 or FoundationStereo, then a world-frame stage. | missing | colmap | https://github.com/colmap/colmap | Run colmap on frames from an example video on a GPU box with disk for the database. |
+| 3.2 Input preparation | COLMAP camera poses | Section 3.2: RGB sequences use COLMAP for camera poses. | The A pipeline has no COLMAP stage. sceneagent.colmap_stage runs the COLMAP binary on a sampled RGB sequence. | partial | colmap | https://github.com/colmap/colmap | COLMAP 3.7 on the Texas box is built without CUDA, so SIFT ran on CPU. It registered 15/15 frames sampled at 1 fps from Fruits.mp4 (688 points, mean reprojection 0.901 px). The 16-frame cap is this runner's. Poses are not passed to splatfacto. |
 | 3.2 Input preparation | splatfacto big | Section 3.2: Nerfstudio splatfacto big trains the 3DGS. | Optional stage 2c trains a background splat with nerfstudio when --bg-splat is set. Default video runs do not. | missing | ns-train splatfacto | https://github.com/nerfstudio-project/nerfstudio | Do not install the full splat stack on the 40 GB Texas disk. |
 | 3.2 Input preparation | Photogrammetry and LiDAR | Section 3.2 also accepts photogrammetry, LiDAR, and existing 3DGS files. | Video and ZED only. | missing | photogrammetry or LiDAR asset |  | Accept an existing asset the way section 3.2 describes. The PDF names no importer repository. Polycam is a capture source on the project site, not code in this tree. |
-| 3.2 Input preparation | Example video metadata | Section 3.2 starts from an RGB sequence. SimFoundry ships example videos the A pipeline already accepts. | docs/assets/example_videos, including PutMarkerInCup.mp4 and Fruits.mp4. | partial | OpenCV VideoCapture in sceneagent.video | https://github.com/NVlabs/SimFoundry | Metadata and one sample frame only. Poses and splats are still the COLMAP and splatfacto rows. |
+| 3.2 Input preparation | Example video metadata | Section 3.2 starts from an RGB sequence. SimFoundry ships example videos the A pipeline already accepts. | docs/assets/example_videos, including PutMarkerInCup.mp4 and Fruits.mp4. | partial | sceneagent.video | https://github.com/NVlabs/SimFoundry | The mp4 header supplies duration. A 1 fps sample of Fruits.mp4 has COLMAP poses on the Texas box. Splats remain the splatfacto row. |
 | 3.3 Object reconstruction | SAM masks | Section 3.3: SAM masks every tenth view by default. | Stage 5 uses its own decomposition stack, including SAM3 in the install docs, not this stride. | missing | segment_anything | https://github.com/facebookresearch/segment-anything | Wire masks into the association test after SAM is installed. |
 | 3.3 Object reconstruction | GroundingDINO | The project website assigns semantic features with GroundingDINO and SAM. The paper text uses SAM plus CLIP and DINOv2 and does not name GroundingDINO in section 3.3. | Not a pipeline stage. | missing | groundingdino | https://github.com/IDEA-Research/GroundingDINO | Use it for the website's text prompts. Keep the paper's SAM stride as the section 3.3 path. |
 | 3.3 Object reconstruction | OpenCLIP object vector | Section 3.3: OpenCLIP ViT-B-16 embeds each masked crop to 512 dimensions. It is a physics-prior input, not the Gaussian assignment. | Not a pipeline stage. | missing | open_clip | https://github.com/mlfoundations/open_clip | Embed crops only after masks exist. |
