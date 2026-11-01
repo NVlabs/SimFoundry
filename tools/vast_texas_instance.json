@@ -1,0 +1,19 @@
+{
+  "id": 58591955,
+  "label": "sceneagent-tx",
+  "gpu_name": "RTX 4060 Ti",
+  "vram_mb": 16380,
+  "num_gpus": 1,
+  "geolocation": "Texas, US",
+  "ssh_host": "ssh6.vast.ai",
+  "ssh_port": 35512,
+  "dph_total_usd": 0.2185185185185185,
+  "disk_gb": 40,
+  "image": "pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime",
+  "offer_id": 54228390,
+  "status": "running",
+  "ssh_direct_port": 52396,
+  "remote_path": "/workspace/sceneagent-simfoundry",
+  "existing_instance_left_alone": 58357498,
+  "note": "Connection facts only. The Vast API key is not in this file."
+}

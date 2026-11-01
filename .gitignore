@@ -17,6 +17,15 @@
 *code-workspace*
 api_keys.txt
 GEMINI_API_KEY.txt
+.env
+.env.*
+!.env.example
+__pycache__/
+/runs/
+/pulled/
+# Vast dumps other than the non-secret Texas connection record may carry tokens.
+tools/*instance*.json
+!tools/vast_texas_instance.json
 # Windows zone identifier / DLP metadata files
 *:Zone.Identifier
 *:sec.endpointdlp

@@ -1,0 +1,78 @@
+{
+  "scene_name": "phase1_place",
+  "task": {
+    "instruction": "place the box in the bowl",
+    "manipulated": "box",
+    "target": "bowl",
+    "goal": "inside",
+    "anchor_xy_m": [0.0, 0.0],
+    "gap_m": 0.05
+  },
+  "evaluation": {
+    "n_trials": 10,
+    "seed": 0,
+    "jitter_half_extent_m": 0.05,
+    "reach_radius_m": 0.03,
+    "length_scales": [0.95, 1.05, 1.4]
+  },
+  "objects": [
+    {
+      "name": "box",
+      "movable": true,
+      "role": "manipulated",
+      "mesh": {"kind": "box", "size": [0.096, 0.04, 0.04]},
+      "collision": "box",
+      "body_type": "dynamic rigid",
+      "numerical": {
+        "mass_kg": 0.12,
+        "density_kg_m3": 700.0,
+        "rigidity": 0.4,
+        "deformability": 0.2,
+        "friction_static": 0.45,
+        "friction_dynamic": 0.35,
+        "restitution": 0.05
+      },
+      "proposals": [
+        {"source": "vlm", "class": "paper and cardboard", "weight": 2.0}
+      ],
+      "appearance": {
+        "name": "box print",
+        "hue_degrees": 18,
+        "mottle": 0.15,
+        "speckle": 0.08,
+        "noise": 0.04
+      },
+      "alignment": {
+        "residuals": {
+          "normalized_median": 0.02,
+          "p90": 0.04,
+          "coverage": 0.8,
+          "silhouette": 0.75
+        },
+        "thresholds": {
+          "normalized_median": {"max": 0.05},
+          "p90": {"max": 0.08},
+          "coverage": {"min": 0.5},
+          "silhouette": {"min": 0.5}
+        }
+      }
+    },
+    {
+      "name": "bowl",
+      "movable": false,
+      "role": "target",
+      "inner_size": [0.10, 0.10, 0.08],
+      "collision": "convex hull",
+      "body_type": "static rigid",
+      "numerical": {"rigidity": 0.9, "deformability": 0.05},
+      "alignment": {
+        "residuals": {
+          "normalized_median": 0.2,
+          "p90": 0.3,
+          "coverage": 0.4,
+          "silhouette": 0.4
+        }
+      }
+    }
+  ]
+}
