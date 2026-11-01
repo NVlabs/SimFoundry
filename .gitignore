@@ -26,6 +26,7 @@ __pycache__/
 # Vast dumps other than the non-secret Texas connection record may carry tokens.
 tools/*instance*.json
 !tools/vast_texas_instance.json
+!tools/canadian_isaac_instance.json
 # Windows zone identifier / DLP metadata files
 *:Zone.Identifier
 *:sec.endpointdlp

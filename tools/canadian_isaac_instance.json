@@ -1,0 +1,22 @@
+{
+  "id": 55073623,
+  "label": "sceneagent",
+  "geolocation": "Quebec, CA",
+  "driver": "580.82.09",
+  "gpu": "RTX 4090",
+  "vram_mb": 24564,
+  "num_gpus": 1,
+  "ssh_host": "ssh1.vast.ai",
+  "ssh_port": 34206,
+  "disk_gb": 250,
+  "disk_util_gb_api": 173,
+  "disk_free_gb_api": 77,
+  "status": "exited",
+  "isaac_sim_version": null,
+  "isaac_lab_version": null,
+  "install_started": false,
+  "smoke_command": null,
+  "smoke_result": null,
+  "blocker": "Instance is exited, so no live df or install was run. The API reports about 77 GB free of 250 GB, under the 100 GB bar for Isaac Sim 5 plus Isaac Lab 2. Texas instance 58591955 was not used for this install. Estonia instance 58357498 was not touched.",
+  "checked_at": "2026-11-01"
+}

@@ -43,7 +43,7 @@ ROWS = (
         "phase": "6",
         "status": "partial",
         "install": "Install COLMAP from https://github.com/colmap/colmap and put the colmap binary on PATH. sceneagent.colmap_stage runs it.",
-        "next": "COLMAP 3.7 on the Texas box is built without CUDA, so SIFT ran on CPU. It registered 15/15 frames sampled at 1 fps from Fruits.mp4 (688 points, mean reprojection 0.901 px). The 16-frame cap is this runner's. Poses are not passed to splatfacto.",
+        "next": "COLMAP 3.7 on Texas instance 58591955 registered 15/15 frames of Fruits.mp4 at 1 fps: 674 points, mean reprojection error 0.892696 px, CPU SIFT. Poses are not passed to splatfacto. CUDA COLMAP was not started: the Canadian 580 box is exited.",
     },
     {
         "block": "3.2 Input preparation",
@@ -56,7 +56,7 @@ ROWS = (
         "phase": "6",
         "status": "missing",
         "install": "pip install nerfstudio  (see the nerfstudio install guide). Train with ns-train splatfacto.",
-        "next": "Do not install the full splat stack on the 40 GB Texas disk.",
+        "next": "Not started. Texas 58591955 has a 40 GB disk. Canadian instance 55073623 is exited, and the API reports about 77 GB free of 250 GB, which is also short of a splat stack after Isaac Sim 5.",
     },
     {
         "block": "3.2 Input preparation",
@@ -155,8 +155,8 @@ ROWS = (
         "repo": "",
         "relation": "in_tree",
         "phase": "1",
-        "status": "done",
-        "next": "Apply the cuts to real Gaussian centers once a splat exists.",
+        "status": "partial",
+        "next": "The cuts are unit-tested. No splat exists, so they have not been applied to Gaussian centers.",
     },
     {
         "block": "3.3 Object reconstruction",
@@ -308,7 +308,7 @@ ROWS = (
         "phase": "4",
         "status": "missing",
         "install": "Follow https://github.com/isaac-sim/IsaacLab",
-        "next": "Inspector skill stays deferred until a scene loads there.",
+        "next": "Not installed. Instance 55073623 (Quebec, driver 580.82.09, RTX 4090) is exited. API disk use is 173 GB of 250 GB, about 77 GB free, under the 100 GB bar. No import smoke was run.",
     },
     {
         "block": "3.7 Export and editor",
@@ -453,8 +453,8 @@ ROWS = (
         "repo": "",
         "relation": "in_tree",
         "phase": "1",
-        "status": "done",
-        "next": "The functions are tested on synthetic clouds. GraspClutter6D was not scored.",
+        "status": "partial",
+        "next": "Equations (4) and (5) are tested on synthetic clouds. No GraspClutter6D or kitchen score file exists, so section 4.1 is not done.",
     },
     {
         "block": "4.1 Reconstruction metrics",
@@ -504,6 +504,7 @@ def to_markdown():
         "SceneAgent (arXiv:2610.34745 and the project site) is the target behavior.",
         "The code being upgraded is the SimFoundry fork. This matrix does not use any other application repository.",
         "The PDF prints no git URLs. A repository link below is the upstream project for a system the paper or the site names.",
+        "Every row cites a Harvard section. Done means this tree produced that block's artifact. A unit test of a formula is partial until the paper's output file exists. Paper metrics, including the 99.09% dynamic IoU in section 4.2, are not scores from this repo.",
         "",
         f"Counts: {tally['done']} done, {tally['partial']} partial, {tally['missing']} missing, {tally['total']} rows.",
         "",
