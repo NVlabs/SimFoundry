@@ -56,7 +56,7 @@ ROWS = (
         "phase": "6",
         "status": "missing",
         "install": "pip install nerfstudio  (see the nerfstudio install guide). Train with ns-train splatfacto.",
-        "next": "Not started. Texas 58591955 has a 40 GB disk. Canadian instance 55073623 is exited, and the API reports about 77 GB free of 250 GB, which is also short of a splat stack after Isaac Sim 5.",
+        "next": "Not started. Instance 55073623 is running with 60 GB free, and Isaac Kit does not start on its Ubuntu 20.04 image. Texas 58591955 was not used.",
     },
     {
         "block": "3.2 Input preparation",
@@ -308,7 +308,7 @@ ROWS = (
         "phase": "4",
         "status": "missing",
         "install": "Follow https://github.com/isaac-sim/IsaacLab",
-        "next": "Not installed. Instance 55073623 (Quebec, driver 580.82.09, RTX 4090) is exited. API disk use is 173 GB of 250 GB, about 77 GB free, under the 100 GB bar. No import smoke was run.",
+        "next": "Instance 55073623 is running (RTX 4090, driver 580.82.09, 60 GB free). Isaac Sim 5.1.0 is unpacked and Isaac Lab v2.3.2 is cloned. Host glibc is 2.31 and mount is denied, so Kit does not start. python.sh exits 139. Import failed, so this row stays missing.",
     },
     {
         "block": "3.7 Export and editor",
