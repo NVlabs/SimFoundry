@@ -1,6 +1,10 @@
 # SceneAgent on SimFoundry — design
 
-This document is the upgrade plan for a new tree at `sceneagent-simfoundry`. It is based on the sources below, read for this design. It does not treat the SceneAgent website's demo numbers as results of this repository.
+This document is the upgrade plan for a new tree at `sceneagent-simfoundry`. The tree is the SimFoundry fork (`sandy-t-shelvan/SimFoundry`, parent `NVlabs/SimFoundry`, commit `9e34ebe`) plus a `sceneagent` package. SceneAgent, the Harvard paper and site, is the target behavior. It is not a second codebase in this tree. No other application repository is imported.
+
+The row-by-row map is [`GAP_MATRIX.md`](GAP_MATRIX.md), generated from `sceneagent/catalog.py`. Current counts: 6 done, 7 partial, 24 missing, 37 rows. Done means a published rule is implemented in this package. Partial means the shape is here and the paper's tool is not. Missing means the named system has not been run.
+
+This document does not treat the SceneAgent website's demo numbers as results of this repository.
 
 ## Sources
 

@@ -10,6 +10,10 @@ How changes land in this tree. The product phases are in `docs/DESIGN.md`.
 4. **Test.** `python -m pytest tests/sceneagent -q` passes locally before a change is called done. Tests call the formulas and the pipeline. A test that only asserts `True` is not a test.
 5. **Release.** `main` is the integration branch. Feature work can sit on a branch and merge by pull request. CI on push and pull request runs `.github/workflows/sceneagent-ci.yml`: `compileall` on `sceneagent`, then `pytest tests/sceneagent`. The job is `ubuntu-latest`, CPU, with `numpy` and `pytest` only. It does not install OmniGibson, CUDA, or checkpoints.
 
+## Out of scope
+
+Harvard SceneAgent is the specification. The only code base being upgraded is this SimFoundry fork. Do not import, copy, or call any other application checkout from this tree. When a block changes status, regenerate `docs/GAP_MATRIX.md` from `sceneagent.catalog.to_markdown()` and keep `tests/sceneagent/test_catalog_and_video.py` green.
+
 ## Definition of done
 
 - The behavior is covered by `tests/sceneagent` or, for a later GPU phase, by a command the design doc names and a log that shows it ran.
