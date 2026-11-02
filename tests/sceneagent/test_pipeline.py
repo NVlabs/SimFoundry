@@ -5,6 +5,7 @@ from pathlib import Path
 
 from sceneagent.adapter import from_simfoundry_scene, load_document
 from sceneagent.pipeline import run_capture, run_path
+from sceneagent.usd_contract import write_physics_usda
 
 ROOT = Path(__file__).resolve().parents[2]
 EXAMPLE = ROOT / "examples" / "phase1_place_scene.json"
@@ -66,3 +67,15 @@ def test_simfoundry_scene_json_is_read_without_meshes(tmp_path):
     assert sister["decision"] == "deferred"
     loaded = load_document(EXAMPLE)
     assert loaded["scene_name"] == "phase1_place"
+
+
+def test_json_contract_writes_a_usda_with_the_rigid_fields(tmp_path):
+    run_path(EXAMPLE, tmp_path / "run")
+    contract = json.loads((tmp_path / "run" / "package" / "usd_physics_contract.json").read_text(encoding="utf-8"))
+    assert contract["usd_written"] is False
+    written = write_physics_usda(contract, tmp_path / "phase1_place.usda")
+    text = written.read_text(encoding="utf-8")
+    assert text.startswith("#usda 1.0")
+    assert "physics:mass = 0.12" in text
+    assert 'sceneagent:material_class = "paper and cardboard"' in text
+    assert "PhysicsRigidBodyAPI" in text

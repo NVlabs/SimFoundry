@@ -64,6 +64,49 @@ def score_trials(starts_xy, reach_radius_m, sister_accepted):
     return successes, rows
 
 
+def single_rollout_place(final_qpos, bowl_xyz, bowl_half_extent_m, nstep):
+    """One MuJoCo rollout, not the ten-trial rate in figure 14.
+
+    The box is inside the bowl when its free-joint position lies in the bowl
+    geom's axis-aligned box. That containment test is this runner's. The paper
+    does not publish it. One rollout cannot fill the nine lighting columns, so
+    the grid stays partial and those columns are not given a success rate.
+    The Wilson interval is for this single trial only.
+    """
+    qpos = [float(value) for value in final_qpos]
+    center = qpos[:3]
+    half = float(bowl_half_extent_m)
+    bowl = [float(value) for value in bowl_xyz]
+    inside = all(abs(center[index] - bowl[index]) <= half for index in range(3))
+    low, high = wilson_interval(1 if inside else 0, 1)
+    return {
+        "section": "3.8",
+        "figure": 14,
+        "status": "partial",
+        "reason": "One MuJoCo rollout cannot support the ten-trial place rate in figure 14.",
+        "policy": "mujoco_single_rollout",
+        "not_a_learned_policy": True,
+        "not_a_ten_trial_rate": True,
+        "rate_reported": False,
+        "n_rollouts": 1,
+        "nstep": int(nstep),
+        "lighting": list(LIGHTING_SETUPS),
+        "lighting_simulated": False,
+        "cells_ran": False,
+        "trial": {
+            "success": inside,
+            "containment": "box free-joint position inside the bowl geom AABB",
+            "containment_published": False,
+            "final_qpos": qpos,
+            "box_center_m": center,
+            "bowl_xyz_m": bowl,
+            "bowl_half_extent_m": half,
+        },
+        "wilson95_one_trial": [low, high],
+        "wilson_trials": 1,
+    }
+
+
 def sister_grid(sisters, starts_xy, reach_radius_m, lighting=LIGHTING_SETUPS):
     """Object-sister rows by lighting columns.
 

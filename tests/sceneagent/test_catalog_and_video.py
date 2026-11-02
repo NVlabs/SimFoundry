@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from sceneagent.catalog import counts, rows, to_markdown
-from sceneagent.colmap_stage import pose_commands, run_poses, use_gpu_from_banner
+from sceneagent.colmap_stage import colmap_major, pose_commands, run_poses, use_gpu_from_banner
 from sceneagent.video import inspect_video, run_video
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -48,6 +48,14 @@ def test_pose_commands_match_colmap_37_and_skip_gpu_without_cuda():
     gpu_at = extractor.index("--SiftExtraction.use_gpu")
     assert extractor[gpu_at + 1] == "0"
     assert "--SiftMatching.use_gpu" in commands[1]
+    banner = "COLMAP 4.2.1 (Commit Unknown on Unknown with CUDA, std hash maps)"
+    assert colmap_major(banner) == 4
+    assert use_gpu_from_banner(banner) is True
+    cuda = pose_commands("database.db", "images", "sparse", use_gpu=True, major=4)
+    assert "--FeatureExtraction.use_gpu" in cuda[0]
+    assert cuda[0][cuda[0].index("--FeatureExtraction.use_gpu") + 1] == "1"
+    assert "--log_to_stderr" not in cuda[0]
+    assert "--FeatureMatching.use_gpu" in cuda[1]
     blob = json.dumps(commands).lower()
     assert "sceneagentx" not in blob
 

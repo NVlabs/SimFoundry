@@ -8,8 +8,10 @@ with the published weighted vote:
     y* = argmax_y  sum_v  w_v * 1[y_v = y]
 
 A proposal whose class is ``unknown`` has its weight multiplied by 0.4.
-Mass and density, when a caller supplies them, are also stored as natural
-logs, which is how the paper says the model regresses those two heads.
+A tie returns no class. The keyword proposal is passed in by the caller.
+Mass and density, when a caller supplies them in kilograms, are stored as
+natural logs. A value that is already a logarithm is written with
+``store_log_mass_density`` and does not pass through ``_positive_log``.
 
 Young's modulus, Poisson's ratio, and the rendering material are looked up
 from the material class in the paper. That table is not published, so phase 1
@@ -23,6 +25,7 @@ set the body type.
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
 
 from sceneagent.taxonomy import require_body, require_collision, require_material
 
@@ -44,8 +47,9 @@ def scaled_weight(material_class, weight):
 def vote_material(proposals):
     """Weighted material vote.
 
-    Each proposal is a mapping with ``class`` and ``weight``. Ties break toward
-    the class that appears first. The paper does not specify a tie break.
+    Each proposal is a mapping with ``class`` and ``weight``. An unknown
+    class is scaled by 0.4. When two or more classes share the highest
+    score, the vote returns no class (``None``).
     """
     if not proposals:
         raise ValueError("material vote needs at least one proposal")
@@ -58,8 +62,39 @@ def vote_material(proposals):
             order.append(material)
             scores[material] = 0.0
         scores[material] += weight
-    winner = max(order, key=lambda name: (scores[name], -order.index(name)))
-    return winner, scores
+    top = max(scores[name] for name in order)
+    winners = [
+        name
+        for name in order
+        if math.isclose(scores[name], top, rel_tol=0.0, abs_tol=1e-9)
+    ]
+    if len(winners) != 1:
+        return None, scores
+    return winners[0], scores
+
+
+def proposals_for_prior(prior, vlm=None, keyword=None):
+    """Assemble voters for the physics prior.
+
+    ``keyword`` is included only when the caller passes it. This function
+    does not consult ``taxonomy._KEYWORD_RULES`` and does not call
+    ``keyword_material``.
+    """
+    proposals = [_copy_proposal(prior, "physics prior")]
+    if vlm is not None:
+        proposals.append(_copy_proposal(vlm, "VLM"))
+    if keyword is not None:
+        proposals.append(_copy_proposal(keyword, "keyword"))
+    return proposals
+
+
+def _copy_proposal(proposal, role):
+    if not isinstance(proposal, Mapping):
+        raise ValueError(f"{role} proposal must be a mapping")
+    if "class" not in proposal or "weight" not in proposal:
+        raise ValueError(f"{role} proposal needs class and weight")
+    require_material(proposal["class"])
+    return dict(proposal)
 
 
 def resolve_body_type(deformability, explicit=None):
@@ -89,12 +124,31 @@ def _positive_log(name, value):
     return math.log(value)
 
 
+def store_log_mass_density(record, log_mass, log_density):
+    """Write mass and density that are already natural logs.
+
+    Does not call ``_positive_log``. A second call with the stored values
+    leaves them unchanged.
+    """
+    log_mass = float(log_mass)
+    log_density = float(log_density)
+    if not math.isfinite(log_mass) or not math.isfinite(log_density):
+        raise ValueError("log mass and log density must be finite")
+    updated = dict(record)
+    updated["log_mass"] = log_mass
+    updated["log_density"] = log_density
+    return updated
+
+
 def build_physics_record(name, proposals, numerical=None, body_type=None, collision=None):
     """Fuse proposals into one object physics record.
 
     ``numerical`` may contain friction_static, friction_dynamic, restitution,
     mass_kg, density_kg_m3, rigidity, and deformability. Missing keys stay
-    null. Coefficients are not filled from a private table.
+    null. ``mass_kg`` and ``density_kg_m3`` are kilograms and are logged once
+    here. An already-logged prior value is written with
+    ``store_log_mass_density`` instead. Coefficients are not filled from a
+    private table.
     """
     numerical = dict(numerical or {})
     winner, scores = vote_material(proposals)

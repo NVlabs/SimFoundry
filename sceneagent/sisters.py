@@ -123,6 +123,30 @@ def check_sister(extent, volume, original_volume, target_inner=None):
     }
 
 
+def model_free_object_sisters(name, size, target_inner=None, appearance=None, size_source="capture_primitive"):
+    """Section 3.8 first method on one primitive. No SAM 3D mesh and no Meshy call."""
+    rows = geometry_sisters(size, target_inner=target_inner)
+    if appearance:
+        rows.append(appearance_sister(
+            size,
+            appearance["hue_degrees"],
+            appearance["mottle"],
+            appearance["speckle"],
+            appearance["noise"],
+            appearance.get("name") or f"{name} texture",
+        ))
+    return {
+        "object": name,
+        "section": "3.8",
+        "method": "model_free_primitive",
+        "generative_model": None,
+        "size_m": [float(value) for value in size],
+        "size_source": size_source,
+        "target_inner_m": None if target_inner is None else [float(value) for value in target_inner],
+        "sisters": rows,
+    }
+
+
 def geometry_sisters(size, target_inner=None, length_scales=WEBSITE_LENGTH_SCALES):
     """Scale the box's first axis and score each result.
 

@@ -19,12 +19,46 @@ def use_gpu_from_banner(banner):
     return "without CUDA" not in banner
 
 
-def pose_commands(database, image_dir, sparse_dir, use_gpu):
-    """Three COLMAP 3.7 steps. ``use_gpu`` is the SIFT device flag, 0 or 1."""
+def colmap_major(banner):
+    """Major version from a ``colmap -h`` banner. Unknown banners stay on 3."""
+    for token in banner.split():
+        if token[:1].isdigit() and "." in token:
+            return int(token.split(".", 1)[0])
+    return 3
+
+
+def pose_commands(database, image_dir, sparse_dir, use_gpu, major=3):
+    """Three sequential steps. ``use_gpu`` is the SIFT device flag, 0 or 1.
+
+    COLMAP 3.7 names the device ``SiftExtraction.use_gpu``. COLMAP 4.2 names
+    it ``FeatureExtraction.use_gpu`` and rejects ``--log_to_stderr``.
+    """
     gpu = "1" if use_gpu else "0"
     database = str(database)
     image_dir = str(image_dir)
     sparse_dir = str(sparse_dir)
+    if int(major) >= 4:
+        return [
+            [
+                "colmap", "feature_extractor",
+                "--database_path", database,
+                "--image_path", image_dir,
+                "--ImageReader.single_camera", "1",
+                "--FeatureExtraction.use_gpu", gpu,
+            ],
+            [
+                "colmap", "sequential_matcher",
+                "--database_path", database,
+                "--FeatureMatching.use_gpu", gpu,
+                "--SequentialMatching.overlap", "5",
+            ],
+            [
+                "colmap", "mapper",
+                "--database_path", database,
+                "--image_path", image_dir,
+                "--output_path", sparse_dir,
+            ],
+        ]
     return [
         [
             "colmap", "feature_extractor", "--log_to_stderr", "1",
@@ -89,9 +123,11 @@ def run_poses(video_path, work_dir, fps=1, max_frames=16):
             "steps": {"ffmpeg": extract},
         }
     banner = subprocess.run([colmap, "-h"], check=False, capture_output=True, text=True)
-    use_gpu = use_gpu_from_banner((banner.stdout or "") + (banner.stderr or ""))
+    banner_text = (banner.stdout or "") + (banner.stderr or "")
+    use_gpu = use_gpu_from_banner(banner_text)
+    major = colmap_major(banner_text)
     steps = {"ffmpeg": extract}
-    for argv in pose_commands(database, images, sparse, use_gpu):
+    for argv in pose_commands(database, images, sparse, use_gpu, major=major):
         step_name = argv[1]
         steps[step_name] = _run(argv, timeout_s=900)
         if steps[step_name]["returncode"] != 0:
@@ -99,6 +135,7 @@ def run_poses(video_path, work_dir, fps=1, max_frames=16):
                 "ran": True,
                 "ok": False,
                 "use_gpu": use_gpu,
+                "colmap_major": major,
                 "failed_step": step_name,
                 "frames": frames,
                 "steps": steps,
@@ -109,6 +146,7 @@ def run_poses(video_path, work_dir, fps=1, max_frames=16):
             "ran": True,
             "ok": False,
             "use_gpu": use_gpu,
+            "colmap_major": major,
             "failed_step": "mapper",
             "frames": frames,
             "reason": "mapper wrote no sparse/0/cameras.bin",
@@ -123,6 +161,7 @@ def run_poses(video_path, work_dir, fps=1, max_frames=16):
         "ran": True,
         "ok": analyzer_ok,
         "use_gpu": use_gpu,
+        "colmap_major": major,
         "frames": frames,
         "model_dir": str(model_dir),
         "analyzer": steps["model_analyzer"],
