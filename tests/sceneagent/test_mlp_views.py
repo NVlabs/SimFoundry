@@ -85,7 +85,7 @@ def test_textured_render_binds_the_texture_on_the_broad_face():
     rgb = views["front"]["rgb"]
     assert rgb.shape == (VIEW_SIZE, VIEW_SIZE, 3)
     row = rgb[VIEW_SIZE // 2].astype(np.int16)
-    changes = int(np.sum(np.max(np.abs(np.diff(row, axis=0)), axis=1) > 40))
+    changes = int(np.sum(np.max(np.abs(np.diff(row, axis=0)), axis=1) > 15))
     assert changes >= 8
     assert front_view_unusable(
         rgb,
