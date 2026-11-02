@@ -15,6 +15,6 @@ jobs:
       - name: Syntax check
         run: python -m compileall -q sceneagent
       - name: Install CPU test dependencies
-        run: python -m pip install numpy pytest
+        run: python -m pip install numpy pytest trimesh pillow
       - name: Phase-1 unit tests
         run: python -m pytest tests/sceneagent -q
