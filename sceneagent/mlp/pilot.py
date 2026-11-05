@@ -26,6 +26,7 @@ from sceneagent.mlp.label_three import (
 )
 from sceneagent.mlp.represent import MANIFEST, FeatureEncoders, _object_dir, represent_sample
 from sceneagent.mlp.sources import (
+    MAX_PILOT_FACES,
     PROTECTED_IDS,
     download_pilot,
 )
@@ -102,10 +103,19 @@ def _protected_rows():
 
 
 def _resume_rows(protected):
-    """Protected objects plus any new pilot rows that already passed."""
+    """Protected objects plus packed objects already on disk."""
 
     rows = list(protected)
     seen = {row["id"] for row in rows}
+    for row in _completed_on_disk():
+        if row["id"] in seen:
+            continue
+        checked = _recheck(row)
+        if checked is None:
+            print(f"skip incomplete {row['id']}", flush=True)
+            continue
+        rows.append(checked)
+        seen.add(checked["id"])
     if not PILOT_MANIFEST.is_file():
         return rows
     manifest = json.loads(PILOT_MANIFEST.read_text(encoding="utf-8"))
@@ -118,6 +128,47 @@ def _resume_rows(protected):
         rows.append(checked)
         seen.add(checked["id"])
     return rows
+
+
+def _completed_on_disk():
+    rows = []
+    for source in ("ycb", "gso", "abo"):
+        base = ROOT / source
+        if not base.is_dir():
+            continue
+        for directory in sorted(base.iterdir(), key=lambda path: path.name):
+            if not directory.is_dir() or directory.name in PROTECTED_IDS:
+                continue
+            report_path = directory / "representation.json"
+            prior = directory / "prior_input.npy"
+            if not report_path.is_file() or not prior.is_file() or not _views_current(directory):
+                continue
+            shape = tuple(int(value) for value in np.load(prior, mmap_mode="r").shape)
+            if len(shape) != 2 or int(shape[1]) != 912 or int(shape[0]) < 1:
+                continue
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+            mesh = report.get("mesh_path")
+            if not mesh or not Path(mesh).is_file():
+                continue
+            rows.append({
+                "id": report.get("id") or directory.name,
+                "source": source,
+                "name": report.get("name") or directory.name,
+                "mesh_path": mesh,
+                "image_path": _find_image(directory),
+                "source_url": "",
+                "extent_m": None,
+            })
+    return rows
+
+
+def _find_image(directory):
+    for pattern in ("**/texture_map.png", "**/textures/texture.png", "**/texture.jpg", "**/texture.jpeg", "**/texture.png"):
+        found = sorted(directory.glob(pattern))
+        if found:
+            return str(found[0])
+    front = directory / "views" / "front.png"
+    return str(front) if front.is_file() else ""
 
 
 def _recheck(row):
@@ -134,8 +185,9 @@ def _recheck(row):
     if not result.ok:
         return None
     sample["check_status"] = "pass"
-    if not sample.get("extent_m"):
-        sample["extent_m"] = [round(float(value), 6) for value in result.extent_m]
+    if not sample.get("extent_m") and result.extent_m is not None:
+        scale = 0.001 if sample["source"] == "ycb" and max(result.extent_m) > 5 else 1.0
+        sample["extent_m"] = [round(float(value) * scale, 6) for value in result.extent_m]
     return sample
 
 
@@ -159,6 +211,12 @@ def _accept_new(sample, encoders, reports):
     A pack failure after a good textured render is kept and labeled.
     """
 
+    try:
+        preview, _image, _uv = load_textured_mesh(sample["mesh_path"], sample.get("image_path"))
+    except Exception as exc:
+        return f"mesh load failed: {type(exc).__name__}: {exc}"
+    if len(preview.faces) > MAX_PILOT_FACES:
+        return f"{len(preview.faces)} triangles is too many to pack a pilot row"
     try:
         report = represent_sample(sample, encoders)
     except Exception as exc:

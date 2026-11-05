@@ -50,6 +50,17 @@ def test_edge_on_sliver_is_rejected_when_a_broad_face_exists():
     assert reason == "edge-on"
 
 
+def test_narrow_largest_face_is_kept():
+    vertices, faces = _box((0.18, 0.012, 0.012))
+    choice = choose_front_view(vertices, faces)
+    rgb = np.full((518, 518, 3), 232, dtype=np.uint8)
+    depth = np.full((518, 518), np.inf)
+    rgb[250:268, 40:478] = (30, 40, 200)
+    depth[250:268, 40:478] = 1.0
+    assert choice["front_projected"] + 1e-9 >= choice["alternative_projected"]
+    assert front_view_unusable(rgb, depth, choice=choice) is None
+
+
 def test_thin_object_without_a_broad_face_is_kept():
     rgb = np.full((64, 64, 3), 232, dtype=np.uint8)
     depth = np.full((64, 64), np.inf)
@@ -61,6 +72,22 @@ def test_thin_object_without_a_broad_face_is_kept():
         choice={"alternative_aspect": 0.2, "front_aspect": 0.25},
     )
     assert reason is None
+
+
+def test_white_porcelain_texture_is_kept():
+    rgb = np.full((32, 32, 3), (212, 215, 220), dtype=np.uint8)
+    rgb[:, :16] = (200, 203, 208)
+    depth = np.ones((32, 32), dtype=np.float64)
+    image = np.full((32, 32, 3), (230, 233, 239), dtype=np.uint8)
+    assert front_view_unusable(rgb, depth, image=image) is None
+
+
+def test_colorful_texture_rendered_gray_is_rejected():
+    rgb = np.full((32, 32, 3), (160, 160, 160), dtype=np.uint8)
+    depth = np.ones((32, 32), dtype=np.float64)
+    image = np.zeros((32, 32, 3), dtype=np.uint8)
+    image[:, 1::2] = (20, 30, 210)
+    assert front_view_unusable(rgb, depth, image=image) == "gray"
 
 
 def test_flat_gray_is_rejected():

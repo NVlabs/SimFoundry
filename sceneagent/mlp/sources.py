@@ -59,6 +59,8 @@ PROTECTED_IDS = frozenset({
     "B079TXJCR5",
 })
 SKIP_IDS = frozenset({"001_chips_can"})
+# One Gaussian per triangle. A million-face glTF is not a pilot row.
+MAX_PILOT_FACES = 80000
 
 
 @dataclass(frozen=True)
@@ -310,11 +312,11 @@ def _abo_candidates():
             extent = tuple(float(row[key]) for key in ("extent_x", "extent_y", "extent_z"))
         except (KeyError, TypeError, ValueError):
             continue
-        if faces < 100 or images < 1 or textures < 1 or side > 4096:
+        if faces < 100 or faces > MAX_PILOT_FACES or images < 1 or textures < 1 or side > 4096:
             continue
         if not all(math_finite_positive(value) and value < 5 for value in extent):
             continue
-        ranked.append((side, -faces, row["3dmodel_id"], rel))
+        ranked.append((side, faces, row["3dmodel_id"], rel))
     ranked.sort()
     for _side, _faces, model_id, rel in ranked:
         download_url = ABO_ASSET_ROOT + rel
@@ -355,6 +357,10 @@ def _display_name(candidate: Candidate, current: str, mesh_path: Path) -> str:
     label = _glb_label(mesh_path)
     if label and label != candidate.id:
         return label
+    # The stratified queue already stores the listing name. Scanning every
+    # ABO shard again spends tens of seconds and does not change that name.
+    if current and current != candidate.id:
+        return current
     listing = _lookup_abo_name(candidate.id)
     return listing or current
 

@@ -27,6 +27,26 @@ from PIL import Image
 
 from sceneagent.mlp.contract import PriorContractError, geometry_from_ply, write_gaussian_ply
 
+
+def _agent_log(hypothesis_id, location, message, data, run_id="post-fix"):
+    try:
+        import json as _json
+        import time as _time
+
+        line = _json.dumps({
+            "sessionId": "18246b",
+            "runId": run_id,
+            "hypothesisId": hypothesis_id,
+            "location": location,
+            "message": message,
+            "data": data,
+            "timestamp": int(_time.time() * 1000),
+        })
+        with open(r"C:\Users\sande\cursor\SimFoundary\debug-18246b.log", "a", encoding="utf-8") as handle:
+            handle.write(line + "\n")
+    except Exception:
+        return
+
 SH_C0 = 0.28209479177387814
 OPAQUE_OPACITY = 0.99
 # Std along the normal, as a fraction of the smaller in-plane std.
@@ -35,6 +55,8 @@ NORMAL_THICKNESS = 0.2
 VIEW_SIZE = 518
 CLIP_SIZE = 224
 VIEW_NAMES = ("front", "side", "top")
+# A 4096 float64 texture is 384 MB. Two of those, plus the mesh, exhausted this PC.
+TEXTURE_MAX_SIDE = 1024
 _BACKGROUND = np.array([232.0, 236.0, 240.0], dtype=np.float64)
 # Ambient keeps the bound texture readable. The rest is one light.
 _LIGHT_AMBIENT = 0.78
@@ -202,19 +224,24 @@ def choose_front_view(vertices, faces, uv=None, image=None, exclude=()):
     if not ranked:
         raise PriorContractError("no candidate view for the largest textured face")
     ranked.sort(key=lambda item: _direction_rank(item[0], item[1], item[3]))
-    best_score, best_aspect, _projected, front_dir = ranked[0]
+    best_score, best_aspect, best_projected, front_dir = ranked[0]
     if best_score <= 0.0 or not np.isfinite(best_score):
         raise PriorContractError("no textured face can fill a view")
     alternative = 0.0
-    for _score, aspect, _projected, direction in ranked[1:]:
+    alternative_projected = 0.0
+    for _score, aspect, projected, direction in ranked[1:]:
         if abs(float(np.dot(direction, front_dir))) > 0.85:
             continue
         if aspect > alternative:
             alternative = aspect
+        if projected > alternative_projected:
+            alternative_projected = projected
     axes = _axes_from_front(front_dir)
     axes["front_aspect"] = float(best_aspect)
     axes["alternative_aspect"] = float(alternative)
     axes["front_score"] = float(best_score)
+    axes["front_projected"] = float(best_projected)
+    axes["alternative_projected"] = float(alternative_projected)
     return axes
 
 
@@ -332,8 +359,41 @@ def front_view_unusable(
     short_fill = min(height, width) / float(rgb.shape[0])
     alternative = 0.0 if not choice else float(choice.get("alternative_aspect") or 0.0)
     # A pillow edge is a sliver while the broad face is another candidate.
-    # A genuinely thin object is thin from every direction and is kept.
-    if alternative >= 0.55 and (aspect < 0.30 or short_fill < 0.22):
+    # The largest visible face of a thin object is kept even when that face is narrow.
+    skinny = aspect < 0.30 or short_fill < 0.22
+    old_edge = alternative >= 0.55 and skinny
+    largest_face = False
+    if choice and "front_projected" in choice and "alternative_projected" in choice:
+        largest_face = float(choice["front_projected"]) + 1e-9 >= float(choice["alternative_projected"])
+    if old_edge and largest_face:
+        # region agent log
+        _agent_log(
+            "H3",
+            "splat_from_mesh.py:front_view_unusable",
+            "kept narrow largest face",
+            {
+                "aspect": aspect,
+                "short_fill": short_fill,
+                "alternative_aspect": alternative,
+                "front_projected": float(choice["front_projected"]),
+                "alternative_projected": float(choice["alternative_projected"]),
+            },
+        )
+        # endregion
+    elif old_edge:
+        # region agent log
+        _agent_log(
+            "H3",
+            "splat_from_mesh.py:front_view_unusable",
+            "rejected edge-on sliver",
+            {
+                "aspect": aspect,
+                "short_fill": short_fill,
+                "alternative_aspect": alternative,
+                "largest_face": largest_face,
+            },
+        )
+        # endregion
         return "edge-on"
     foreground = rgb[mask].astype(np.float32)
     if _foreground_is_gray(foreground, image):
@@ -468,23 +528,36 @@ def _foreground_is_gray(foreground, image):
     peak = foreground.max(axis=1)
     floor = foreground.min(axis=1)
     saturation = float(np.mean((peak - floor) / np.maximum(peak, 1.0)))
-    if spread < 8.0 and saturation < 0.08:
-        return True
-    if saturation < 0.045 and spread < 16.0:
-        return True
+    flat = (spread < 8.0 and saturation < 0.08) or (saturation < 0.045 and spread < 16.0)
     if image is None:
-        return False
+        return flat
     texture = np.asarray(image, dtype=np.float32)
     if texture.ndim != 3 or texture.shape[2] != 3:
-        return False
+        return flat
+    if float(np.nanmax(texture)) <= 1.5:
+        texture = texture * 255.0
     luma = texture.mean(axis=2)
     active = luma > 10.0
     if int(active.sum()) < 32:
-        return False
+        return flat
     pixels = texture[active]
     tex_peak = pixels.max(axis=1)
     tex_floor = pixels.min(axis=1)
     tex_sat = float(np.mean((tex_peak - tex_floor) / np.maximum(tex_peak, 1.0)))
+    # A white plate is low saturation in both the atlas and the render.
+    # A colorful atlas that renders flat gray is still unbound.
+    if flat and tex_sat < 0.12:
+        # region agent log
+        _agent_log(
+            "H2",
+            "splat_from_mesh.py:_foreground_is_gray",
+            "kept textured white",
+            {"spread": spread, "saturation": saturation, "tex_sat": tex_sat},
+        )
+        # endregion
+        return False
+    if flat:
+        return True
     return tex_sat > 0.22 and saturation < 0.08
 
 
@@ -493,6 +566,7 @@ def _surface_label_gone(vertices, faces, image, uv, camera, rgb):
 
     if image is None or uv is None or len(faces) < 1:
         return False
+    image = _texture_unit(image)
     count = len(faces)
     sample_n = min(count, 240)
     if count > sample_n:
@@ -664,10 +738,43 @@ def _texture_image(mesh, texture_path):
     if image is None:
         raise PriorContractError("mesh has no texture image; color is not filled")
     rgb = image.convert("RGB")
+    orig_w, orig_h = rgb.size
+    # A 4096 texture is 384 MiB as float64. This machine has about 12 GiB,
+    # and that allocation failed while four objects rendered together.
+    # 1024 is still finer than the 518 labeling view.
+    if max(orig_w, orig_h) > TEXTURE_MAX_SIDE:
+        rgb.thumbnail((TEXTURE_MAX_SIDE, TEXTURE_MAX_SIDE), Image.Resampling.BOX)
     array = np.asarray(rgb)
     if array.ndim != 3 or array.shape[2] != 3 or array.shape[0] < 1 or array.shape[1] < 1:
         raise PriorContractError("texture image is not RGB")
+    if array.dtype != np.uint8:
+        array = np.clip(np.rint(array), 0, 255).astype(np.uint8)
+    # region agent log
+    _agent_log(
+        "H1",
+        "splat_from_mesh.py:_texture_image",
+        "texture loaded",
+        {
+            "orig_w": int(orig_w),
+            "orig_h": int(orig_h),
+            "stored_shape": [int(array.shape[0]), int(array.shape[1]), int(array.shape[2])],
+            "dtype": str(array.dtype),
+            "nbytes": int(array.nbytes),
+        },
+    )
+    # endregion
     return array
+
+
+def _texture_unit(image):
+    """RGB texture in 0–1 float32. A floating image is already in that range."""
+
+    array = np.asarray(image)
+    if np.issubdtype(array.dtype, np.floating):
+        if array.dtype == np.float32:
+            return array
+        return array.astype(np.float32)
+    return array.astype(np.float32) * np.float32(1.0 / 255.0)
 
 
 def _sample_texture(image, uv):
@@ -683,6 +790,8 @@ def _sample_texture(image, uv):
         sampled = _sample_texture(image, uv[good])
         colors[good] = sampled
         return colors
+    if not isinstance(image, np.ndarray) or image.dtype != np.float32:
+        image = _texture_unit(image)
     height, width = image.shape[:2]
     x = np.mod(uv[..., 0], 1.0) * (width - 1)
     y = np.mod(1.0 - uv[..., 1], 1.0) * (height - 1)
@@ -694,13 +803,11 @@ def _sample_texture(image, uv):
     y0 = np.clip(y0, 0, height - 1)
     wx = (x - x0)[..., None]
     wy = (y - y0)[..., None]
-    pixels = image.astype(np.float64)
-    c00 = pixels[y0, x0]
-    c10 = pixels[y0, x1]
-    c01 = pixels[y1, x0]
-    c11 = pixels[y1, x1]
-    mixed = c00 * (1.0 - wx) * (1.0 - wy) + c10 * wx * (1.0 - wy) + c01 * (1.0 - wx) * wy + c11 * wx * wy
-    return mixed / 255.0
+    c00 = image[y0, x0]
+    c10 = image[y0, x1]
+    c01 = image[y1, x0]
+    c11 = image[y1, x1]
+    return c00 * (1.0 - wx) * (1.0 - wy) + c10 * wx * (1.0 - wy) + c01 * (1.0 - wx) * wy + c11 * wx * wy
 
 
 def _outer(left, right):
@@ -760,44 +867,55 @@ def _fill_quaternion(quaternions, rest_mask, block, which, axis):
 
 
 def _fit_camera(vertices, center, forward, up, radius):
+    """Place the camera so the mesh fills the frame and stays inside the margin."""
+
+    forward = np.asarray(forward, dtype=np.float64)
     forward = forward / np.linalg.norm(forward)
+    up = np.asarray(up, dtype=np.float64)
     up = up / np.linalg.norm(up)
     fov = math.radians(40.0)
     focal = ((VIEW_SIZE - 1) * 0.5) / math.tan(fov * 0.5)
-    distance = radius / math.tan(fov * 0.42)
-    margin = 6
-    target_span = 0.82 * (VIEW_SIZE - 1)
-    for _ in range(20):
+    margin = 8
+    near = max(float(radius) * 0.02, 1e-4)
+    low = max(float(radius) * 0.05, 1e-3)
+    high = max(float(radius) * 40.0, low * 8.0)
+    best = None
+    best_span = -1.0
+    for _ in range(28):
+        distance = 0.5 * (low + high)
         eye = center + forward * distance
         camera = _camera(eye, center, up, focal)
         px, py, depth = _project(vertices, camera)
-        if not np.isfinite(px).all() or not np.isfinite(py).all() or np.any(depth <= radius * 0.02):
-            distance *= 1.2
+        finite = np.isfinite(px) & np.isfinite(py) & np.isfinite(depth)
+        if not finite.all() or np.any(depth[finite] <= near) or np.any(depth <= near):
+            low = distance
             continue
-        span = max(float(px.max() - px.min()), float(py.max() - py.min()))
-        too_wide = (
-            px.min() < margin
-            or py.min() < margin
-            or px.max() > VIEW_SIZE - 1 - margin
-            or py.max() > VIEW_SIZE - 1 - margin
+        inside = (
+            float(px.min()) >= margin
+            and float(py.min()) >= margin
+            and float(px.max()) <= VIEW_SIZE - 1 - margin
+            and float(py.max()) <= VIEW_SIZE - 1 - margin
         )
-        if too_wide:
-            distance *= 1.08
+        span = max(float(px.max() - px.min()), float(py.max() - py.min()))
+        if not inside:
+            low = distance
             continue
-        if span < target_span:
-            distance *= 0.92
-            continue
-        camera["forward"] = np.asarray(forward, dtype=np.float64)
-        look = -camera["forward"]
-        right = np.cross(look, up)
-        right_norm = float(np.linalg.norm(right))
-        if right_norm < 1e-8:
-            raise PriorContractError("camera up is parallel to the view direction")
-        right = right / right_norm
-        light = camera["forward"] * 0.70 + up * 0.58 + right * 0.30
-        camera["light"] = light / np.linalg.norm(light)
-        return camera
-    raise PriorContractError("camera could not frame the mesh")
+        if span > best_span:
+            best = camera
+            best_span = span
+        high = distance
+    if best is None or best_span < 8.0:
+        raise PriorContractError("camera could not frame the mesh")
+    best["forward"] = forward
+    look = -forward
+    right = np.cross(look, up)
+    right_norm = float(np.linalg.norm(right))
+    if right_norm < 1e-8:
+        raise PriorContractError("camera up is parallel to the view direction")
+    right = right / right_norm
+    light = forward * 0.70 + up * 0.58 + right * 0.30
+    best["light"] = light / np.linalg.norm(light)
+    return best
 
 
 def _camera(eye, target, up, focal):
@@ -829,6 +947,8 @@ def _project(points, camera):
 
 
 def _rasterize(vertices, faces, vertex_rgb, camera, uv=None, image=None, vertex_normals=None):
+    if image is not None:
+        image = _texture_unit(image)
     px, py, depth = _project(vertices, camera)
     height = camera["height"]
     width = camera["width"]

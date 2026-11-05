@@ -47,6 +47,13 @@ class FeatureEncoders:
         self._clip_std = None
         self._torch = None
 
+    def load(self):
+        """Load both networks once. A worker process must not call this."""
+
+        self._load_dino()
+        self._load_clip()
+        return self
+
     def patches(self, rgb):
         """Return ``(dino_grid, clip_grid)`` for one uint8 RGB view."""
 
@@ -143,11 +150,10 @@ class FeatureEncoders:
         return self._clip, self._clip_mean, self._clip_std
 
 
-def represent_sample(sample, encoders):
-    """Render one manifest object and write its ply and prior_input.npy."""
+def render_object(sample):
+    """Rasterize one object and save its views. Does not load feature models."""
 
     root = _triangle_mesh_path(sample["mesh_path"]).resolve()
-    # Object directory is the catalog id folder, above google_16k / meshes.
     object_dir = _object_dir(sample)
     print(f"object {sample['id']}", flush=True)
     mesh, image, uv = load_textured_mesh(sample["mesh_path"], sample.get("image_path"))
@@ -158,8 +164,25 @@ def represent_sample(sample, encoders):
     )
     views = render_views(mesh, image, uv)
     view_paths = save_views(views, object_dir / "views")
+    del mesh, image, uv
+    return {
+        "mesh_path": str(root),
+        "view_paths": {name: str(path) for name, path in view_paths.items()},
+        "gaussians": gaussians,
+        "views": views,
+    }
+
+
+def finish_object(sample, rendered, encoders):
+    """Run the one loaded feature stack and write ply plus prior_input.npy."""
+
+    object_dir = _object_dir(sample)
+    gaussians = rendered["gaussians"]
+    views = rendered["views"]
     print("features", flush=True)
     features = {name: encoders.patches(camera["rgb"]) for name, camera in views.items()}
+    for camera in views.values():
+        camera.pop("rgb", None)
     kept = filter_visible(gaussians, views, features)
     ply_path = object_dir / "splat.ply"
     npy_path = object_dir / "prior_input.npy"
@@ -176,6 +199,7 @@ def represent_sample(sample, encoders):
         ply_path.unlink(missing_ok=True)
         npy_path.unlink(missing_ok=True)
         raise
+    view_paths = rendered["view_paths"]
     report = {
         "id": sample["id"],
         "source": sample["source"],
@@ -190,7 +214,7 @@ def represent_sample(sample, encoders):
         "gaussians_dropped": int(gaussians["triangles_in"] - kept["kept"]),
         "dropped_geometry": int(gaussians["dropped_geometry"]),
         "dropped_unseen_or_feature": int(kept["dropped_unseen"]),
-        "mesh_path": str(root),
+        "mesh_path": str(rendered["mesh_path"]),
         "dino": DINO_NAME,
         "clip": f"{CLIP_NAME} {CLIP_PRETRAINED}",
         "view_size": VIEW_SIZE,
@@ -198,6 +222,12 @@ def represent_sample(sample, encoders):
     }
     (object_dir / "representation.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     return report
+
+
+def represent_sample(sample, encoders):
+    """Render one manifest object and write its ply and prior_input.npy."""
+
+    return finish_object(sample, render_object(sample), encoders)
 
 
 def represent_manifest(manifest_path=MANIFEST):
