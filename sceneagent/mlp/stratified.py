@@ -18,12 +18,13 @@ import gzip
 import hashlib
 import io
 import json
+import multiprocessing
 import os
 import shutil
 import sys
 import time
 from collections import deque
-from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
+from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, ThreadPoolExecutor, wait
 from pathlib import Path
 
 import numpy as np
@@ -85,7 +86,9 @@ PROTECTED_DIRS = tuple(
 # A second copy is what killed the two-worker runs. Workers only render.
 _ENCODER_PEAK_PRIVATE_MB = 2446
 _RENDER_SLOT_FLOOR_MB = 700
+_MAX_RENDER_WORKERS = 8
 _WORKER_RSS_LOGS = 0
+_LABELED_OK = set()
 
 
 def _limit_numeric_threads(load_torch=False):
@@ -109,12 +112,15 @@ def _mem_snapshot():
 
         proc = psutil.Process().memory_info()
         vm = psutil.virtual_memory()
-        return {
+        snap = {
             "pid": os.getpid(),
             "rss_mb": round(proc.rss / 1048576, 1),
-            "private_mb": round(proc.private / 1048576, 1),
             "avail_mb": round(vm.available / 1048576, 1),
         }
+        private = getattr(proc, "private", None)
+        if private is not None:
+            snap["private_mb"] = round(private / 1048576, 1)
+        return snap
     except Exception as exc:
         return {"pid": os.getpid(), "error": type(exc).__name__}
 
@@ -228,31 +234,32 @@ def build_queue(occupied_names):
 _SLOT_HELD_LOGGED = False
 
 
-def _submission_slots(pool_workers):
+def _submission_slots(pool_workers, pending=0):
     """How many renders may run at once given free RAM.
 
-    Two encoder copies are not allowed. A second render starts only while at
-    least 700 MB is free, which is the headroom this machine did not have when
-    the second model load was killed.
+    Encoders stay in the parent. An extra render is refused only when free
+    RAM is already under 700 MB. Several GB free still fills the pool.
     """
 
     global _SLOT_HELD_LOGGED
-    slots = max(1, min(int(pool_workers), 2))
+    cap = max(1, min(int(pool_workers), _MAX_RENDER_WORKERS))
+    pending = max(0, int(pending))
     snap = _mem_snapshot()
     avail = snap.get("avail_mb")
-    if slots > 1 and avail is not None and avail < _RENDER_SLOT_FLOOR_MB:
-        slots = 1
+    if avail is not None and avail < _RENDER_SLOT_FLOOR_MB and pending < cap:
+        slots = max(1, pending)
         if not _SLOT_HELD_LOGGED:
             _SLOT_HELD_LOGGED = True
             # region agent log
             _agent_log(
                 "H6",
                 "stratified.py:_submission_slots",
-                "held second render worker",
-                {"slots": slots, **snap},
+                "held extra render worker",
+                {"slots": slots, "cap": cap, "pending": pending, **snap},
             )
             # endregion
-    return slots
+        return slots
+    return cap
 
 
 _PARENT_FEATURE_LOGS = 0
@@ -306,12 +313,62 @@ def _finish_rendered(result, encoders):
         gc.collect()
 
 
-def run_acquire(jobs, workers):
-    """Pack and label until each source is full or its queue is empty."""
+def extend_unlabeled(jobs, skip_ids):
+    """Append catalog ids that are not already labeled or permanently rejected."""
 
+    skip_ids = {obj_id for obj_id in skip_ids if obj_id}
+    seen = {job["id"] for job in jobs}
+    added = {source: 0 for source in SOURCES}
+    newcomers = []
+    try:
+        print("listing YCB google_16k models", flush=True)
+        ycb_count = 0
+        for candidate in _ycb_candidates():
+            if candidate.id in skip_ids:
+                continue
+            newcomers.append(_job(candidate, guess_material(candidate.name), None, None))
+            ycb_count += 1
+        print(f"ycb unlabeled candidates {ycb_count}", flush=True)
+    except Exception as exc:
+        print(f"catalog list failed ycb: {type(exc).__name__}: {exc}", flush=True)
+    try:
+        print("listing GSO scans", flush=True)
+        newcomers.extend(_gso_jobs(skip_ids, [], per_material=None, max_pages=None))
+    except Exception as exc:
+        print(f"catalog list failed gso: {type(exc).__name__}: {exc}", flush=True)
+    try:
+        print("listing ABO models", flush=True)
+        newcomers.extend(_abo_jobs(skip_ids, [], per_material=None))
+    except Exception as exc:
+        print(f"catalog list failed abo: {type(exc).__name__}: {exc}", flush=True)
+    for job in newcomers:
+        if job["id"] in seen or job["id"] in skip_ids or job.get("source") not in added:
+            continue
+        jobs.append(job)
+        seen.add(job["id"])
+        added[job["source"]] += 1
+    print(
+        "added unlabeled " + " ".join(f"{source}={added[source]}" for source in SOURCES),
+        flush=True,
+    )
+    _print_queue(jobs)
+    return jobs
+
+
+def run_acquire(jobs, workers):
+    """Pack and label unlabeled catalog objects. Already-ok ids are skipped."""
+
+    from sceneagent.mlp.label_three import GEMINI_MAX_RPD, GEMINI_MAX_RPM, GEMINI_MAX_TPM
+
+    global _LABELED_OK
     signature = _view_signature()
     blocked = _blocked_ids()
-    rejected, memory_retries = _drop_retryable(_load_rejected())
+    labels = _load_labels()
+    _LABELED_OK = {
+        obj_id for obj_id, record in labels.items() if record.get("status") == "ok" and obj_id
+    }
+    packed = {row["id"]: row for row in _scan_packed() if row["id"] not in blocked}
+    rejected, memory_retries = _drop_retryable(_load_rejected(), _LABELED_OK)
     if memory_retries:
         print(f"retry memory and thin-object failures {len(memory_retries)}", flush=True)
         # region agent log
@@ -322,32 +379,68 @@ def run_acquire(jobs, workers):
             {"count": len(memory_retries), "ids": [item.get("id") for item in memory_retries]},
         )
         # endregion
-    packed = {row["id"]: row for row in _scan_packed() if row["id"] not in blocked}
-    labels = _load_labels()
     kept_ids = set()
-    for row in list(packed.values()):
+    for row in packed.values():
         record = labels.get(row["id"])
-        if record is None:
-            record = _label_with_retries(row)
-            if record.get("status") == "ok":
-                labels[row["id"]] = record
-                _write_labels(labels)
-            else:
-                rejected.append(_failure(row, record.get("error") or "label rejected"))
-                continue
-        if record.get("status") != "ok":
+        if record is None or record.get("status") != "ok":
             continue
         kept_ids.add(row["id"])
-    plan = _Plan(jobs, blocked, rejected, skip_ids=kept_ids)
+    disk_ids = []
+    file_counts = {source: 0 for source in SOURCES}
+    for line in LABELS_PATH.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        record = json.loads(line)
+        if record.get("status") != "ok" or not record.get("id"):
+            continue
+        disk_ids.append(record["id"])
+        source = record.get("source")
+        if source in file_counts:
+            file_counts[source] += 1
+    disk_ok = set(disk_ids)
+    skip_for_plan = set(kept_ids) | set(_LABELED_OK)
+    missing = sorted(obj_id for obj_id in disk_ok if obj_id not in skip_for_plan)
+    print(
+        "resume " + " ".join(f"{source}={file_counts[source]}" for source in SOURCES),
+        flush=True,
+    )
+    print(f"skip proven {len(disk_ok)} ok ids", flush=True)
+    floor = {"ycb": 70, "gso": 80, "abo": 344}
+    if (
+        missing
+        or len(disk_ids) != len(disk_ok)
+        or any(file_counts[source] < floor[source] for source in SOURCES)
+    ):
+        raise SystemExit(
+            "refusing to label: skip set does not cover every ok id "
+            f"(missing {len(missing)}, resume "
+            + " ".join(f"{source}={file_counts[source]}" for source in SOURCES)
+            + ")"
+        )
+    print(
+        f"gemini limits GEMINI_MAX_RPM={GEMINI_MAX_RPM} "
+        f"GEMINI_MAX_TPM={GEMINI_MAX_TPM} GEMINI_MAX_RPD={GEMINI_MAX_RPD}",
+        flush=True,
+    )
+    permanent = {item.get("id") for item in rejected if item.get("id")}
+    jobs = extend_unlabeled(list(jobs), _LABELED_OK | permanent | set(blocked))
+    QUEUE_PATH.write_text(json.dumps(jobs) + "\n", encoding="utf-8")
+    for row in list(packed.values()):
+        if row["id"] in kept_ids:
+            continue
+        record = _label_with_retries(row)
+        if record.get("status") == "ok":
+            labels[row["id"]] = record
+            kept_ids.add(row["id"])
+            _LABELED_OK.add(row["id"])
+            _write_labels(labels)
+        else:
+            rejected.append(_failure(row, record.get("error") or "label rejected"))
+    plan = _Plan(jobs, blocked, rejected, skip_ids=kept_ids | _LABELED_OK)
     for row in packed.values():
         if row["id"] in kept_ids:
             plan.note_kept(row)
     _write_state(packed, labels, rejected, kept_ids)
-    print(
-        "resume "
-        + " ".join(f"{source}={plan.source_kept[source]}" for source in SOURCES),
-        flush=True,
-    )
     if plan.finished():
         _write_state(packed, labels, rejected, kept_ids)
         _check_views(signature)
@@ -369,9 +462,13 @@ def run_acquire(jobs, workers):
         },
     )
     # endregion
-    pool_workers = min(max(1, int(workers)), 2)
+    pool_workers = min(max(1, int(workers)), _MAX_RENDER_WORKERS)
+    dino_device = next(encoders._dino.parameters()).device
+    clip_device = next(encoders._clip.parameters()).device
+    if dino_device.type != "cuda" or clip_device.type != "cuda":
+        raise SystemExit("refusing to label: encoders are not on CUDA")
     print(
-        f"encoder once, render workers {pool_workers} "
+        f"encoder once on cuda, render workers {pool_workers} "
         f"(requested {int(workers)}, free {after.get('avail_mb')} MB)",
         flush=True,
     )
@@ -384,54 +481,94 @@ def run_acquire(jobs, workers):
     )
     # endregion
     pending = {}
-    with ProcessPoolExecutor(max_workers=pool_workers, initializer=_init_worker) as pool:
-        while True:
-            slots = _submission_slots(pool_workers)
-            while len(pending) < slots:
-                job = plan.next_job()
-                if job is None:
-                    break
-                pending[pool.submit(acquire_candidate, job)] = job
-            if not pending:
-                break
-            done, _pending_left = wait(pending, return_when=FIRST_COMPLETED, timeout=120)
-            if not done:
+    label_pending = {}
+    label_threads = min(GEMINI_MAX_RPM, 64)
+
+    def harvest_labels(block):
+        if not label_pending:
+            return
+        if block:
+            done_labels, _rest = wait(label_pending, return_when=FIRST_COMPLETED)
+        else:
+            done_labels = {future for future in list(label_pending) if future.done()}
+        for future in done_labels:
+            row = label_pending.pop(future)
+            try:
+                record = future.result()
+            except SystemExit:
+                raise
+            except Exception as exc:
+                record = {
+                    "status": "rejected",
+                    "id": row["id"],
+                    "error": f"{type(exc).__name__}: {exc}",
+                }
+            if record.get("status") != "ok":
+                rejected.append(_failure(row, record.get("error") or "label rejected"))
+                print(f"unlabeled {row['id']}: {record.get('error')}", flush=True)
+            else:
+                if row["id"] in kept_ids:
+                    raise SystemExit(f"refusing to relabel {row['id']}")
+                labels[row["id"]] = record
+                kept_ids.add(row["id"])
+                _LABELED_OK.add(row["id"])
+                plan.note_kept(row)
                 print(
-                    "still rendering "
-                    + " ".join(item["id"] for item in list(pending.values())[:6]),
+                    f"kept {row['source']} {row['id']} {record['material']} "
+                    + " ".join(f"{source}={plan.source_kept[source]}" for source in SOURCES),
                     flush=True,
                 )
-                continue
-            for future in done:
-                job = pending.pop(future)
-                try:
-                    result = future.result()
-                except Exception as exc:
-                    result = _failure(job, f"{type(exc).__name__}: {exc}")
-                plan.finish_job(job)
-                if result.get("ok") and "rendered" in result:
-                    result = _finish_rendered(result, encoders)
-                if not result.get("ok"):
-                    rejected.append(result)
-                    print(f"replace {job['source']} {job['id']}: {result.get('reason')}", flush=True)
-                    _write_state(packed, labels, rejected, kept_ids)
+            _write_state(packed, labels, rejected, kept_ids)
+
+    with ProcessPoolExecutor(
+        max_workers=pool_workers,
+        mp_context=multiprocessing.get_context("spawn"),
+        initializer=_init_worker,
+    ) as pool:
+        with ThreadPoolExecutor(max_workers=label_threads, thread_name_prefix="gemini") as label_pool:
+            while True:
+                while len(pending) < _submission_slots(pool_workers, len(pending)):
+                    job = plan.next_job()
+                    if job is None:
+                        break
+                    if job["id"] in kept_ids or job["id"] in _LABELED_OK:
+                        raise SystemExit(f"refusing to relabel {job['id']}")
+                    pending[pool.submit(acquire_candidate, job)] = job
+                if not pending and not label_pending:
+                    break
+                done = set()
+                if pending:
+                    timeout = 5 if label_pending else 120
+                    done, _pending_left = wait(pending, return_when=FIRST_COMPLETED, timeout=timeout)
+                if not done and pending:
+                    harvest_labels(False)
+                    if not label_pending:
+                        print(
+                            "still rendering "
+                            + " ".join(item["id"] for item in list(pending.values())[:6]),
+                            flush=True,
+                        )
                     continue
-                row = result["row"]
-                packed[row["id"]] = row
-                record = _label_with_retries(row)
-                if record.get("status") != "ok":
-                    rejected.append(_failure(row, record.get("error") or "label rejected"))
-                    print(f"unlabeled {row['id']}: {record.get('error')}", flush=True)
-                else:
-                    labels[row["id"]] = record
-                    kept_ids.add(row["id"])
-                    plan.note_kept(row)
-                    print(
-                        f"kept {row['source']} {row['id']} {record['material']} "
-                        + " ".join(f"{source}={plan.source_kept[source]}" for source in SOURCES),
-                        flush=True,
-                    )
-                _write_state(packed, labels, rejected, kept_ids)
+                for future in done:
+                    job = pending.pop(future)
+                    try:
+                        result = future.result()
+                    except Exception as exc:
+                        result = _failure(job, f"{type(exc).__name__}: {exc}")
+                    plan.finish_job(job)
+                    if result.get("ok") and "rendered" in result:
+                        result = _finish_rendered(result, encoders)
+                    if not result.get("ok"):
+                        rejected.append(result)
+                        print(f"replace {job['source']} {job['id']}: {result.get('reason')}", flush=True)
+                        _write_state(packed, labels, rejected, kept_ids)
+                        continue
+                    row = result["row"]
+                    packed[row["id"]] = row
+                    if row["id"] in kept_ids or row["id"] in _LABELED_OK:
+                        raise SystemExit(f"refusing to relabel {row['id']}")
+                    label_pending[label_pool.submit(_label_with_retries, row)] = row
+                harvest_labels(block=not pending)
     _write_state(packed, labels, rejected, kept_ids)
     _check_views(signature)
     return labels
@@ -439,7 +576,7 @@ def run_acquire(jobs, workers):
 
 def main():
     stage = sys.argv[1] if len(sys.argv) > 1 else "all"
-    workers = int(sys.argv[2]) if len(sys.argv) > 2 else 2
+    workers = int(sys.argv[2]) if len(sys.argv) > 2 else 4
     if stage not in {"catalog", "acquire", "all"}:
         raise SystemExit(f"unknown stage {stage}")
     ROOT.mkdir(parents=True, exist_ok=True)
@@ -514,17 +651,20 @@ class _Plan:
     def next_job(self):
         ranked = []
         for source in SOURCES:
-            if self.source_kept[source] + self.inflight[source] >= SOURCE_TARGET:
+            remaining = self._remaining(source)
+            if remaining <= 0:
                 continue
             deficit = SOURCE_TARGET - self.source_kept[source] - self.inflight[source]
-            ranked.append((-deficit, source))
+            ranked.append((0 if deficit > 0 else 1, -max(deficit, 0), -remaining, source))
         ranked.sort()
-        for _deficit, source in ranked:
+        for _rank, _deficit, _remaining, source in ranked:
             job = self._pop(source)
             if job is not None:
                 self.inflight[source] += 1
                 if source in self.inflight_material:
                     material = job.get("material") or "unknown"
+                    if material not in self.inflight_material[source]:
+                        material = "unknown"
                     self.inflight_material[source][material] += 1
                 return job
         return None
@@ -543,16 +683,12 @@ class _Plan:
     def finished(self):
         if any(self.inflight.values()):
             return False
-        if self.ycb and self.source_kept["ycb"] < SOURCE_TARGET:
-            return False
-        for source in ("gso", "abo"):
-            if self.source_kept[source] >= SOURCE_TARGET:
-                continue
-            for material, queue in self.buckets[source].items():
-                count = self.material_kept[source][material]
-                if queue and count < MATERIAL_CAP:
-                    return False
-        return True
+        return all(self._remaining(source) == 0 for source in SOURCES)
+
+    def _remaining(self, source):
+        if source == "ycb":
+            return len(self.ycb)
+        return sum(len(queue) for queue in self.buckets[source].values())
 
     def _pop(self, source):
         if source == "ycb":
@@ -562,9 +698,12 @@ class _Plan:
             if not queue:
                 continue
             count = self.material_kept[source][material] + self.inflight_material[source][material]
-            if count >= MATERIAL_CAP:
-                continue
-            rank = 0 if count < PER_MATERIAL else 1
+            if count < PER_MATERIAL:
+                rank = 0
+            elif count < MATERIAL_CAP:
+                rank = 1
+            else:
+                rank = 2
             ranked.append((rank, count, material))
         if not ranked:
             return None
@@ -572,11 +711,12 @@ class _Plan:
         return self.buckets[source][ranked[0][2]].popleft()
 
 
-def _gso_jobs(blocked, occupied_names):
+def _gso_jobs(blocked, occupied_names, per_material=QUEUE_PER_MATERIAL, max_pages=80):
     grouped = {material: [] for material in MATERIAL_CLASSES}
     seen = set()
     consecutive_failures = 0
-    for page in range(1, 81):
+    page_limit = 400 if max_pages is None else max_pages
+    for page in range(1, page_limit + 1):
         url = f"{GSO_COLLECTION}?page={page}&per_page=20"
         try:
             models = json.loads(_read_bytes(url))
@@ -612,15 +752,18 @@ def _gso_jobs(blocked, occupied_names):
                 "kind": "archive",
             })
         print(f"gso page {page} models {added}", flush=True)
-        if added == 0:
+        if added == 0 and per_material is not None:
             break
     jobs = []
     for material, items in grouped.items():
-        jobs.extend(_queue_material("gso", items, occupied_names))
+        if per_material is None:
+            jobs.extend(_job_from_item("gso", item) for item in items)
+        else:
+            jobs.extend(_queue_material("gso", items, occupied_names))
     return jobs
 
 
-def _abo_jobs(blocked, occupied_names):
+def _abo_jobs(blocked, occupied_names, per_material=QUEUE_PER_MATERIAL):
     raw = _read_bytes(ABO_MODELS_CSV)
     if raw[:2] == b"\x1f\x8b":
         text = gzip.decompress(raw).decode("utf-8")
@@ -671,6 +814,16 @@ def _abo_jobs(blocked, occupied_names):
             "kind": "mesh",
         })
     print(f"abo named {named} of {len(wanted)}", flush=True)
+    if per_material is None:
+        if wanted and named / len(wanted) < 0.5:
+            print(
+                f"abo names covered {named} of {len(wanted)}; keeping mesh ids",
+                flush=True,
+            )
+        jobs = []
+        for items in grouped.values():
+            jobs.extend(_job_from_item("abo", item) for item in items)
+        return jobs
     if wanted and named / len(wanted) < 0.5:
         raise SystemExit("ABO product names were missing for more than half of the models")
     jobs = []
@@ -797,7 +950,10 @@ def _label_with_retries(row):
     key = load_api_key()
     existing = _existing_label(row)
     if existing is not None:
+        _LABELED_OK.add(row["id"])
         return existing
+    if row["id"] in _LABELED_OK:
+        raise SystemExit(f"refusing to relabel {row['id']}")
     obj = {
         "id": row["id"],
         "source": row["source"],
@@ -823,6 +979,7 @@ def _label_with_retries(row):
     if record.get("error"):
         record["error"] = redact(record["error"], key)
     if record.get("status") == "ok":
+        _LABELED_OK.add(row["id"])
         (Path(row["directory"]) / "label.json").write_text(
             json.dumps(record, indent=2) + "\n",
             encoding="utf-8",
@@ -944,14 +1101,22 @@ def _load_labels():
     return found
 
 
-def _drop_retryable(rejected):
-    """Return memory and edge-on failures to the queue. Gray stays rejected."""
+def _drop_retryable(rejected, ok_ids=()):
+    """Return memory, edge-on, and gray failures unless that id is already labeled."""
 
+    ok_ids = set(ok_ids)
     kept = []
     retry = []
     for item in rejected:
+        if item.get("id") in ok_ids:
+            kept.append(item)
+            continue
         reason = str(item.get("reason") or "")
-        if reason.startswith("MemoryError") or "front view is edge-on" in reason:
+        if (
+            reason.startswith("MemoryError")
+            or "front view is edge-on" in reason
+            or "front view is gray" in reason
+        ):
             retry.append(item)
         else:
             kept.append(item)

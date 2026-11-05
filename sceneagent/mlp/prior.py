@@ -151,9 +151,36 @@ class PhysicsPrior:
         return outputs
 
     def in_mask_mean(self, features, mask):
-        """Forward every row, then average the in-mask 33-d outputs."""
+        """Forward every row, then average the in-mask 33-d outputs.
 
-        return mean_in_mask(self.forward(features), mask)
+        Chunks keep a large mesh from becoming one allocation. The result is
+        the same mean ``mean_in_mask`` returns for the full forward.
+        """
+
+        mask = np.asarray(mask, dtype=bool)
+        if getattr(features, "ndim", None) != 2 or int(features.shape[1]) != PRIOR_DIM:
+            raise PriorContractError(
+                f"forward expects (N, {PRIOR_DIM}), got {getattr(features, 'shape', None)}"
+            )
+        if mask.shape != (features.shape[0],):
+            raise PriorContractError("mask length must match the Gaussian count")
+        if not mask.any():
+            raise PriorContractError("in-mask mean needs at least one Gaussian")
+        total = np.zeros(OUTPUT_DIM, dtype=np.float64)
+        count = 0
+        for start in range(0, int(features.shape[0]), 4096):
+            chosen = mask[start:start + 4096]
+            if not np.any(chosen):
+                continue
+            outputs = self.forward(np.asarray(features[start:start + 4096], dtype=np.float64))
+            selected = outputs[chosen]
+            if not np.isfinite(selected).all():
+                raise PriorContractError("in-mask outputs are not finite; missing values are not filled")
+            total += selected.sum(axis=0)
+            count += int(np.count_nonzero(chosen))
+        if count < 1:
+            raise PriorContractError("in-mask mean needs at least one Gaussian")
+        return total / count
 
     def save(self, path):
         save_checkpoint(

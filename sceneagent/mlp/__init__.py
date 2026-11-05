@@ -1,5 +1,4 @@
-"""Physics-prior MLP helpers.
+"""Physics-prior MLP data helpers.
 
-Mesh checks live in ``check``. The frozen ``(N, 912)`` packer, the width-32
-MLP, and the label schema live in ``contract``, ``prior``, and ``labels``.
+Gate 1 only checks downloaded meshes. Labeling and training are later gates.
 """

@@ -51,23 +51,31 @@ KNOWN_IDS = (
 VLM_WEIGHT = 1.0
 
 
+_CHUNK = 4096
+
+
 def loss_and_gradients(prior, features, label):
     """Loss of the in-mask mean, and gradients of the six weight arrays.
 
     Slots 28–32 have zero gradient. The numeric heads match
     ``masked_prior_loss``: squared error on the log slots, and squared error
     between the sigmoid outputs and the rigidity and deformability targets.
+    Rows are applied in chunks so a 40k-Gaussian mesh is not one allocation.
+    The chunked mean and the summed gradient match the full-array formulas.
     """
 
-    features = np.asarray(features, dtype=np.float64)
-    if features.ndim != 2 or features.shape[1] != 912 or features.shape[0] < 1:
-        raise ValueError(f"training row must be (N, 912), got {features.shape}")
-    if not np.isfinite(features).all():
-        raise ValueError("training features are not finite")
-    hidden_1 = np.tanh(features @ prior.w1 + prior.b1)
-    hidden_2 = np.tanh(hidden_1 @ prior.w2 + prior.b2)
-    outputs = hidden_2 @ prior.w_out + prior.b_out
-    mean = outputs.mean(axis=0)
+    if getattr(features, "ndim", None) != 2 or features.shape[1] != 912 or features.shape[0] < 1:
+        raise ValueError(f"training row must be (N, 912), got {getattr(features, 'shape', None)}")
+    count = int(features.shape[0])
+    total = np.zeros(OUTPUT_DIM, dtype=np.float64)
+    for start in range(0, count, _CHUNK):
+        chunk = np.asarray(features[start:start + _CHUNK], dtype=np.float64)
+        if chunk.ndim != 2 or chunk.shape[1] != 912 or not np.isfinite(chunk).all():
+            raise ValueError("training features are not finite")
+        hidden_1 = np.tanh(chunk @ prior.w1 + prior.b1)
+        hidden_2 = np.tanh(hidden_1 @ prior.w2 + prior.b2)
+        total += (hidden_2 @ prior.w_out + prior.b_out).sum(axis=0)
+    mean = total / count
     loss = masked_prior_loss(
         mean,
         material=label["material"],
@@ -79,17 +87,28 @@ def loss_and_gradients(prior, features, label):
         deformability=label["deformability"],
     )
     grad_mean = _mean_gradient(mean, label)
-    per_row = np.broadcast_to(grad_mean / outputs.shape[0], outputs.shape).copy()
-    grad_w_out = hidden_2.T @ per_row
-    grad_b_out = per_row.sum(axis=0)
-    grad_hidden_2 = per_row @ prior.w_out.T
-    grad_z2 = grad_hidden_2 * (1.0 - hidden_2 * hidden_2)
-    grad_w2 = hidden_1.T @ grad_z2
-    grad_b2 = grad_z2.sum(axis=0)
-    grad_hidden_1 = grad_z2 @ prior.w2.T
-    grad_z1 = grad_hidden_1 * (1.0 - hidden_1 * hidden_1)
-    grad_w1 = features.T @ grad_z1
-    grad_b1 = grad_z1.sum(axis=0)
+    per_row_grad = grad_mean / count
+    grad_w1 = np.zeros_like(prior.w1)
+    grad_b1 = np.zeros_like(prior.b1)
+    grad_w2 = np.zeros_like(prior.w2)
+    grad_b2 = np.zeros_like(prior.b2)
+    grad_w_out = np.zeros_like(prior.w_out)
+    grad_b_out = np.zeros_like(prior.b_out)
+    for start in range(0, count, _CHUNK):
+        chunk = np.asarray(features[start:start + _CHUNK], dtype=np.float64)
+        hidden_1 = np.tanh(chunk @ prior.w1 + prior.b1)
+        hidden_2 = np.tanh(hidden_1 @ prior.w2 + prior.b2)
+        per_row = np.broadcast_to(per_row_grad, (chunk.shape[0], OUTPUT_DIM)).copy()
+        grad_w_out += hidden_2.T @ per_row
+        grad_b_out += per_row.sum(axis=0)
+        grad_hidden_2 = per_row @ prior.w_out.T
+        grad_z2 = grad_hidden_2 * (1.0 - hidden_2 * hidden_2)
+        grad_w2 += hidden_1.T @ grad_z2
+        grad_b2 += grad_z2.sum(axis=0)
+        grad_hidden_1 = grad_z2 @ prior.w2.T
+        grad_z1 = grad_hidden_1 * (1.0 - hidden_1 * hidden_1)
+        grad_w1 += chunk.T @ grad_z1
+        grad_b1 += grad_z1.sum(axis=0)
     if not np.isfinite(grad_w_out[:, 28:]).all() or np.any(grad_w_out[:, 28:]) or np.any(grad_b_out[28:]):
         raise ValueError("slots 28-32 received a gradient")
     grads = {
@@ -279,6 +298,7 @@ def _fit(prior, rows, epochs, lr, seed):
             adam.step([grads[name] for name in ("w1", "b1", "w2", "b2", "w_out", "b_out")])
         mean_loss = total / len(rows)
         history.append(mean_loss)
+        prior.save(CHECKPOINT)
         print(f"epoch {epoch + 1} train_loss {mean_loss:.4f}", flush=True)
         if epoch + 1 >= 12 and min(history[-4:]) > min(history[:-4]) * 0.995:
             break
@@ -321,7 +341,7 @@ def _predict_row(prior, row):
 
 
 def _features(row):
-    array = np.load(row["prior_input"])
+    array = np.load(row["prior_input"], mmap_mode="r")
     if array.ndim != 2 or array.shape[1] != 912:
         raise ValueError(f"{row['id']} prior_input shape is {array.shape}")
     return array

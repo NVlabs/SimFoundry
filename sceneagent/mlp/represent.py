@@ -80,7 +80,7 @@ class FeatureEncoders:
     def _dino_patches(self, rgb):
         model, mean, std = self._load_dino()
         torch = self._torch
-        batch = _normalize(torch, rgb, mean, std)
+        batch = _batch_on_model(torch, model, _normalize(torch, rgb, mean, std))
         with torch.inference_mode():
             tokens = model.forward_features(batch)
         array = tokens.detach().float().cpu().numpy()
@@ -96,7 +96,7 @@ class FeatureEncoders:
         torch = self._torch
         if rgb.shape != (CLIP_SIZE, CLIP_SIZE, 3):
             raise PriorContractError(f"OpenCLIP view must be {CLIP_SIZE} square, got {rgb.shape}")
-        batch = _normalize(torch, rgb, mean, std)
+        batch = _batch_on_model(torch, model, _normalize(torch, rgb, mean, std))
         with torch.inference_mode():
             patches = _openclip_patch_tokens(model, batch)
         array = patches.detach().float().cpu().numpy()
@@ -113,7 +113,7 @@ class FeatureEncoders:
         torch, timm = _import_feature_stack()
         self._torch = torch
         model = timm.create_model(DINO_NAME, pretrained=True, num_classes=0)
-        model.eval()
+        model = _cuda_model(torch, model)
         config = timm.data.resolve_model_data_config(model)
         embed = int(getattr(model, "embed_dim", 0) or getattr(model, "num_features", 0))
         patch = int(getattr(getattr(model, "patch_embed", None), "patch_size", (0,))[0])
@@ -138,9 +138,8 @@ class FeatureEncoders:
             pretrained=CLIP_PRETRAINED,
             force_quick_gelu=True,
         )
-        model = created[0]
+        model = _cuda_model(torch, created[0])
         preprocess = created[-1]
-        model.eval()
         if int(getattr(model.visual, "output_dim", 512)) != 512:
             raise PriorContractError("OpenCLIP visual output is not 512")
         mean, std = _preprocess_norm(preprocess)
@@ -256,6 +255,22 @@ def _object_dir(sample):
     if sample["source"] == "abo":
         return mesh.parent
     raise PriorContractError(f"unknown source {sample['source']}")
+
+
+def _cuda_model(torch, model):
+    """Parent-only. Render workers never call FeatureEncoders.load."""
+
+    if torch.cuda.is_available():
+        model = model.to("cuda")
+    model.eval()
+    return model
+
+
+def _batch_on_model(torch, model, batch):
+    device = next(model.parameters()).device
+    if batch.device != device:
+        batch = batch.to(device)
+    return batch
 
 
 def _import_feature_stack():

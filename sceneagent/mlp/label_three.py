@@ -16,8 +16,13 @@ from __future__ import annotations
 
 import base64
 import json
+import os
+import threading
+import time
 import urllib.error
 import urllib.request
+from collections import deque
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import numpy as np
@@ -27,6 +32,10 @@ from sceneagent.mlp.labels import REQUIRED_LABEL_KEYS, _BESIDE_KEYS, parse_label
 from sceneagent.taxonomy import BODY_TYPES, COLLISION_PRIMITIVES, MATERIAL_CLASSES
 
 MODEL_ID = "gemini-3.8-flash"
+# Gemini 3.8 Flash Tier 1 is 1000 RPM, 2M TPM, 10000 RPD. These sit under that.
+GEMINI_MAX_RPM = 500
+GEMINI_MAX_TPM = 1500000
+GEMINI_MAX_RPD = 8000
 TEMPERATURE = 0
 THINKING_LEVEL = "low"
 THINKING_NOTE = (
@@ -75,6 +84,9 @@ Measured extent in meters (x, y, z): {extent}
 def load_api_key(path=KEY_PATH):
     """Read GEMINI_API_KEY. The value is not returned in error text."""
 
+    env_key = os.environ.get("GEMINI_API_KEY", "").strip().strip('"').strip("'")
+    if env_key:
+        return env_key
     if not path.is_file():
         raise RuntimeError("GEMINI_API_KEY file is missing")
     found = None
@@ -268,7 +280,156 @@ def _label_object(api_key, obj):
     return base
 
 
+class GeminiBudget:
+    """Rolling RPM and TPM, plus a calendar-day request cap.
+
+    ``acquire`` may run on many threads at once. It records a request and
+    returns when the call is inside all three limits. It does not hold the
+    lock during the HTTP call, so several requests stay in flight together.
+    """
+
+    def __init__(self, path, clock=None, sleeper=None):
+        self.path = Path(path)
+        self._clock = clock or time.monotonic
+        self._sleep = sleeper or time.sleep
+        self._lock = threading.Lock()
+        self._calls = deque()
+        self._tokens = deque()
+        self._day = None
+        self._day_count = 0
+        self._load()
+
+    def acquire(self, tokens):
+        tokens = max(1, int(tokens))
+        while True:
+            ticket, delay = self._attempt(tokens)
+            if ticket is not None:
+                return ticket
+            self._sleep(max(0.05, min(float(delay), 30.0)))
+
+    def note_actual(self, ticket, tokens):
+        if ticket is None:
+            return
+        with self._lock:
+            ticket["tokens"] = max(1, int(tokens))
+
+    def _attempt(self, tokens):
+        now = self._clock()
+        with self._lock:
+            self._trim(now)
+            self._ensure_day()
+            if self._day_count >= GEMINI_MAX_RPD:
+                return None, self._seconds_until_midnight()
+            if len(self._calls) >= GEMINI_MAX_RPM:
+                return None, max(0.05, 60.0 - (now - self._calls[0]))
+            used = sum(item["tokens"] for item in self._tokens)
+            if self._tokens and used + tokens > GEMINI_MAX_TPM:
+                return None, max(0.05, 60.0 - (now - self._tokens[0]["t"]))
+            ticket = {"t": now, "tokens": tokens}
+            self._calls.append(now)
+            self._tokens.append(ticket)
+            self._day_count += 1
+            self._save()
+            return ticket, 0.0
+
+    def _trim(self, now):
+        while self._calls and now - self._calls[0] >= 60.0:
+            self._calls.popleft()
+        while self._tokens and now - self._tokens[0]["t"] >= 60.0:
+            self._tokens.popleft()
+
+    def _ensure_day(self):
+        today = datetime.now().date().isoformat()
+        if self._day != today:
+            self._day = today
+            self._day_count = 0
+            self._save()
+
+    def _seconds_until_midnight(self):
+        now = datetime.now()
+        tomorrow = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        return max(1.0, (tomorrow - now).total_seconds())
+
+    def _load(self):
+        self._day = datetime.now().date().isoformat()
+        self._day_count = 0
+        if not self.path.is_file():
+            return
+        try:
+            payload = json.loads(self.path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return
+        if payload.get("day") == self._day:
+            try:
+                self._day_count = max(0, int(payload.get("requests") or 0))
+            except (TypeError, ValueError):
+                self._day_count = 0
+
+    def _save(self):
+        try:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            payload = {"day": self._day, "requests": self._day_count}
+            temporary = self.path.with_suffix(".json.tmp")
+            temporary.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+            temporary.replace(self.path)
+        except OSError:
+            return
+
+
+_BUDGET_PATH = PROJECT_ROOT / "data" / "mlp" / "gemini_budget.json"
+_BUDGET = None
+_BUDGET_LOCK = threading.Lock()
+
+
+def gemini_budget():
+    global _BUDGET
+    with _BUDGET_LOCK:
+        if _BUDGET is None:
+            _BUDGET = GeminiBudget(_BUDGET_PATH)
+        return _BUDGET
+
+
+def _estimate_tokens(prompt, views):
+    text = max(1, (len(prompt) + 3) // 4)
+    images = 0
+    for path in views:
+        width, height = _png_size(path)
+        images += _image_tokens(width, height)
+    return text + images + 256
+
+
+def _png_size(path):
+    header = Path(path).read_bytes()[:24]
+    if len(header) < 24 or header[:8] != PNG_SIGNATURE:
+        return 1024, 1024
+    width = int.from_bytes(header[16:20], "big")
+    height = int.from_bytes(header[20:24], "big")
+    if width < 1 or height < 1:
+        return 1024, 1024
+    return width, height
+
+
+def _image_tokens(width, height):
+    if width <= 384 and height <= 384:
+        return 258
+    return 258 * ((width + 767) // 768) * ((height + 767) // 768)
+
+
+def _usage_tokens(raw):
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+    usage = payload.get("usageMetadata") or {}
+    total = usage.get("totalTokenCount")
+    try:
+        return int(total) if total is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
 def _generate(api_key, obj, prompt):
+    ticket = gemini_budget().acquire(_estimate_tokens(prompt, obj["views"]))
     captions = {
         "front": "front view, the largest face",
         "side": "side view, a quarter turn from the front",
@@ -300,6 +461,9 @@ def _generate(api_key, obj, prompt):
     except urllib.error.HTTPError as exc:
         raw = exc.read().decode("utf-8", errors="replace")
         status = exc.code
+    actual = _usage_tokens(raw)
+    if actual is not None:
+        gemini_budget().note_actual(ticket, actual)
     raw = redact(raw, api_key)
     text = _answer_text(raw) if status == 200 else ""
     error_body = "" if status == 200 else _clip(raw)

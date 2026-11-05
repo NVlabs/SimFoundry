@@ -63,8 +63,7 @@ def test_rgba_image_passes(tmp_path):
     image = tmp_path / "texture.png"
     _triangle(mesh)
     _png(image, "RGBA")
-    sample = _row(mesh, image)
-    result = check_sample(sample, _manifest(sample))
+    result = check_sample(_row(mesh, image), {"id": "obj1", "source": "gso"})
     assert result.status == "pass"
 
 

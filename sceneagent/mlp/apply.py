@@ -26,7 +26,6 @@ from sceneagent.mlp.prior import (
     SLOT_MATERIAL,
     SLOT_RIGIDITY,
     PhysicsPrior,
-    mean_in_mask,
 )
 from sceneagent.physics import build_physics_record, proposals_for_prior, store_log_mass_density, vote_material
 from sceneagent.taxonomy import BODY_TYPES, COLLISION_PRIMITIVES, MATERIAL_CLASSES
@@ -86,7 +85,7 @@ def vote_loaded_prior(features, mask, *, vlm, keyword, checkpoint, name, prior=N
         raise ValueError(f"w_out shape is {model.w_out.shape}, expected (32, 33)")
     if len(MATERIAL_CLASSES) != N_MATERIALS or len(BODY_TYPES) != N_BODY or len(COLLISION_PRIMITIVES) != N_COLLISION:
         raise ValueError("taxonomy counts do not match the prior heads")
-    averaged = mean_in_mask(model.forward(features), mask)
+    averaged = model.in_mask_mean(features, mask)
     proposal, decoded = proposal_from_mean(averaged)
     proposals = proposals_for_prior(proposal, vlm=vlm, keyword=keyword)
     winner, scores = vote_material(proposals)

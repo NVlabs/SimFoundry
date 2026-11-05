@@ -205,6 +205,12 @@ def attempt_download(candidate, root):
 
     if candidate.id in PROTECTED_IDS:
         raise RuntimeError(f"refusing to replace protected object {candidate.id}")
+    if candidate.source == "abo" and candidate.kind == "mesh":
+        length = _content_length(candidate.download_url)
+        if length is not None and (length < 1 or length > MAX_ABO_BYTES):
+            return None, _rejection(
+                candidate, f"glTF byte size {length} is outside the mesh limit"
+            )
     object_dir = Path(root) / candidate.source / _safe_id(candidate.id)
     if object_dir.exists():
         shutil.rmtree(object_dir)
